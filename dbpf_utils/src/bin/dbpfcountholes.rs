@@ -11,8 +11,11 @@ use humansize::{DECIMAL, format_size};
 use futures::{stream, StreamExt};
 
 use tokio::time::Instant;
+use tracing::{error, info, instrument};
+use tracing_subscriber::layer::SubscriberExt;
 
-async fn get_size(path: impl AsRef<Path>) -> BinResult<(usize, usize)> {
+#[instrument(skip_all, level = "trace")]
+async fn get_size(path: &Path) -> BinResult<(usize, usize)> {
     let mut data = File::open(&path).await.unwrap().into_std().await;
     tokio::task::spawn_blocking(move || {
         DBPFFile::read(&mut data).and_then(|mut result| {
@@ -26,20 +29,18 @@ async fn get_size(path: impl AsRef<Path>) -> BinResult<(usize, usize)> {
     }).await.unwrap()
 }
 
-async fn get_path_size(path: impl AsRef<Path>) -> Option<usize> {
+#[instrument]
+async fn get_path_size(path: &Path) -> Option<usize> {
     match get_size(&path).await {
         Ok((size, holes)) => {
             if size > 0 {
-                println!("{} {} in {} holes",
-                         path.as_ref().to_string_lossy(),
-                         format_size(size, DECIMAL),
-                         holes);
+                info!(size = format_size(size, DECIMAL),
+                    number = holes, "total holes in file");
             }
             Some(size)
         }
         Err(err) => {
-            eprintln!("Error in {}:", path.as_ref().to_string_lossy());
-            eprintln!("{err}");
+            error!(%err);
             None
         }
     }
@@ -47,13 +48,20 @@ async fn get_path_size(path: impl AsRef<Path>) -> Option<usize> {
 
 #[tokio::main]
 async fn main() {
+    tracing::subscriber::set_global_default(tracing_subscriber::registry()
+        .with(tracing_tracy::TracyLayer::new())
+        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
+    ).expect("set up the subscriber");
+
     let start = Instant::now();
+
     let (total_size, num_files) = {
         let flattened = stream::iter(env::args_os().skip(1).map(|arg| {
             WalkDir::new(arg).into_iter().map(|entry| async {
                 let path = entry.unwrap().path().to_path_buf();
                 if path.extension() == Some(OsStr::new("package")) {
-                    get_path_size(path).await
+                    get_path_size(&path).await
                 } else {
                     None
                 }
@@ -67,7 +75,9 @@ async fn main() {
             }
         }).await
     };
+
     let elapsed = start.elapsed();
+
     println!("Total hole size: {} in {num_files} files", format_size(total_size, DECIMAL));
     println!("(in {:?})", elapsed);
 }

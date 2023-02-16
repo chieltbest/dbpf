@@ -15,3 +15,8 @@ walkdir = "2.3.2"
 tokio = { version = "1.25.0", features = ["full"] }
 tokio-util = { version = "0.7.7", features = ["io", "io-util"] }
 futures = "0.3.26"
+
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+tracing-tracy = { version = "0.10.2", features = ["ondemand", "fibers"] }
+tracy-client = "0.15.1"
