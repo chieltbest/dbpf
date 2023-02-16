@@ -10,9 +10,8 @@ use humansize::{DECIMAL, format_size};
 
 use futures::{stream, StreamExt};
 
-use tokio::time::Instant;
 use tracing::{error, info, instrument};
-use tracing_subscriber::layer::SubscriberExt;
+use dbpf_utils::application_main;
 
 #[instrument(skip_all, level = "trace")]
 async fn get_size(path: &Path) -> BinResult<(usize, usize)> {
@@ -46,38 +45,28 @@ async fn get_path_size(path: &Path) -> Option<usize> {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    tracing::subscriber::set_global_default(tracing_subscriber::registry()
-        .with(tracing_tracy::TracyLayer::new())
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
-    ).expect("set up the subscriber");
-
-    let start = Instant::now();
-
-    let (total_size, num_files) = {
-        let flattened = stream::iter(env::args_os().skip(1).map(|arg| {
-            WalkDir::new(arg).into_iter().map(|entry| async {
-                let path = entry.unwrap().path().to_path_buf();
-                if path.extension() == Some(OsStr::new("package")) {
-                    get_path_size(&path).await
+fn main() {
+    application_main(|| async {
+        let (total_size, num_files) = {
+            let flattened = stream::iter(env::args_os().skip(1).map(|arg| {
+                WalkDir::new(arg).into_iter().map(|entry| async {
+                    let path = entry.unwrap().path().to_path_buf();
+                    if path.extension() == Some(OsStr::new("package")) {
+                        get_path_size(&path).await
+                    } else {
+                        None
+                    }
+                })
+            }).flatten()).buffer_unordered(16);
+            flattened.fold((0, 0), |cur_size, size| async move {
+                if let Some(size) = size {
+                    (cur_size.0 + size, cur_size.1 + 1)
                 } else {
-                    None
+                    cur_size
                 }
-            })
-        }).flatten()).buffer_unordered(16);
-        flattened.fold((0, 0), |cur_size, size| async move {
-            if let Some(size) = size {
-                (cur_size.0 + size, cur_size.1 + 1)
-            } else {
-                cur_size
-            }
-        }).await
-    };
+            }).await
+        };
 
-    let elapsed = start.elapsed();
-
-    println!("Total hole size: {} in {num_files} files", format_size(total_size, DECIMAL));
-    println!("(in {:?})", elapsed);
+        println!("Total hole size: {} in {num_files} files", format_size(total_size, DECIMAL));
+    });
 }
