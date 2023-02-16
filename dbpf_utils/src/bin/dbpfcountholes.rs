@@ -1,75 +1,73 @@
 use std::env;
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::Path;
+use tokio::fs::File;
+use walkdir::WalkDir;
 use dbpf::DBPFFile;
+
 use binrw::{BinRead, BinResult};
 use humansize::{DECIMAL, format_size};
-use tokio::fs::File;
-use futures::StreamExt;
-use tracing::{Instrument, trace_span};
-use tracing_subscriber::layer::SubscriberExt;
 
-use dbpf_utils::traverse_dir::get_paths_recursive;
+use futures::{stream, StreamExt};
 
-async fn get_size(path: PathBuf) -> BinResult<(usize, usize)> {
-    let mut data = File::open(path).instrument(trace_span!("tokio open")).await.unwrap()
-        .into_std().instrument(trace_span!("tokio into_std")).await;
-    let _span = tracy_client::span!("get_size internal");
-    DBPFFile::read(&mut data).and_then(|mut result| {
-        let index = result.header.hole_index.get(&mut data)?;
-        let size: usize = index
-            .iter()
-            .map(|hole| hole.size as usize)
-            .sum();
-        Ok((size, index.len()))
-    })
+use tokio::time::Instant;
+
+async fn get_size(path: impl AsRef<Path>) -> BinResult<(usize, usize)> {
+    let mut data = File::open(&path).await.unwrap().into_std().await;
+    tokio::task::spawn_blocking(move || {
+        DBPFFile::read(&mut data).and_then(|mut result| {
+            let index = result.header.hole_index.get(&mut data)?;
+            let size: usize = index
+                .iter()
+                .map(|hole| hole.size as usize)
+                .sum();
+            Ok((size, index.len()))
+        })
+    }).await.unwrap()
 }
 
-#[tracing::instrument(skip(path))]
-async fn get_path_size(path: PathBuf) -> (usize, usize) {
-    match get_size(path.clone()).instrument(tracing::trace_span!("get_size")).await {
+async fn get_path_size(path: impl AsRef<Path>) -> Option<usize> {
+    match get_size(&path).await {
         Ok((size, holes)) => {
             if size > 0 {
                 println!("{} {} in {} holes",
-                         path.to_string_lossy(),
+                         path.as_ref().to_string_lossy(),
                          format_size(size, DECIMAL),
                          holes);
             }
-            (size, 1)
+            Some(size)
         }
         Err(err) => {
-            eprintln!("Error in {}:", path.to_string_lossy());
+            eprintln!("Error in {}:", path.as_ref().to_string_lossy());
             eprintln!("{err}");
-            (0, 0)
+            None
         }
     }
 }
 
 #[tokio::main]
 async fn main() {
-    tracing::subscriber::set_global_default(tracing_subscriber::registry()
-        .with(tracing_tracy::TracyLayer::new()
-            .with_stackdepth(16))
-        .with(tracing_subscriber::fmt::layer().pretty())
-    ).expect("set up the subscriber");
-
-    let _span = tracing_tracy::client::span!("yeee");
-    let span = tracing::span!(tracing::Level::TRACE, "main");
+    let start = Instant::now();
     let (total_size, num_files) = {
-        let _enter = span.enter();
-        let flattened = tokio_stream::iter(env::args_os().skip(1).map(move |arg| {
-            let stream = get_paths_recursive(arg.into());
-            let mapped = stream.map(|path: PathBuf| async {
+        let flattened = stream::iter(env::args_os().skip(1).map(|arg| {
+            WalkDir::new(arg).into_iter().map(|entry| async {
+                let path = entry.unwrap().path().to_path_buf();
                 if path.extension() == Some(OsStr::new("package")) {
                     get_path_size(path).await
                 } else {
-                    (0, 0)
+                    None
                 }
-            });
-            mapped
-        })).flatten_unordered(None).buffer_unordered(16);
-        flattened.fold((0, 0), |(size1, num1), (size2, num2)|
-            async move { (size1 + size2, num1 + num2) }).await
+            })
+        }).flatten()).buffer_unordered(16);
+        flattened.fold((0, 0), |cur_size, size| async move {
+            if let Some(size) = size {
+                (cur_size.0 + size, cur_size.1 + 1)
+            } else {
+                cur_size
+            }
+        }).await
     };
+    let elapsed = start.elapsed();
     println!("Total hole size: {} in {num_files} files", format_size(total_size, DECIMAL));
+    println!("(in {:?})", elapsed);
 }
