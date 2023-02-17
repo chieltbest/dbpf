@@ -1,13 +1,9 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::io::{Read, Seek, SeekFrom};
-use binrw::{BinRead, BinResult, Endian, NamedArgs};
+use binrw::{BinRead, BinResult, binrw, Endian, NamedArgs};
 use binrw::file_ptr::IntoSeekFrom;
 
-// #[binread]
-// #[br(import {
-//     offset: usize,
-//     inner: (),
-// })]
+#[derive(Clone)]
 pub struct LazyFilePtr<Ptr, T: BinRead, Args: Clone> {
     pub ptr: Ptr,
     pub options: Endian,
@@ -90,4 +86,20 @@ pub struct LazyFilePtrArgs<Inner: Clone> {
     /// The [arguments](crate::BinRead::Args) for the inner type.
     // #[named_args(try_optional)]
     pub inner: Inner,
+}
+
+#[binrw]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Default)]
+pub struct Zero {}
+
+impl IntoSeekFrom for Zero {
+    fn into_seek_from(self) -> SeekFrom {
+        SeekFrom::Current(0)
+    }
+}
+
+impl Display for Zero {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&0, f)
+    }
 }

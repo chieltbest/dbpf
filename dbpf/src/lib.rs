@@ -1,12 +1,11 @@
 pub mod filetypes;
-// pub mod lazy_file_ptr;
 mod lazy_file_ptr;
 
 use std::fmt::{Debug, Formatter};
 use std::num::NonZeroU32;
-use binrw::{binread, binrw, io::SeekFrom, VecArgs};
+use binrw::{binread, binrw, VecArgs};
 use crate::filetypes::DBPFFileType;
-use crate::lazy_file_ptr::LazyFilePtr;
+use crate::lazy_file_ptr::{LazyFilePtr, Zero};
 
 const HEADER_SIZE: u32 = 0x60;
 
@@ -36,19 +35,19 @@ pub enum V2Minor {
 }
 
 #[binrw]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct UserVersion {
     major: u32,
     minor: u32,
 }
 
 #[binrw]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Timestamp(u32);
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum IndexVersion {
     Default = 7,
     Spore = 0,
@@ -56,16 +55,15 @@ pub enum IndexVersion {
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum IndexMinorVersion {
     V1 = 0,
     V2 = 1,
     V3 = 2,
-    V4 = 3,
 }
 
 #[binread]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HeaderV1 {
     pub version: Version,
     pub user_version: UserVersion,
@@ -75,9 +73,8 @@ pub struct HeaderV1 {
     pub index_version: IndexVersion,
     #[br(temp)]
     index_entry_count: u32,
-    #[brw(args { inner: VecArgs {count: index_entry_count as usize, inner: ()} })]
-    #[brw(assert(index_entry_count == 0 || index.ptr >= HEADER_SIZE, "index count was {} (non-zero) while index location was {}", index_entry_count, index.ptr))]
-    pub index: LazyFilePtr<u32, Vec<IndexEntryV1>, VecArgs<()>>,
+    #[br(temp)]
+    index_location: u32,
     #[br(temp)] // , assert(index_size == index_entry_count * 24)
     index_size: u32,
     #[br(temp)]
@@ -91,25 +88,54 @@ pub struct HeaderV1 {
     pub index_minor_version: IndexMinorVersion,
     #[br(if (matches ! (version, Version::V2(_))))]
     pub index_offset_v2: u32,
+
+    #[brw(args {
+    offset: index_location as u64,
+    inner: VecArgs {
+    count: index_entry_count as usize,
+    inner: IndexEntryV1BinReadArgs {
+    version: index_minor_version
+    }
+    }})]
+    #[brw(assert(index_entry_count == 0 || index_location >= HEADER_SIZE, "index count was {} (non-zero) while index location was {}", index_entry_count, index.ptr))]
+    pub index: LazyFilePtr<Zero, Vec<IndexEntryV1>, VecArgs<IndexEntryV1BinReadArgs>>,
+}
+
+#[binrw]
+#[brw(import { version: IndexMinorVersion })]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Default, Debug)]
+pub struct InstanceId {
+    #[br(temp)]
+    #[bw(calc((id & 0xFFFFFFFF) as u32))]
+    id_lower: u32,
+    #[br(temp)]
+    #[bw(calc((id >> 32) as u32))]
+    #[brw(if (! matches ! (version, IndexMinorVersion::V2)))]
+    id_upper: u32,
+    #[br(calc(id_lower as u64 | ((id_upper as u64) << 32)))]
+    #[bw(ignore)]
+    pub id: u64,
 }
 
 #[binread]
-#[derive(Debug)]
+#[brw(import { version: IndexMinorVersion })]
+#[derive(Clone, Debug)]
 pub struct IndexEntryV1 {
     pub type_id: DBPFFileType,
     pub group_id: u32,
-    pub instance_id: u64,
+    #[brw(args { version: version })]
+    pub instance_id: InstanceId,
     #[br(temp)]
-    location: u32,
+    location: NonZeroU32,
     #[br(temp)]
     size: u32,
-    #[brw(seek_before = SeekFrom::Current(- 8), restore_position)]
-    #[br(args { inner: FileDataBinReadArgs {count: size as usize} })]
-    pub data: LazyFilePtr<NonZeroU32, FileData, FileDataBinReadArgs>,
+    #[br(args { offset: u32::from(location) as u64, inner: FileDataBinReadArgs {count: size as usize} })]
+    pub data: LazyFilePtr<Zero, FileData, FileDataBinReadArgs>,
 }
 
 #[binrw]
 #[br(import { count: usize })]
+#[derive(Clone)]
 pub struct FileData {
     #[br(count = count)]
     pub data: Vec<u8>,
@@ -147,7 +173,7 @@ impl Debug for FileData {
 }
 
 #[binrw]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct HoleIndexEntry {
     pub location: u32,
     pub size: u32,
@@ -155,7 +181,7 @@ pub struct HoleIndexEntry {
 
 #[binread]
 #[brw(magic = b"DBPF", little)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DBPFFile {
     #[brw(pad_size_to = HEADER_SIZE)]
     pub header: HeaderV1,
@@ -164,6 +190,5 @@ pub struct DBPFFile {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn it_works() {
-    }
+    fn it_works() {}
 }

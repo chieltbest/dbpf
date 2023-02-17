@@ -45,7 +45,7 @@ fn unpack_file(mut input: Cursor<Vec<u8>>, path: &Path) {
                             } {
                                 str.to_string()
                             } else {
-                                format!("0x{:X}", entry.instance_id)
+                                format!("0x{:X?}", entry.instance_id)
                             };
                             let filename = dir_path.join(
                                 format!("{}.{}.{}",
