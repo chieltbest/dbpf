@@ -78,6 +78,8 @@ pub enum KnownDBPFFileType {
     TerrainTextureMap = 0x4B58975B,
     // XSTN
     SkinToneXML = 0x4C158081,
+    // MMAT
+    MaterialOverride = 0x4C697E5A,
     // CINE
     CinematicScene = 0x4D51F042,
     // JPEG
@@ -240,6 +242,10 @@ pub enum KnownDBPFFileType {
     DBPFDirectory = 0xE86B1EEF,
     // FX
     EffectsResourceTree = 0xEA5118B0,
+    // GZPS
+    PropertySet = 0xEBCF3E27,
+    // VERS
+    VersionInformation = 0xEBFEE342,
     // THUB
     TerrainThumbnail = 0xEC3126C4,
     // HCAM
@@ -341,6 +347,7 @@ impl KnownDBPFFileType {
             WorldDatabase => ("WorldDatabase", "", None, No),
             TerrainTextureMap => ("TerrainTextureMap", "", None, No),
             SkinToneXML => ("SkinToneXML", "", Some("skin_tone.xml"), No),
+            MaterialOverride => ("MaterialOverride", "", None, No),
             CinematicScene => ("CinematicScene", "", Some("5cs"), No),
             JPEGImage2 => ("JPEGImage2", "", Some("1.jpg"), No),
             FloorXML => ("FloorXML", "", Some("floor.xml"), No),
@@ -423,6 +430,8 @@ impl KnownDBPFFileType {
             CreationResource => ("CreationResource", "", Some("5cr"), No),
             DBPFDirectory => ("DBPFDirectory", "", Some("dir"), No),
             EffectsResourceTree => ("EffectsResourceTree", "", Some("fx"), No),
+            PropertySet => ("PropertySet", "GZPS", None, No),
+            VersionInformation => ("VersionInformation", "VERS", None, No),
             TerrainThumbnail => ("TerrainThumbnail", "", Some("terrain_thumb.jpg"), No),
             HoodCamera => ("HoodCamera", "", None, No),
             LevelInformation => ("LevelInformation", "", Some("6li"), No),
