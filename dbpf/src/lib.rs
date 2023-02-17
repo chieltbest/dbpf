@@ -57,9 +57,9 @@ pub enum IndexVersion {
 #[brw(repr = u32)]
 #[derive(Copy, Clone, Debug)]
 pub enum IndexMinorVersion {
-    V1 = 0,
-    V2 = 1,
-    V3 = 2,
+    V2 = 2,
+    V1 = 1,
+    V3 = 0,
 }
 
 #[binread]
@@ -110,7 +110,7 @@ pub struct InstanceId {
     id_lower: u32,
     #[br(temp)]
     #[bw(calc((id >> 32) as u32))]
-    #[brw(if (! matches ! (version, IndexMinorVersion::V2)))]
+    #[brw(if (! matches ! (version, IndexMinorVersion::V1)))]
     id_upper: u32,
     #[br(calc(id_lower as u64 | ((id_upper as u64) << 32)))]
     #[bw(ignore)]

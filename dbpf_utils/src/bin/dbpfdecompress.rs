@@ -3,7 +3,7 @@
 use std::env;
 use std::ffi::{CStr, OsStr};
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use dbpf::DBPFFile;
 use binrw::{BinRead, Error};
 use refpack::format::TheSims12;
@@ -14,7 +14,7 @@ fn unpack_file(mut input: Cursor<Vec<u8>>, path: &Path) {
     println!("{result:#X?}");
 
     if let Ok(mut file) = result {
-        let dir_path = path.with_file_name(path.file_stem().unwrap_or(OsStr::new("package")));
+        let dir_path = PathBuf::from(path.file_stem().unwrap_or(OsStr::new("package")));
         if dir_path.is_dir() ||
             std::fs::create_dir(&dir_path)
                 .map_err(|e| eprintln!("{}: {e}", dir_path.display()))
@@ -45,7 +45,7 @@ fn unpack_file(mut input: Cursor<Vec<u8>>, path: &Path) {
                             } {
                                 str.to_string()
                             } else {
-                                format!("0x{:X?}", entry.instance_id)
+                                format!("0x{:X?}", entry.instance_id.id)
                             };
                             let filename = dir_path.join(
                                 format!("{}.{}.{}",
