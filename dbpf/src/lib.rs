@@ -57,9 +57,9 @@ pub enum IndexVersion {
 #[brw(repr = u32)]
 #[derive(Copy, Clone, Debug)]
 pub enum IndexMinorVersion {
-    V2 = 2,
+    V0 = 0,
     V1 = 1,
-    V3 = 0,
+    V2 = 2,
 }
 
 #[binread]
@@ -75,7 +75,7 @@ pub struct HeaderV1 {
     index_entry_count: u32,
     #[br(temp)]
     index_location: u32,
-    #[br(temp)] // , assert(index_size == index_entry_count * 24)
+    #[br(temp)]
     index_size: u32,
     #[br(temp)]
     hole_index_entry_count: u32,
@@ -97,6 +97,7 @@ pub struct HeaderV1 {
     version: index_minor_version
     }
     }})]
+    #[brw(assert(index_size == index_entry_count * if matches!(index_minor_version, IndexMinorVersion::V2) { 24 } else { 20 }))]
     #[brw(assert(index_entry_count == 0 || index_location >= HEADER_SIZE, "index count was {} (non-zero) while index location was {}", index_entry_count, index.ptr))]
     pub index: LazyFilePtr<Zero, Vec<IndexEntryV1>, VecArgs<IndexEntryV1BinReadArgs>>,
 }
@@ -110,7 +111,7 @@ pub struct InstanceId {
     id_lower: u32,
     #[br(temp)]
     #[bw(calc((id >> 32) as u32))]
-    #[brw(if (! matches ! (version, IndexMinorVersion::V1)))]
+    #[brw(if (matches ! (version, IndexMinorVersion::V2)))]
     id_upper: u32,
     #[br(calc(id_lower as u64 | ((id_upper as u64) << 32)))]
     #[bw(ignore)]

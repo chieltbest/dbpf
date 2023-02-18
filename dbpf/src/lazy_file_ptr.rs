@@ -6,7 +6,7 @@ use binrw::file_ptr::IntoSeekFrom;
 #[derive(Clone)]
 pub struct LazyFilePtr<Ptr, T: BinRead, Args: Clone> {
     pub ptr: Ptr,
-    pub options: Endian,
+    pub endian: Endian,
     pub args: LazyFilePtrArgs<Args>,
     data: Option<T>,
 }
@@ -22,7 +22,7 @@ impl<Ptr, T, Args> BinRead for LazyFilePtr<Ptr, T, Args>
     fn read_options<R: Read + Seek>(reader: &mut R, options: Endian, args: Self::Args<'_>) -> BinResult<Self> {
         Ok(Self {
             ptr: Ptr::read_options(reader, options, ())?,
-            options: options.clone(),
+            endian: options.clone(),
             args,
             data: None,
         })
@@ -38,8 +38,8 @@ impl<'a, Ptr: IntoSeekFrom, T: BinRead> LazyFilePtr<Ptr, T, T::Args<'a>> where T
             let before = reader.seek(SeekFrom::Start(relative_to))?;
             reader.seek(self.ptr.into_seek_from())?;
 
-            let mut inner = T::read_options(reader, self.options, self.args.inner.clone())?;
-            inner.after_parse(reader, self.options, self.args.inner.clone())?;
+            let mut inner = T::read_options(reader, self.endian, self.args.inner.clone())?;
+            inner.after_parse(reader, self.endian, self.args.inner.clone())?;
 
             reader.seek(SeekFrom::Start(before))?;
 
@@ -52,20 +52,10 @@ impl<'a, Ptr: IntoSeekFrom, T: BinRead> LazyFilePtr<Ptr, T, T::Args<'a>> where T
 
 impl<'a, Ptr: IntoSeekFrom, T: BinRead + Debug> Debug for LazyFilePtr<Ptr, T, T::Args<'a>> where T::Args<'a>: Clone {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        #[derive(Debug)]
-        #[allow(dead_code)]
-        struct ReadOptions {
-            endian: Endian,
-            offset: u64,
-        }
-        let options = ReadOptions {
-            endian: self.options,
-            offset: self.args.offset,
-        };
-
         f.debug_struct("LazyFilePtr")
             .field("ptr", &self.ptr)
-            .field("options", &options)
+            .field("endian", &self.endian)
+            .field("offset", &self.args.offset)
             // .field("args", &self.args)
             .field("data", &self.data)
             .finish()
@@ -76,7 +66,7 @@ impl<'a, Ptr: IntoSeekFrom, T: BinRead + Debug> Debug for LazyFilePtr<Ptr, T, T:
 ///
 /// The `inner` field can be omitted completely if the inner type doesn’t
 /// require arguments, in which case a default value will be used.
-#[derive(Clone, Default, NamedArgs)]
+#[derive(Clone, Default, Debug, NamedArgs)]
 pub struct LazyFilePtrArgs<Inner: Clone> {
     /// An absolute offset added to the [`LazyFilePtr::ptr`](crate::LazyFilePtr::ptr)
     /// offset before reading the pointed-to value.
