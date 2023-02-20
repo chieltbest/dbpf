@@ -18,5 +18,7 @@ futures = "0.3.26"
 
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
-tracing-tracy = { version = "0.10.2", features = ["ondemand", "fibers"] }
-tracy-client = "0.15.1"
+
+eframe = { version = "0.21.3", features = ["dark-light", "persistence"] }
+egui_extras = "0.21.0"
+rfd = "0.11.1"

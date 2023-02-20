@@ -458,6 +458,13 @@ impl DBPFFileType {
         }
     }
 
+    pub fn properties(&self) -> Option<FileTypeProperties> {
+        match self {
+            DBPFFileType::Known(t) => Some(t.properties()),
+            DBPFFileType::Unknown(_) => None
+        }
+    }
+
     pub fn extension(&self) -> String {
         match self {
             Self::Known(t) => {

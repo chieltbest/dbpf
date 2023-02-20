@@ -45,7 +45,8 @@ async fn get_path_size(path: &Path) -> Option<usize> {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     application_main(|| async {
         let (total_size, num_files) = {
             let flattened = stream::iter(env::args_os().skip(1).map(|arg| {
@@ -68,5 +69,5 @@ fn main() {
         };
 
         println!("Total hole size: {} in {num_files} files", format_size(total_size, DECIMAL));
-    });
+    }).await;
 }
