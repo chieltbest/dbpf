@@ -22,3 +22,4 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 eframe = { version = "0.21.3", features = ["dark-light", "persistence"] }
 egui_extras = "0.21.0"
 rfd = "0.11.1"
+copypasta = "0.8.2"

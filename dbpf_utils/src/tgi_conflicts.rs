@@ -8,6 +8,7 @@ use walkdir::WalkDir;
 use dbpf::{DBPFFile, InstanceId};
 
 use binrw::{BinRead, Error};
+use binrw::io::BufReader;
 
 use futures::{stream, StreamExt};
 
@@ -48,7 +49,8 @@ pub struct TGIConflict {
 
 #[instrument(skip_all, level = "trace")]
 async fn get_tgis(path: &Path) -> Result<Vec<TGI>, GetTGIsError> {
-    let mut data = File::open(&path).await.unwrap().into_std().await;
+    let data = File::open(&path).await.unwrap().into_std().await;
+    let mut data = BufReader::new(data);
     tokio::task::spawn_blocking(move || {
         DBPFFile::read(&mut data)
             .map_err(|err| GetTGIsError::Header(err))
@@ -93,7 +95,7 @@ pub async fn find_conflicts(dir: PathBuf, tx: Sender<TGIConflict>) {
         } else {
             None
         }
-    })).buffered(16);
+    })).buffered(1000);
 
     let mut tgi_to_file = HashMap::new();
 

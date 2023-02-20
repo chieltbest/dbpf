@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, TryRecvError};
+use copypasta::ClipboardContext;
 use eframe::{App, egui, Error, Frame, NativeOptions, Storage};
-use eframe::egui::{Color32, Context, Label, RichText, Slider, Style, TextEdit, Visuals};
+use eframe::egui::{Align, Color32, containers, Context, Label, Layout, Margin, RichText, Sense, Slider, Style, TextEdit, Visuals};
+use eframe::epaint::Shadow;
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
@@ -12,12 +14,16 @@ struct DBPFApp {
     ui_scale: f32,
     dark_mode_preference: Option<bool>,
     downloads_dir: String,
+    show_dirs: bool,
 
     scan_ran_with_dir: PathBuf,
     downloads_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
 
     found_conflicts: Vec<TGIConflict>,
     found_conflicts_stream: Option<Receiver<TGIConflict>>,
+    highlighted_conflict: Option<usize>,
+
+    clipboard: Option<ClipboardContext>,
 }
 
 impl DBPFApp {
@@ -26,11 +32,16 @@ impl DBPFApp {
             ui_scale: 1.0,
             dark_mode_preference: None,
             downloads_dir: "".to_string(),
+            show_dirs: true,
 
             scan_ran_with_dir: PathBuf::new(),
             downloads_picker: None,
+
             found_conflicts: Vec::new(),
             found_conflicts_stream: None,
+            highlighted_conflict: None,
+
+            clipboard: ClipboardContext::new().ok(),
         };
         if let Some(storage) = cc.storage {
             if let Some(ui_scale) = storage
@@ -56,6 +67,11 @@ impl DBPFApp {
                 .get_string("downloads_dir") {
                 new.downloads_dir = downloads_dir;
                 new.start_scannning();
+            }
+            if let Some(show_dirs) = storage
+                .get_string("show_dirs")
+                .and_then(|str| str.parse().ok()) {
+                new.show_dirs = show_dirs;
             }
         }
         new
@@ -139,15 +155,17 @@ impl App for DBPFApp {
                     }
                 }).response.on_hover_text_at_pointer("Your downloads folder");
 
-                if let Some(_) = self.found_conflicts_stream {
-                    // scan is in progress
-                    ui.spinner();
-                }
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.show_dirs, "show directories");
+                    if let Some(_) = self.found_conflicts_stream {
+                        // scan is in progress
+                        ui.spinner();
+                    }
+                });
 
                 ui.separator();
 
                 egui_extras::TableBuilder::new(ui)
-                    .stick_to_bottom(true)
                     .striped(true)
                     .column(Column::remainder().at_least(100.0).clip(true).resizable(true))
                     .column(Column::remainder().at_least(100.0).clip(true))
@@ -177,23 +195,32 @@ impl App for DBPFApp {
                             self.found_conflicts_stream = None;
                         }
 
-                        let show_path_cell = |path: &PathBuf, tgis: &Vec<TGI>, path_same, ui: &mut egui::Ui| {
+                        let mut show_path_cell = |i,
+                                                  path: &PathBuf,
+                                                  tgis: &Vec<TGI>,
+                                                  path_same,
+                                                  ui:
+                                                  &mut egui::Ui| {
                             let stripped_path = path
                                 .strip_prefix(&self.scan_ran_with_dir)
                                 .unwrap_or(Path::new(""))
                                 .to_string_lossy().to_string();
 
-                            let mut text = RichText::new(path
-                                .file_name()
-                                .and_then(|name| name.to_str())
-                                .map(|str| if path_same {
-                                    let mut str = str.to_string();
-                                    str.insert_str(0, "✔ ");
-                                    str
-                                } else {
-                                    str.to_string()
-                                })
-                                .unwrap_or(stripped_path.clone()));
+                            let mut text = RichText::new(if self.show_dirs {
+                                stripped_path.clone()
+                            } else {
+                                path
+                                    .file_name()
+                                    .and_then(|name| name.to_str())
+                                    .map(|str| if path_same {
+                                        let mut str = str.to_string();
+                                        str.insert_str(0, "✔ ");
+                                        str
+                                    } else {
+                                        str.to_string()
+                                    })
+                                    .unwrap_or(stripped_path.clone())
+                            });
 
                             if path_same {
                                 text = if ui.style().visuals.dark_mode {
@@ -204,14 +231,28 @@ impl App for DBPFApp {
                             }
 
                             let mut tooltip = stripped_path;
-                            tooltip.push_str(":");
                             for tgi in tgis {
                                 tooltip.push_str(format!("\n{tgi:X?}").as_str());
                             }
 
-                            ui.add(Label::new(text)
-                                .wrap(false))
-                                .on_hover_text_at_pointer(tooltip);
+                            let mut frame = containers::Frame::none();
+                            let selected = self.highlighted_conflict.map(|n| i == n).unwrap_or(false);
+                            if selected {
+                                frame.inner_margin = Margin::from(0.0);
+                                frame.shadow = Shadow::big_dark();
+                            }
+                            frame.show(ui, |ui| {
+                                ui.with_layout(
+                                    Layout::left_to_right(Align::Center)
+                                        .with_cross_justify(true)
+                                        .with_main_justify(true)
+                                        .with_main_align(Align::LEFT),
+                                    |ui| {
+                                        ui.add(Label::new(text).wrap(false).sense(Sense::click())).clicked().then(|| {
+                                            self.highlighted_conflict = Some(i);
+                                        });
+                                    });
+                            }).response.on_hover_text_at_pointer(tooltip);
                         };
 
                         body.rows(14.0, self.found_conflicts.len(),
@@ -219,12 +260,21 @@ impl App for DBPFApp {
                                       let conflict = &self.found_conflicts[i];
                                       let is_internal = conflict.original == conflict.new;
                                       row.col(|ui| {
-                                          let orig_path = &conflict.original;
-                                          show_path_cell(orig_path, &conflict.tgis, is_internal, ui);
+                                          show_path_cell(
+                                              i,
+                                              &conflict.original,
+                                              &conflict.tgis,
+                                              is_internal,
+                                              ui);
                                       });
                                       row.col(|ui| {
                                           let new_path = &conflict.new;
-                                          show_path_cell(new_path, &conflict.tgis, is_internal, ui);
+                                          show_path_cell(
+                                              i,
+                                              new_path,
+                                              &conflict.tgis,
+                                              is_internal,
+                                              ui);
                                       });
                                   })
                     });
@@ -238,6 +288,7 @@ impl App for DBPFApp {
             storage.set_string("dark_mode", dark.to_string());
         }
         storage.set_string("downloads_dir", self.downloads_dir.clone());
+        storage.set_string("show_dirs", self.show_dirs.to_string());
     }
 }
 
