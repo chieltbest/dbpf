@@ -40,7 +40,7 @@ enum GetTGIsError {
     Index(DBPFFile, Error),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TGIConflict {
     pub original: PathBuf,
     pub new: PathBuf,
@@ -116,7 +116,7 @@ pub async fn find_conflicts(dir: PathBuf, tx: Sender<TGIConflict>) {
                                        KnownDBPFFileType::ObjectSlot |
                                        KnownDBPFFileType::TextList |
                                        KnownDBPFFileType::EdithSimanticsBehaviourLabels |
-                                       KnownDBPFFileType::BCONLabels |
+                                       KnownDBPFFileType::BehaviourConstantLabels |
                                        KnownDBPFFileType::PieMenuFunctions |
                                        KnownDBPFFileType::PieMenuStrings |
                                        KnownDBPFFileType::VersionInformation),
