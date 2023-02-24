@@ -12,7 +12,9 @@ async fn main() {
 
             let (tx, rx) = channel();
 
-            tokio::task::spawn(find_conflicts(dir, tx));
+            tokio::task::spawn(find_conflicts(
+                Vec::from([dir]), tx, |_path, _current, _total| {})
+            );
 
             for conflict in rx {
                 println!("{:?} --> {:?}", conflict.original, conflict.new);

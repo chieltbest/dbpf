@@ -7,14 +7,15 @@ use crate::filtered_conflict_list::{ConflictTypeFilterWarning, FilteredConflictL
 use std::error::Error;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{Receiver, TryRecvError};
 use eframe::{App, egui, Frame, IconData, NativeOptions, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, Label, RichText, Sense, Style, TextEdit, Ui, Visuals};
+use eframe::egui::{Color32, containers, Context, DragValue, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals};
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
-use tracing::{instrument, warn};
+use tracing::{info, instrument, warn};
+use tracing_subscriber::layer::SubscriberExt;
 use dbpf_utils::tgi_conflicts::{find_conflicts, TGI, TGIConflict};
 
 struct DBPFApp {
@@ -27,7 +28,8 @@ struct DBPFApp {
     downloads_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
 
     conflict_list: FilteredConflictList,
-    found_conflicts_stream: Option<Receiver<TGIConflict>>,
+    find_conflicts_result_stream: Option<Receiver<TGIConflict>>,
+    find_conflict_progress: Arc<Mutex<Option<(PathBuf, usize, usize)>>>,
     highlighted_conflict: Option<TGIConflict>,
 }
 
@@ -43,7 +45,8 @@ impl DBPFApp {
             downloads_picker: None,
 
             conflict_list: FilteredConflictList::new(),
-            found_conflicts_stream: None,
+            find_conflicts_result_stream: None,
+            find_conflict_progress: Mutex::new(None).into(),
             highlighted_conflict: None,
         };
         if let Some(storage) = cc.storage {
@@ -61,7 +64,7 @@ impl DBPFApp {
             if let Some(downloads_folder) = storage
                 .get_string("downloads_folder") {
                 new.downloads_folder = downloads_folder;
-                new.start_scannning();
+                new.start_scannning(&cc.egui_ctx);
             }
             if let Some(show_folders) = storage
                 .get_string("show_folders")
@@ -109,21 +112,32 @@ impl DBPFApp {
         self.downloads_picker = Some(rx);
     }
 
-    fn start_scannning(&mut self) {
+    #[instrument(skip(self))]
+    fn start_scannning(&mut self, ctx: &Context) {
         self.conflict_list.clear();
 
         self.scan_ran_with_folder = PathBuf::from(&self.downloads_folder);
         self.highlighted_conflict = None;
 
         let (tx, rx) = mpsc::channel();
-        tokio::task::spawn(find_conflicts(self.scan_ran_with_folder.clone(), tx));
-        self.found_conflicts_stream = Some(rx);
+        let progress_clone = Arc::clone(&self.find_conflict_progress);
+        let ctx_clone = ctx.clone();
+        tokio::task::spawn(find_conflicts(
+            Vec::from([self.scan_ran_with_folder.clone()]),
+            tx,
+            move |path, current, total| {
+                info!(current, total);
+                let mut data = progress_clone.lock().unwrap();
+                *data = Some((path, current, total));
+                ctx_clone.request_repaint();
+            }));
+        self.find_conflicts_result_stream = Some(rx);
     }
 
     fn update_state(&mut self, ctx: &Context) {
         // pull in the newly found conflicts before showing them
         let mut drop_stream = false;
-        if let Some(ref stream) = self.found_conflicts_stream {
+        if let Some(ref stream) = self.find_conflicts_result_stream {
             while match stream.try_recv() {
                 Ok(conflict) => {
                     self.conflict_list.add(conflict);
@@ -135,10 +149,11 @@ impl DBPFApp {
                     false
                 }
             } {}
-            ctx.request_repaint();
         }
         if drop_stream {
-            self.found_conflicts_stream = None;
+            self.find_conflicts_result_stream = None;
+            *self.find_conflict_progress.lock().unwrap() = None;
+            ctx.request_repaint();
         }
 
         // check for a downloads folder picker response
@@ -148,7 +163,7 @@ impl DBPFApp {
                 Ok(Some(res)) => {
                     if let Some(folder) = res {
                         self.downloads_folder = folder.path().to_string_lossy().to_string();
-                        self.start_scannning();
+                        self.start_scannning(ctx);
                     }
                     self.downloads_picker = None;
                 }
@@ -162,20 +177,25 @@ impl DBPFApp {
     fn resource_menu(&mut self, ui: &mut Ui) {
         let hidden_conflicts = self.conflict_list.has_hidden_conflicts();
         ui.menu_button(format!("Resources{}", if hidden_conflicts { " ！" } else { "" }), |ui| {
-            egui::Grid::new("resource grid").show(ui, |ui| {
+            egui::Grid::new("resource grid")
+                .striped(true)
+                .min_col_width(0.0)
+                .show(ui, |ui| {
                 for file_type in FilteredConflictList::filter_types() {
-                    let mut name = file_type.properties().abbreviation.to_string();
-                    match self.conflict_list.get_type_visibility(&file_type) {
-                        ConflictTypeFilterWarning::NotVisible => name.push_str(" ！"),
-                        ConflictTypeFilterWarning::FoundVisible => name.push_str(" ℹ"),
-                        ConflictTypeFilterWarning::NotFound => {}
-                    }
                     let mut check = self.conflict_list.get_check_enabled(&file_type);
-                    let res = ui.checkbox(&mut check, name)
-                        .on_hover_text(format!("search for {} conflicts?", file_type.properties().name));
-                    if res.changed() {
+                    ui.checkbox(&mut check, file_type.properties().abbreviation.to_string())
+                        .on_hover_text(format!("Search for {} conflicts?", file_type.properties().name))
+                        .changed().then(|| {
                         self.conflict_list.set_check_enabled(&file_type, check);
-                    }
+                    });
+
+                    match self.conflict_list.get_type_visibility(&file_type) {
+                        ConflictTypeFilterWarning::NotVisible => ui.label("！")
+                            .on_hover_text("Some conflicts of this type are found but not shown"),
+                        ConflictTypeFilterWarning::FoundVisible => ui.label("✔")
+                            .on_hover_text("Conflicts of this type have been found, and all are shown"),
+                        ConflictTypeFilterWarning::NotFound => ui.label(""),
+                    };
 
                     ui.label(file_type.properties().name);
 
@@ -280,8 +300,8 @@ impl DBPFApp {
                     frame.show(ui, |ui| {
                         ui.horizontal_centered(|ui| {
                             ui.add(Label::new(text)
-                                    .wrap(false)
-                                    .sense(Sense::click()))
+                                .wrap(false)
+                                .sense(Sense::click()))
                                 .context_menu(|ui| Self::conflict_menu(path, &conflict.tgis, ui))
                                 .on_hover_text_at_pointer(tooltip)
                                 .clicked().then(|| {
@@ -348,25 +368,25 @@ impl App for DBPFApp {
 
                     ui.checkbox(&mut self.show_folders, "Show paths")
                         .on_hover_text("Show what folders the packages are in?");
-
-                    if let Some(_) = self.found_conflicts_stream {
-                        // scan is in progress
-                        ui.spinner()
-                            .on_hover_text(format!("A scan of the folder {} is currently running",
-                                                   self.scan_ran_with_folder.display()));
-                    }
                 });
                 ui.horizontal(|ui| {
                     ui.label("Downloads: ");
                     ui.add_sized([ui.available_width() - 30.0, 20.0],
                                  TextEdit::singleline(&mut self.downloads_folder))
                         .lost_focus().then(|| {
-                        self.start_scannning();
+                        self.start_scannning(ctx);
                     });
                     if ui.button("🗁").clicked() {
                         self.open_downloads_picker();
                     }
                 }).response.on_hover_text_at_pointer("The folder you want to scan (normally your downloads folder)");
+
+                if let Some((ref path, progress, total)) = *self.find_conflict_progress.lock().unwrap() {
+                    ui.add(ProgressBar::new(progress as f32 / total as f32)
+                        .text(path.strip_prefix(&self.scan_ran_with_folder)
+                            .unwrap_or(path)
+                            .display().to_string()));
+                }
 
                 ui.separator();
 
@@ -392,6 +412,11 @@ impl App for DBPFApp {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    tracing::subscriber::set_global_default(tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
+    ).expect("set up the subscriber");
+
     let icon = include_bytes!("../../../res/yact.png");
     let image = image::io::Reader::new(Cursor::new(icon))
         .with_guessed_format()?.decode()?;

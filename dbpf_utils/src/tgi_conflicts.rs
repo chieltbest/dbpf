@@ -75,32 +75,43 @@ async fn get_tgis(path: &Path) -> Result<Vec<TGI>, GetTGIsError> {
 }
 
 #[instrument(level = "error")]
-async fn get_path_tgis(path: &Path) -> Option<(PathBuf, Vec<TGI>)> {
+async fn get_path_tgis(path: PathBuf) -> (PathBuf, Option<Vec<TGI>>) {
     match get_tgis(&path).await {
         Ok(tgis) => {
-            Some((path.to_path_buf(), tgis))
+            (path.to_path_buf(), Some(tgis))
         }
         Err(err) => {
             error!("{err:#?}");
-            None
+            (path, None)
         }
     }
 }
 
-pub async fn find_conflicts(dir: PathBuf, tx: Sender<TGIConflict>) {
-    let mut tgis_stream = stream::iter(WalkDir::new(dir).sort_by_file_name().into_iter().map(|entry| async {
-        let path = entry.unwrap().path().to_path_buf();
-        if path.extension() == Some(OsStr::new("package")) {
-            get_path_tgis(&path).await
-        } else {
-            None
-        }
-    })).buffered(1000);
+pub async fn find_conflicts(dirs: Vec<PathBuf>,
+                            tx: Sender<TGIConflict>,
+                            mut progress: impl FnMut(PathBuf, usize, usize)) {
+    let files_futures_vec = dirs.iter().map(|dir| {
+        WalkDir::new(dir).sort_by_file_name().into_iter().filter_map(|entry| {
+            let path = entry.unwrap().path().to_path_buf();
+            if path.extension() == Some(OsStr::new("package")) {
+                Some(get_path_tgis(path.clone()))
+            } else {
+                None
+            }
+        })
+    }).flatten().collect::<Vec<_>>();
+    let total_files = files_futures_vec.len();
+    progress(PathBuf::from(""), 0, total_files);
+
+    let mut tgis_stream = stream::iter(
+        files_futures_vec.into_iter()
+    ).buffered(512).enumerate();
 
     let mut tgi_to_file = HashMap::new();
 
-    while let Some(data) = tgis_stream.next().await {
-        if let Some((path, tgis)) = data {
+    while let Some((i, (path, data))) = tgis_stream.next().await {
+        progress(path.clone(), i + 1, total_files);
+        if let Some(tgis) = data {
             let mut internal_conflict_files: HashMap<PathBuf, Vec<TGI>> = HashMap::new();
             for tgi in tgis {
                 match tgi {
@@ -138,6 +149,7 @@ pub async fn find_conflicts(dir: PathBuf, tx: Sender<TGIConflict>) {
                     _ => {}
                 }
             }
+
             for (original, tgis) in internal_conflict_files.drain() {
                 if let Err(_) = tx.send(TGIConflict {
                     original: original.clone(),
