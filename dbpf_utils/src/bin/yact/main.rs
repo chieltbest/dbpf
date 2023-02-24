@@ -1,43 +1,34 @@
 #![windows_subsystem = "windows"]
 
-use std::collections::HashMap;
+mod filtered_conflict_list;
+
+use crate::filtered_conflict_list::{ConflictTypeFilterWarning, FilteredConflictList};
+
 use std::error::Error;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use eframe::{App, egui, Frame, IconData, NativeOptions, Storage};
-use eframe::egui::{Align, Color32, containers, Context, DragValue, Label, Layout, Margin, RichText, Sense, Style, TextEdit, Ui, Visuals};
-use eframe::epaint::ahash::{HashSet, HashSetExt};
-use eframe::epaint::Shadow;
+use eframe::egui::{Color32, containers, Context, DragValue, Label, RichText, Sense, Style, TextEdit, Ui, Visuals};
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::{instrument, warn};
-use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf_utils::tgi_conflicts::{find_conflicts, TGI, TGIConflict};
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-enum ConflictTypeFilterWarning {
-    NotShown,
-    Found,
-}
 
 struct DBPFApp {
     ui_scale: f32,
     dark_mode_preference: Option<bool>,
     downloads_folder: String,
     show_folders: bool,
-    check_types: HashMap<KnownDBPFFileType, bool>,
 
     scan_ran_with_folder: PathBuf,
     downloads_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
 
-    found_conflicts: Vec<TGIConflict>,
-    found_conflict_types: HashMap<KnownDBPFFileType, ConflictTypeFilterWarning>,
+    conflict_list: FilteredConflictList,
     found_conflicts_stream: Option<Receiver<TGIConflict>>,
     highlighted_conflict: Option<TGIConflict>,
-    filtered_conflicts: Vec<TGIConflict>,
 }
 
 impl DBPFApp {
@@ -48,16 +39,12 @@ impl DBPFApp {
             downloads_folder: "".to_string(),
             show_folders: true,
 
-            check_types: Self::filter_defaults(),
-
             scan_ran_with_folder: PathBuf::new(),
             downloads_picker: None,
 
-            found_conflicts: Vec::new(),
-            found_conflict_types: HashMap::new(),
+            conflict_list: FilteredConflictList::new(),
             found_conflicts_stream: None,
             highlighted_conflict: None,
-            filtered_conflicts: Vec::new(),
         };
         if let Some(storage) = cc.storage {
             if let Some(ui_scale) = storage
@@ -82,37 +69,15 @@ impl DBPFApp {
                 new.show_folders = show_folders;
             }
 
-            for (t, check) in &mut new.check_types {
-                if let Some(stored_check) = storage
+            for t in FilteredConflictList::filter_types() {
+                if let Some(enable) = storage
                     .get_string(format!("check_{}", t.properties().abbreviation).as_str())
                     .and_then(|str| str.parse().ok()) {
-                    *check = stored_check;
+                    new.conflict_list.set_check_enabled(&t, enable);
                 }
             }
         }
         new
-    }
-
-    fn filter_defaults() -> HashMap<KnownDBPFFileType, bool> {
-        HashMap::from_iter(Self::filter_types().into_iter().zip(
-            [true, true, false, true, true, true, true, true, true, false, false, true, true, false]))
-    }
-
-    fn filter_types() -> [KnownDBPFFileType; 14] {
-        [(KnownDBPFFileType::SimanticsBehaviourConstant),
-            (KnownDBPFFileType::SimanticsBehaviourFunction),
-            (KnownDBPFFileType::CatalogDescription),
-            (KnownDBPFFileType::GlobalData),
-            (KnownDBPFFileType::PropertySet),
-            (KnownDBPFFileType::ObjectData),
-            (KnownDBPFFileType::ObjectFunctions),
-            (KnownDBPFFileType::ObjectSlot),
-            (KnownDBPFFileType::TextList),
-            (KnownDBPFFileType::EdithSimanticsBehaviourLabels),
-            (KnownDBPFFileType::BehaviourConstantLabels),
-            (KnownDBPFFileType::PieMenuFunctions),
-            (KnownDBPFFileType::PieMenuStrings),
-            (KnownDBPFFileType::VersionInformation)]
     }
 
     fn set_dark_mode(&mut self, dark: bool, ctx: &Context) {
@@ -145,9 +110,8 @@ impl DBPFApp {
     }
 
     fn start_scannning(&mut self) {
-        self.found_conflicts = Vec::new();
-        self.found_conflict_types = HashMap::new();
-        self.filtered_conflicts = Vec::new();
+        self.conflict_list.clear();
+
         self.scan_ran_with_folder = PathBuf::from(&self.downloads_folder);
         self.highlighted_conflict = None;
 
@@ -156,57 +120,13 @@ impl DBPFApp {
         self.found_conflicts_stream = Some(rx);
     }
 
-    fn filter_conflict(check_types: &HashMap<KnownDBPFFileType, bool>,
-                       found_conflict_types: &mut HashMap<KnownDBPFFileType, ConflictTypeFilterWarning>,
-                       filtered_conflicts: &mut Vec<TGIConflict>,
-                       conflict: TGIConflict) {
-        let mut all_known_tgis = HashSet::new();
-        let mut is_shown = false;
-        for tgi in conflict.tgis.clone() {
-            if let DBPFFileType::Known(t) = tgi.type_id {
-                if *check_types.get(&t).unwrap_or(&false) {
-                    // type should be shown in filtered list
-                    is_shown = true;
-                }
-                if !found_conflict_types.contains_key(&t) {
-                    found_conflict_types.insert(t, ConflictTypeFilterWarning::Found);
-                }
-                all_known_tgis.insert(t);
-            }
-        }
-        if is_shown {
-            // the conflict has passed the filter, show it
-            filtered_conflicts.push(conflict);
-        } else {
-            // conflict was filtered out
-            for known_t in all_known_tgis {
-                found_conflict_types.insert(known_t, ConflictTypeFilterWarning::NotShown);
-            }
-        }
-    }
-
-    fn re_filter(&mut self) {
-        self.found_conflict_types = HashMap::new();
-        self.filtered_conflicts = Vec::new();
-        for conflict in self.found_conflicts.clone() {
-            Self::filter_conflict(&self.check_types,
-                                  &mut self.found_conflict_types,
-                                  &mut self.filtered_conflicts,
-                                  conflict);
-        }
-    }
-
     fn update_state(&mut self, ctx: &Context) {
         // pull in the newly found conflicts before showing them
         let mut drop_stream = false;
         if let Some(ref stream) = self.found_conflicts_stream {
             while match stream.try_recv() {
                 Ok(conflict) => {
-                    self.found_conflicts.push(conflict.clone());
-                    Self::filter_conflict(&self.check_types,
-                                          &mut self.found_conflict_types,
-                                          &mut self.filtered_conflicts,
-                                          conflict);
+                    self.conflict_list.add(conflict);
                     true
                 }
                 Err(TryRecvError::Empty) => false,
@@ -240,37 +160,31 @@ impl DBPFApp {
     }
 
     fn resource_menu(&mut self, ui: &mut Ui) {
-        let hidden_conflicts = self.found_conflicts.len() != self.filtered_conflicts.len();
+        let hidden_conflicts = self.conflict_list.has_hidden_conflicts();
         ui.menu_button(format!("Resources{}", if hidden_conflicts { " ！" } else { "" }), |ui| {
-            let mut changed = false;
-
             egui::Grid::new("resource grid").show(ui, |ui| {
-                for file_type in Self::filter_types() {
+                for file_type in FilteredConflictList::filter_types() {
                     let mut name = file_type.properties().abbreviation.to_string();
-                    match self.found_conflict_types.get(&file_type) {
-                        Some(ConflictTypeFilterWarning::NotShown) => name.push_str(" ！"),
-                        Some(ConflictTypeFilterWarning::Found) => name.push_str(" ℹ"),
-                        None => {}
+                    match self.conflict_list.get_type_visibility(&file_type) {
+                        ConflictTypeFilterWarning::NotVisible => name.push_str(" ！"),
+                        ConflictTypeFilterWarning::FoundVisible => name.push_str(" ℹ"),
+                        ConflictTypeFilterWarning::NotFound => {}
                     }
-                    if let Some(check) = self.check_types.get_mut(&file_type) {
-                        let res = ui.checkbox(check, name)
-                            .on_hover_text(format!("search for {} conflicts?", file_type.properties().name));
-                        changed = changed || res.changed();
-
-                        ui.label(file_type.properties().name);
-
-                        ui.end_row();
+                    let mut check = self.conflict_list.get_check_enabled(&file_type);
+                    let res = ui.checkbox(&mut check, name)
+                        .on_hover_text(format!("search for {} conflicts?", file_type.properties().name));
+                    if res.changed() {
+                        self.conflict_list.set_check_enabled(&file_type, check);
                     }
+
+                    ui.label(file_type.properties().name);
+
+                    ui.end_row();
                 }
             });
 
             if ui.button("Reset to defaults").clicked() {
-                self.check_types = Self::filter_defaults();
-                changed = true;
-            }
-
-            if changed {
-                self.re_filter();
+                self.conflict_list.reset_filters();
             }
         }).response
             .on_hover_text(format!("The resource types to check for{}",
@@ -349,11 +263,7 @@ impl DBPFApp {
                     let mut text = RichText::new(text_string);
 
                     if path_same {
-                        text = if ui.style().visuals.dark_mode {
-                            text.color(Color32::DARK_GREEN)
-                        } else {
-                            text.background_color(Color32::LIGHT_GREEN)
-                        };
+                        text = text.color(Color32::DARK_GREEN);
                     }
 
                     let tooltip = Self::conflict_description_string(stripped_path, &conflict.tgis);
@@ -361,31 +271,32 @@ impl DBPFApp {
                     let mut frame = containers::Frame::none();
                     let selected = self.highlighted_conflict.as_ref().map(|c| conflict == c).unwrap_or(false);
                     if selected {
-                        frame.inner_margin = Margin::from(0.0);
-                        frame.shadow = Shadow::big_dark();
+                        frame.fill = if ui.style().visuals.dark_mode {
+                            Color32::DARK_GRAY
+                        } else {
+                            Color32::LIGHT_GRAY
+                        };
                     }
                     frame.show(ui, |ui| {
-                        ui.with_layout(
-                            Layout::left_to_right(Align::Center)
-                                .with_cross_justify(true)
-                                .with_main_justify(true)
-                                .with_main_align(Align::LEFT),
-                            |ui| {
-                                let res = ui.add(
-                                    Label::new(text)
-                                        .wrap(false)
-                                        .sense(Sense::click()));
-                                if res.clicked() {
-                                    self.highlighted_conflict = Some(conflict.clone());
-                                }
-                                res.context_menu(|ui| Self::conflict_menu(path, &conflict.tgis, ui))
+                        ui.horizontal_centered(|ui| {
+                            ui.add(Label::new(text)
+                                    .wrap(false)
+                                    .sense(Sense::click()))
+                                .context_menu(|ui| Self::conflict_menu(path, &conflict.tgis, ui))
+                                .on_hover_text_at_pointer(tooltip)
+                                .clicked().then(|| {
+                                self.highlighted_conflict = Some(conflict.clone());
                             });
-                    }).response.on_hover_text_at_pointer(tooltip);
+
+                            ui.centered_and_justified(|ui| ui.label(""));
+                        });
+                    });
                 };
 
-                body.rows(14.0, self.filtered_conflicts.len(),
+                let filtered = self.conflict_list.get_filtered();
+                body.rows(14.0, filtered.len(),
                           |i, mut row| {
-                              let conflict = &self.filtered_conflicts[i];
+                              let conflict = &filtered[i];
                               row.col(|ui| {
                                   show_path_cell(
                                       conflict,
@@ -415,7 +326,7 @@ impl App for DBPFApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.horizontal_wrapped(|ui| {
-                    let dark_mode = self.dark_mode_preference.unwrap_or(ui.style().visuals.dark_mode);
+                    let dark_mode = ui.style().visuals.dark_mode;
                     ui.button(if dark_mode { "☀" } else { "🌙" })
                         .on_hover_text(format!("Switch to {} mode", if dark_mode { "light" } else { "dark" }))
                         .clicked().then(|| {
@@ -472,15 +383,16 @@ impl App for DBPFApp {
         storage.set_string("downloads_folder", self.downloads_folder.clone());
         storage.set_string("show_folders", self.show_folders.to_string());
 
-        for (t, check) in &self.check_types {
-            storage.set_string(format!("check_{}", t.properties().abbreviation).as_str(), check.to_string());
+        for t in FilteredConflictList::filter_types() {
+            storage.set_string(format!("check_{}", t.properties().abbreviation).as_str(),
+                               self.conflict_list.get_check_enabled(&t).to_string());
         }
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let icon = include_bytes!("../../res/yact.png");
+    let icon = include_bytes!("../../../res/yact.png");
     let image = image::io::Reader::new(Cursor::new(icon))
         .with_guessed_format()?.decode()?;
     let buf = Vec::from(image.as_bytes());
