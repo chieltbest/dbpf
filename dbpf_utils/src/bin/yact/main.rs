@@ -1,8 +1,9 @@
+#![feature(drain_filter)]
 #![windows_subsystem = "windows"]
 
 mod filtered_conflict_list;
 
-use crate::filtered_conflict_list::{ConflictTypeFilterWarning, FilteredConflictList};
+use crate::filtered_conflict_list::{ConflictTypeFilterWarning, FilteredConflictList, KnownConflict};
 
 use std::error::Error;
 use std::io::Cursor;
@@ -10,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{Receiver, TryRecvError};
 use eframe::{App, egui, Frame, IconData, NativeOptions, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals};
+use eframe::egui::{Color32, containers, Context, DragValue, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window};
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
@@ -21,8 +22,9 @@ use dbpf_utils::tgi_conflicts::{find_conflicts, TGI, TGIConflict};
 struct DBPFApp {
     ui_scale: f32,
     dark_mode_preference: Option<bool>,
-    scan_folders: String,
     show_folders: bool,
+    open_known_conflict_gui: bool,
+    scan_folders: String,
 
     scan_ran_with_folders: Vec<PathBuf>,
     downloads_picker: Option<oneshot::Receiver<Option<Vec<FileHandle>>>>,
@@ -38,13 +40,14 @@ impl DBPFApp {
         let mut new = Self {
             ui_scale: 1.0,
             dark_mode_preference: None,
-            scan_folders: "".to_string(),
             show_folders: true,
+            open_known_conflict_gui: false,
+            scan_folders: "".to_string(),
 
             scan_ran_with_folders: Vec::new(),
             downloads_picker: None,
 
-            conflict_list: FilteredConflictList::new(),
+            conflict_list: FilteredConflictList::new(&cc.storage),
             find_conflicts_result_stream: None,
             find_conflict_progress: Mutex::new(None).into(),
             highlighted_conflict: None,
@@ -61,23 +64,20 @@ impl DBPFApp {
                 .and_then(|str| str.parse().ok()) {
                 new.set_dark_mode(dark_mode_preference, &cc.egui_ctx);
             }
-            if let Some(downloads_folder) = storage
-                .get_string("downloads_folder") {
-                new.scan_folders = downloads_folder;
-                new.start_scannning(&cc.egui_ctx);
+            if let Some(open_gui) = storage
+                .get_string("open_known_conflict_gui")
+                .and_then(|str| str.parse().ok()) {
+                new.open_known_conflict_gui = open_gui;
             }
             if let Some(show_folders) = storage
                 .get_string("show_folders")
                 .and_then(|str| str.parse().ok()) {
                 new.show_folders = show_folders;
             }
-
-            for t in FilteredConflictList::filter_types() {
-                if let Some(enable) = storage
-                    .get_string(format!("check_{}", t.properties().abbreviation).as_str())
-                    .and_then(|str| str.parse().ok()) {
-                    new.conflict_list.set_check_enabled(&t, enable);
-                }
+            if let Some(downloads_folder) = storage
+                .get_string("downloads_folder") {
+                new.scan_folders = downloads_folder;
+                new.start_scannning(&cc.egui_ctx);
             }
         }
         new
@@ -228,43 +228,114 @@ impl DBPFApp {
         desc
     }
 
-    #[instrument(skip(ui))]
-    fn conflict_menu(path: &Path, tgis: &Vec<TGI>, ui: &mut Ui) {
-        if ui.button("Copy name").clicked() {
+    fn known_conflict_menu(&mut self, ctx: &Context, ui: &mut Ui) {
+        Window::new("Known conflicts")
+            .resizable(true)
+            .hscroll(true)
+            .open(&mut self.open_known_conflict_gui)
+            .show(ctx, |ui| {
+                let known_conflicts = self.conflict_list.get_known();
+                if known_conflicts.len() > 0 {
+                    let mut remove = None;
+
+                    egui_extras::TableBuilder::new(ui)
+                        .striped(true)
+                        .column(Column::remainder().at_least(100.0).clip(true).resizable(true))
+                        .column(Column::remainder().at_least(100.0).clip(true))
+                        .max_scroll_height(f32::MAX)
+                        .header(30.0, |mut row| {
+                            row.col(|ui| { ui.heading("Original"); });
+                            row.col(|ui| { ui.heading("Conflict"); });
+                        })
+                        .body(|body| {
+                            body.rows(14.0, known_conflicts.len(),
+                                      |i, mut row| {
+                                          let mut path_label_fn = |ui: &mut Ui, path| {
+                                              ui.add(Label::new(Self::strip_prefix(
+                                                  &self.scan_ran_with_folders, path)
+                                                  .unwrap_or(path).to_string_lossy())
+                                                  .wrap(false)
+                                                  .sense(Sense::click()))
+                                                  .context_menu(|ui| {
+                                                      ui.button("Remove")
+                                                          .clicked().then(|| {
+                                                          remove = Some(i);
+                                                          ui.close_menu();
+                                                      });
+                                                  });
+                                          };
+
+                                          row.col(|ui| {
+                                              path_label_fn(ui, &known_conflicts[i].0);
+                                          });
+                                          row.col(|ui| {
+                                              path_label_fn(ui, &known_conflicts[i].1);
+                                          });
+                                      });
+                        });
+
+                    if let Some(i) = remove {
+                        self.conflict_list.remove_known(i);
+                    }
+                } else {
+                    ui.label("No known conflicts found");
+                }
+            });
+
+        ui.button("Known conflicts")
+            .clicked().then(|| {
+            self.open_known_conflict_gui = !self.open_known_conflict_gui;
+        });
+    }
+
+    #[instrument(skip(self, ui))]
+    fn conflict_menu(&mut self, path: &Path, conflict: &TGIConflict, ui: &mut Ui) {
+        ui.button("Add to known conflicts")
+            .clicked().then(|| {
+            self.conflict_list.add_known(
+                KnownConflict(conflict.original.clone(),
+                              conflict.new.clone()));
+            ui.close_menu();
+        });
+
+        ui.button("Copy name")
+            .clicked().then(|| {
             if let Some(stem) = path.file_stem().and_then(|str| str.to_str()) {
                 ui.output_mut(|o| o.copied_text = stem.to_string())
             } else {
                 warn!("could not get file stem");
             }
             ui.close_menu();
-        }
-        if ui.button("Copy name.package").clicked() {
+        });
+        ui.button("Copy name.package")
+            .clicked().then(|| {
             if let Some(name) = path.file_name().and_then(|str| str.to_str()) {
                 ui.output_mut(|o| o.copied_text = name.to_string());
             } else {
                 warn!("could not get filename");
             }
             ui.close_menu();
-        }
-        if ui.button("Copy full path").clicked() {
+        });
+        ui.button("Copy full path")
+            .clicked().then(|| {
             ui.output_mut(|o| o.copied_text = path.to_string_lossy().to_string());
             ui.close_menu();
-        }
-        if ui.button("Copy full conflict data").clicked() {
-            ui.output_mut(|o| o.copied_text = Self::conflict_description_string(path, tgis));
+        });
+        ui.button("Copy full conflict data")
+            .clicked().then(|| {
+            ui.output_mut(|o| o.copied_text = format!("{}", conflict));
             ui.close_menu();
-        }
+        });
     }
 
-    fn strip_prefix<'a>(&self, path: &'a Path) -> Option<&'a Path> {
-        self.scan_ran_with_folders.iter()
-            .find_map(|folder| path.strip_prefix(folder).ok())
+    fn strip_prefix<'a>(scan_folders: &Vec<PathBuf>, path: &'a Path) -> Option<&'a Path> {
+        scan_folders.iter().find_map(|folder| path.strip_prefix(folder).ok())
     }
 
-    fn show_path_cell(&self, conflict: &TGIConflict, path: &PathBuf, ui: &mut Ui) -> bool {
+    fn show_path_cell(&mut self, conflict: &TGIConflict, path: &PathBuf, ui: &mut Ui) -> bool {
         let path_same = conflict.original == conflict.new;
 
-        let stripped_path = self.strip_prefix(path).unwrap_or(path);
+        let stripped_path = Self::strip_prefix(&self.scan_ran_with_folders, path).unwrap_or(path);
 
         let mut text_string = if self.show_folders {
             stripped_path.to_string_lossy().to_string()
@@ -279,6 +350,14 @@ impl DBPFApp {
 
         let mut text = RichText::new(text_string);
 
+        if self.conflict_list.is_known(conflict) {
+            text = text.color(if ui.style().visuals.dark_mode {
+                Color32::DARK_GRAY
+            } else {
+                Color32::GRAY
+            });
+        }
+
         if path_same {
             text = text.color(Color32::DARK_GREEN);
         }
@@ -289,7 +368,7 @@ impl DBPFApp {
         let selected = self.highlighted_conflict.as_ref().map(|c| conflict == c).unwrap_or(false);
         if selected {
             frame.fill = if ui.style().visuals.dark_mode {
-                Color32::DARK_GRAY
+                Color32::from_gray(16)
             } else {
                 Color32::LIGHT_GRAY
             };
@@ -302,7 +381,7 @@ impl DBPFApp {
                 ui.add(Label::new(text)
                     .wrap(false)
                     .sense(Sense::click()))
-                    .context_menu(|ui| Self::conflict_menu(path, &conflict.tgis, ui))
+                    .context_menu(|ui| self.conflict_menu(path, conflict, ui))
                     .on_hover_text_at_pointer(tooltip)
                     .clicked().then(|| {
                     highlight = true;
@@ -327,14 +406,14 @@ impl DBPFApp {
                 row.col(|ui| { ui.heading("Conflict"); });
             })
             .body(|body| {
-                let filtered = self.conflict_list.get_filtered();
+                let filtered = self.conflict_list.get_filtered().clone();
                 let mut highlight = None;
                 body.rows(14.0, filtered.len(),
                           |i, mut row| {
-                              let conflict = filtered[i].clone();
+                              let conflict = &filtered[i];
                               row.col(|ui| {
                                   if self.show_path_cell(
-                                      &conflict,
+                                      conflict,
                                       &conflict.original,
                                       ui) {
                                       highlight = Some(conflict.clone());
@@ -342,7 +421,7 @@ impl DBPFApp {
                               });
                               row.col(|ui| {
                                   if self.show_path_cell(
-                                      &conflict,
+                                      conflict,
                                       &conflict.new,
                                       ui) {
                                       highlight = Some(conflict.clone());
@@ -387,6 +466,14 @@ impl App for DBPFApp {
 
                     self.resource_menu(ui);
 
+                    self.known_conflict_menu(ctx, ui);
+
+                    let mut show_known = self.conflict_list.get_show_known();
+                    ui.checkbox(&mut show_known, "Show known")
+                        .changed().then(|| {
+                        self.conflict_list.set_show_known(show_known);
+                    });
+
                     ui.checkbox(&mut self.show_folders, "Show paths")
                         .on_hover_text("Show what folders the packages are in?");
                 });
@@ -396,9 +483,7 @@ impl App for DBPFApp {
 
                     ui.add(TextEdit::singleline(&mut self.scan_folders)
                         .id_source("scan folders")
-                        .desired_width(ui.available_width() - 30.0)
-                        // .desired_rows(1)
-                        /*.lock_focus(false)*/)
+                        .desired_width(ui.available_width() - 30.0))
                         .lost_focus().then(|| {
                         self.start_scannning(ctx);
                     });
@@ -409,7 +494,7 @@ impl App for DBPFApp {
 
                 if let Some((ref path, progress, total)) = *self.find_conflict_progress.lock().unwrap() {
                     ui.add(ProgressBar::new(progress as f32 / total as f32)
-                        .text(self.strip_prefix(path)
+                        .text(Self::strip_prefix(&self.scan_ran_with_folders, path)
                             .unwrap_or(path)
                             .display().to_string()));
                 }
@@ -426,13 +511,11 @@ impl App for DBPFApp {
         if let Some(dark) = self.dark_mode_preference {
             storage.set_string("dark_mode", dark.to_string());
         }
-        storage.set_string("downloads_folder", self.scan_folders.clone());
         storage.set_string("show_folders", self.show_folders.to_string());
+        storage.set_string("downloads_folder", self.scan_folders.clone());
 
-        for t in FilteredConflictList::filter_types() {
-            storage.set_string(format!("check_{}", t.properties().abbreviation).as_str(),
-                               self.conflict_list.get_check_enabled(&t).to_string());
-        }
+        storage.set_string("open_known_conflict_gui", self.open_known_conflict_gui.to_string());
+        self.conflict_list.save(storage);
     }
 }
 

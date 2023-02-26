@@ -21,6 +21,8 @@ tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 
 eframe = { version = "0.21.3", features = ["dark-light", "persistence"] }
+serde = "1.0.152"
+serde_json = "1.0.93"
 egui_extras = "0.21.0"
 rfd = "0.11.1"
 image = "0.24.5"

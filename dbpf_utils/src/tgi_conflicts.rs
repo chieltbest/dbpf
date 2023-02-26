@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use tokio::fs::File;
@@ -45,6 +45,16 @@ pub struct TGIConflict {
     pub original: PathBuf,
     pub new: PathBuf,
     pub tgis: Vec<TGI>,
+}
+
+impl Display for TGIConflict {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} --> {}", self.original.display(), self.new.display())?;
+        for tgi in &self.tgis {
+            writeln!(f, "{:?}", tgi)?;
+        }
+        Ok(())
+    }
 }
 
 #[instrument(skip_all, level = "trace")]
