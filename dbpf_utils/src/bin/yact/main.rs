@@ -238,10 +238,15 @@ impl DBPFApp {
                 if known_conflicts.len() > 0 {
                     let mut remove = None;
 
+                    let available_width = ui.available_width();
                     egui_extras::TableBuilder::new(ui)
                         .striped(true)
-                        .column(Column::remainder().at_least(100.0).clip(true).resizable(true))
-                        .column(Column::remainder().at_least(100.0).clip(true))
+                        .column(Column::remainder()
+                            .at_least(100.0)
+                            .at_most(available_width - 10.0)
+                            .clip(true)
+                            .resizable(true))
+                        .column(Column::remainder().clip(true))
                         .max_scroll_height(f32::MAX)
                         .header(30.0, |mut row| {
                             row.col(|ui| { ui.heading("Original"); });
@@ -396,10 +401,15 @@ impl DBPFApp {
 
     #[instrument(skip_all)]
     fn show_table(&mut self, ui: &mut Ui) {
+        let available_width = ui.available_width();
         egui_extras::TableBuilder::new(ui)
             .striped(true)
-            .column(Column::remainder().at_least(100.0).clip(true).resizable(true))
-            .column(Column::remainder().at_least(100.0).clip(true))
+            .column(Column::remainder()
+                .at_least(100.0)
+                .at_most(available_width - 10.0)
+                .clip(true)
+                .resizable(true))
+            .column(Column::remainder().clip(true))
             .max_scroll_height(f32::MAX)
             .header(30.0, |mut row| {
                 row.col(|ui| { ui.heading("Original"); });
