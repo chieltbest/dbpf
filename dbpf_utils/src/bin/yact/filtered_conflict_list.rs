@@ -33,6 +33,7 @@ pub struct FilteredConflictList {
     found_conflicts: Vec<TGIConflict>,
     found_conflict_visible: HashMap<KnownDBPFFileType, ConflictTypeFilterWarning>,
     filtered_conflicts: Vec<TGIConflict>,
+    has_hidden: bool,
 }
 
 impl FilteredConflictList {
@@ -171,7 +172,7 @@ impl FilteredConflictList {
     }
 
     pub fn has_hidden_conflicts(&self) -> bool {
-        self.found_conflicts.len() != self.filtered_conflicts.len()
+        self.has_hidden
     }
 
     pub fn add(&mut self, conflict: TGIConflict) {
@@ -182,6 +183,7 @@ impl FilteredConflictList {
     fn filter_conflict(&mut self, conflict: TGIConflict) {
         let mut all_conflict_tgis = HashSet::new();
         let mut is_shown = false;
+        let known = self.is_known(&conflict);
         for tgi in &conflict.tgis {
             if let DBPFFileType::Known(t) = tgi.type_id {
                 if self.get_check_enabled(&t) &&
@@ -201,8 +203,9 @@ impl FilteredConflictList {
                     self.found_conflict_visible.insert(known_t, ConflictTypeFilterWarning::FoundVisible);
                 }
             }
-        } else {
+        } else if !known {
             // conflict was filtered out
+            self.has_hidden = true;
             for known_t in all_conflict_tgis {
                 self.found_conflict_visible.insert(known_t, ConflictTypeFilterWarning::NotVisible);
             }
@@ -226,6 +229,7 @@ impl FilteredConflictList {
     fn re_filter(&mut self) {
         self.found_conflict_visible = HashMap::new();
         self.filtered_conflicts = Vec::new();
+        self.has_hidden = false;
 
         for conflict in self.found_conflicts.clone() {
             self.filter_conflict(conflict);

@@ -262,7 +262,7 @@ impl DBPFApp {
                                                   .wrap(false)
                                                   .sense(Sense::click()))
                                                   .context_menu(|ui| {
-                                                      ui.button("Remove")
+                                                      ui.button("Forget known conflict")
                                                           .clicked().then(|| {
                                                           remove = Some(i);
                                                           ui.close_menu();
