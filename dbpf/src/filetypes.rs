@@ -23,9 +23,11 @@ pub enum KnownDBPFFileType {
     PoolSurface = 0x0C900FDB,
     // XFMD
     FaceModifierXML = 0x0C93E3DE,
+    // BNFO
+    BusinessInfo = 0x104F6A6E,
     // TXTR
     TextureResource = 0x1C4A276C,
-    // INI, MP3, SPX1, XA
+    // INI, MP3, SPX1, XA, LTEXT
     Audio = 0x2026960B,
     // 5SC
     SceneNode = 0x25232B11,
@@ -43,6 +45,8 @@ pub enum KnownDBPFFileType {
     DormerThumbnail = 0x2C488BCA,
     // XFNC
     FenceXML = 0x2CB230B8,
+    // SCOR
+    SimScores = 0x3053CF74,
     // BCON
     SimanticsBehaviourConstant = 0x42434F4E,
     // BHAV
@@ -99,6 +103,8 @@ pub enum KnownDBPFFileType {
     ObjectFunctions = 0x4F424A66,
     // ObjM
     ObjectMetadata = 0x4F626A4D,
+    // INIT
+    InventoryItem = 0x4F6FD33D,
     // PALT
     ImageColorPalette = 0x50414C54,
     // PERS
@@ -131,6 +137,8 @@ pub enum KnownDBPFFileType {
     MaterialObjectXML = 0x584D544F,
     // XOBJ
     ObjectXML1 = 0x584F424A,
+    // SLUA
+    SimPEObjectLua = 0x61754C1B,
     // 5EL
     EnvironmentCubeLighting = 0x6A97042F,
     // 2ARY
@@ -315,9 +323,10 @@ impl KnownDBPFFileType {
             JPEGImage1 => ("JPEG Image", "JPEG", None, No),
             PoolSurface => ("Pool Surface", "POOL", None, No),
             FaceModifierXML => ("Face Modifier XML", "XFMD", Some("face_mod.xml"), No),
+            BusinessInfo => ("Business Info", "BNFO", None, No),
             TextureResource => ("Texture Resource", "TXTR", Some("6tx"), No),
             // might need header detection
-            Audio => ("Audio", "AUD", Some("mp3"), No),
+            Audio => ("Audio", "XA", Some("mp3"), No),
             SceneNode => ("Scene Node", "5SC", Some("5sc"), No),
             Array3D => ("Array 3D", "3ARY", None, No),
             TextureOverlayXML => ("Texture Overlay XML", "XTOL", Some("texture_overlay.xml"), No),
@@ -325,7 +334,8 @@ impl KnownDBPFFileType {
             PopupTracker => ("Popup Tracker", "POPT", None, No),
             FoundationOrPoolThumbnail => ("Foundation Or Pool Thumbnail", "THUB", Some("pool_thumb.jpg"), No),
             DormerThumbnail => ("Dormer Thumbnail", "THUB", Some("dormer_thumb.jpg"), No),
-            FenceXML => ("FenceXML", "XFNC", Some("fence.xml"), No),
+            FenceXML => ("Fence XML", "XFNC", Some("fence.xml"), No),
+            SimScores => ("Sim Scores", "SCOR", None, No),
             SimanticsBehaviourConstant => ("Simantics Behaviour Constant", "BCON", None, Embedded),
             SimanticsBehaviourFunction => ("Simantics Behaviour Function", "BHAV", None, Embedded),
             BitmapImage => ("Bitmap Image", "BMP", Some("bmp"), Embedded),
@@ -354,6 +364,7 @@ impl KnownDBPFFileType {
             ObjectData => ("Object Data", "OBJD", None, Embedded),
             ObjectFunctions => ("Object Functions", "OBJF", None, Embedded),
             ObjectMetadata => ("Object Metadata", "OBJM", None, No),
+            InventoryItem => ("Inventory Item", "INIT", None, No),
             ImageColorPalette => ("Image Color Palette", "PALT", None, No),
             SimPersonalInformation => ("Sim Personal Information", "PERS", None, No),
             StackScript => ("Stack Script", "POSI", None, No),
@@ -370,6 +381,7 @@ impl KnownDBPFFileType {
             PieMenuStrings => ("Pie Menu Strings", "TTAS", None, Embedded),
             MaterialObjectXML => ("Material Object XML", "XMTO", Some("material_object.xml"), No),
             ObjectXML1 => ("Object XML", "XOBJ", Some("object.1.xml"), No),
+            SimPEObjectLua => ("SimPE Object Lua", "SLUA", None, No),
             EnvironmentCubeLighting => ("Environment Cube Lighting", "5EL", None, No),
             Array2D => ("Array 2D", "2ARY", None, No),
             LotInformation => ("Lot Information", "LOT", None, No),
