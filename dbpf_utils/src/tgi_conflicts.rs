@@ -1,26 +1,28 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::{Debug, Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::io::{Read, Seek};
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
-use tokio::fs::File;
-use walkdir::WalkDir;
-use dbpf::{DBPFFile, InstanceId};
 
 use binrw::{BinRead, Error};
 use binrw::io::BufReader;
 
 use futures::{stream, StreamExt};
+use walkdir::WalkDir;
+use tokio::fs::File;
 
-use tracing::{error, info, info_span, instrument};
+use dbpf::{DBPFFile, Header, Index, IndexEntry};
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::filetypes::DBPFFileType::Known;
+
+use tracing::{error, info, info_span, instrument};
 
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
 pub struct TGI {
     pub type_id: DBPFFileType,
     pub group_id: u32,
-    pub instance_id: InstanceId,
+    pub instance_id: u64,
 }
 
 impl Debug for TGI {
@@ -29,7 +31,7 @@ impl Debug for TGI {
             .map(|prop| prop.name.to_string())
             .unwrap_or_else(|| self.type_id.extension()).as_str())
             .field("group", &self.group_id)
-            .field("instance", &self.instance_id.id)
+            .field("instance", &self.instance_id)
             .finish()
     }
 }
@@ -37,7 +39,7 @@ impl Debug for TGI {
 #[derive(Debug)]
 enum GetTGIsError {
     Header(Error),
-    Index(DBPFFile, Error),
+    Index(Error),
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -58,35 +60,37 @@ impl Display for TGIConflict {
 }
 
 #[instrument(skip_all, level = "trace")]
-async fn get_tgis(path: &Path) -> Result<Vec<TGI>, GetTGIsError> {
-    let data = File::open(&path).await.unwrap().into_std().await;
-    let mut data = BufReader::new(data);
-    tokio::task::spawn_blocking(move || {
-        DBPFFile::read(&mut data)
-            .map_err(|err| GetTGIsError::Header(err))
-            .and_then(|mut result| {
-                let index_res = result.header.index.get(&mut data);
-                match index_res {
-                    Err(err) => Err(GetTGIsError::Index(result.clone(), err)),
-                    Ok(index) => {
-                        let tgis = index
-                            .iter()
-                            .map(|file| TGI {
-                                type_id: file.type_id,
-                                group_id: file.group_id,
-                                instance_id: file.instance_id,
-                            })
-                            .collect();
-                        Ok(tgis)
-                    }
-                }
-            })
-    }).await.unwrap()
+fn get_tgis<R: Read + Seek>(header: &mut impl Header, reader: &mut R) -> Result<Vec<TGI>, GetTGIsError> {
+    let index = match header.index(reader) {
+        Err(err) => return Err(GetTGIsError::Index(err)),
+        Ok(index) => index,
+    };
+    let tgis = index.entries()
+        .iter()
+        .map(|file| TGI {
+            type_id: file.get_type().clone(),
+            group_id: file.get_group(),
+            instance_id: file.get_instance(),
+        })
+        .collect();
+    Ok(tgis)
 }
 
 #[instrument(level = "error")]
 async fn get_path_tgis(path: PathBuf) -> (PathBuf, Option<Vec<TGI>>) {
-    match get_tgis(&path).await {
+    let data = File::open(&path).await.unwrap().into_std().await;
+    let mut data = BufReader::new(data);
+    let result = tokio::task::spawn_blocking(move || {
+        DBPFFile::read(&mut data)
+            .map_err(|err| GetTGIsError::Header(err))
+            .and_then(|mut result| {
+                match result {
+                    DBPFFile::HeaderV1(ref mut header) => get_tgis(header, &mut data),
+                    DBPFFile::HeaderV2(ref mut header) => get_tgis(header, &mut data),
+                }
+            })
+    }).await.unwrap();
+    match result {
         Ok(tgis) => {
             (path.to_path_buf(), Some(tgis))
         }

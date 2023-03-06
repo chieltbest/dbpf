@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 binrw = "0.11.1"
 refpack = "2.0.0"
+modular-bitfield = "0.11.2"

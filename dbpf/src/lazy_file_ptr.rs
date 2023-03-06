@@ -48,6 +48,11 @@ impl<'a, Ptr: IntoSeekFrom, T: BinRead> LazyFilePtr<Ptr, T, T::Args<'a>> where T
             ))
         }
     }
+
+    /// Has this pointer been read already (there is parsed data in the buffer)?
+    pub fn is_read(&self) -> bool {
+        self.data.is_some()
+    }
 }
 
 impl<'a, Ptr: IntoSeekFrom, T: BinRead + Debug> Debug for LazyFilePtr<Ptr, T, T::Args<'a>> where T::Args<'a>: Clone {
@@ -74,7 +79,6 @@ pub struct LazyFilePtrArgs<Inner: Clone> {
     pub offset: u64,
 
     /// The [arguments](crate::BinRead::Args) for the inner type.
-    // #[named_args(try_optional)]
     pub inner: Inner,
 }
 

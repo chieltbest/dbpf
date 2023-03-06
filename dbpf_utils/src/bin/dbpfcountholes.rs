@@ -17,13 +17,17 @@ use dbpf_utils::application_main;
 async fn get_size(path: &Path) -> BinResult<(usize, usize)> {
     let mut data = File::open(&path).await.unwrap().into_std().await;
     tokio::task::spawn_blocking(move || {
-        DBPFFile::read(&mut data).and_then(|mut result| {
-            let index = result.header.hole_index.get(&mut data)?;
-            let size: usize = index
-                .iter()
-                .map(|hole| hole.size as usize)
-                .sum();
-            Ok((size, index.len()))
+        DBPFFile::read(&mut data).and_then(|result| {
+            if let DBPFFile::HeaderV1(mut header) = result {
+                let index = header.hole_index.get(&mut data)?;
+                let size: usize = index
+                    .iter()
+                    .map(|hole| hole.size as usize)
+                    .sum();
+                Ok((size, index.len()))
+            } else {
+                Ok((0, 0))
+            }
         })
     }).await.unwrap()
 }

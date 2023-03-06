@@ -17,6 +17,8 @@ pub enum KnownDBPFFileType {
     LotDescription = 0x0BF999E7,
     // XMOL
     MeshOverlayXML = 0x0C1FE246,
+    // XOBJ
+    ObjectXML1 = 0x0C560F39,
     // JPEG
     JPEGImage1 = 0x0C7E9A76,
     // POOL
@@ -136,7 +138,7 @@ pub enum KnownDBPFFileType {
     // XMTO
     MaterialObjectXML = 0x584D544F,
     // XOBJ
-    ObjectXML1 = 0x584F424A,
+    ObjectXML2 = 0x584F424A,
     // SLUA
     SimPEObjectLua = 0x61754C1B,
     // 5EL
@@ -236,7 +238,7 @@ pub enum KnownDBPFFileType {
     // THUMB
     ChimneyThumbnail = 0xCC48C51F,
     // XOBJ
-    ObjectXML2 = 0xCCA8E925,
+    ObjectXML3 = 0xCCA8E925,
     // LxNR
     FacialStructure = 0xCCCEF852,
     // MATSHAD
@@ -320,13 +322,16 @@ impl KnownDBPFFileType {
             TrackSettings => ("Track Settings", "TRKS", None, No),
             LotDescription => ("Lot Description", "LTXT", None, No),
             MeshOverlayXML => ("Mesh Overlay XML", "XMOL", Some("mesh_overlay.xml"), No),
+            ObjectXML1 => ("Object XML", "XOBJ", None, No),
             JPEGImage1 => ("JPEG Image", "JPEG", None, No),
             PoolSurface => ("Pool Surface", "POOL", None, No),
             FaceModifierXML => ("Face Modifier XML", "XFMD", Some("face_mod.xml"), No),
             BusinessInfo => ("Business Info", "BNFO", None, No),
             TextureResource => ("Texture Resource", "TXTR", Some("6tx"), No),
-            // might need header detection
-            Audio => ("Audio", "XA", Some("mp3"), No),
+            // needs extensive file format checking
+            // either an audio resource (mp3, Maxis eXtendable Audio, others)
+            // or LTEXT localisation file
+            Audio => ("Audio", "XA", None, No),
             SceneNode => ("Scene Node", "5SC", Some("5sc"), No),
             Array3D => ("Array 3D", "3ARY", None, No),
             TextureOverlayXML => ("Texture Overlay XML", "XTOL", Some("texture_overlay.xml"), No),
@@ -380,7 +385,7 @@ impl KnownDBPFFileType {
             PieMenuFunctions => ("Pie Menu Functions", "TTAB", None, Embedded),
             PieMenuStrings => ("Pie Menu Strings", "TTAS", None, Embedded),
             MaterialObjectXML => ("Material Object XML", "XMTO", Some("material_object.xml"), No),
-            ObjectXML1 => ("Object XML", "XOBJ", Some("object.1.xml"), No),
+            ObjectXML2 => ("Object XML", "XOBJ", Some("object.1.xml"), No),
             SimPEObjectLua => ("SimPE Object Lua", "SLUA", None, No),
             EnvironmentCubeLighting => ("Environment Cube Lighting", "5EL", None, No),
             Array2D => ("Array 2D", "2ARY", None, No),
@@ -431,7 +436,7 @@ impl KnownDBPFFileType {
             ModularStairThumbnail => ("Modular Stair Thumbnail", "THUB", Some("modular_stair_thumb.jpg"), No),
             RoofThumbnail => ("Roof Thumbnail", "THUB", Some("roof_thumbnail.jpg"), No),
             ChimneyThumbnail => ("Chimney Thumbnail", "THUB", Some("chimney_thumbnail.jpg"), No),
-            ObjectXML2 => ("Object XML", "XOBJ", Some("object.2.xml"), No),
+            ObjectXML3 => ("Object XML", "XOBJ", Some("object.2.xml"), No),
             FacialStructure => ("Facial Structure", "LXNR", None, No),
             MaxisMaterialShader => ("Maxis Material Shader", "MATSHAD", Some("mat.txt"), No),
             WantsAndFears => ("Wants And Fears", "SWAF", None, No),
