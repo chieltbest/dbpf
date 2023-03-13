@@ -4,6 +4,8 @@ pub mod xml;
 pub mod dbpf_directory;
 pub mod property_set;
 pub mod sim_outfits;
+mod resource_collection;
+mod texture_resource;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
@@ -12,6 +14,7 @@ use refpack::format::{Reference, Simcity4, TheSims12};
 use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use crate::internal_file::property_set::PropertySet;
+use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
 
 #[derive(Clone, Debug)]
@@ -202,13 +205,16 @@ pub enum DecodedFile {
     PropertySet(PropertySet),
     #[br(pre_assert(matches!(type_id, KnownDBPFFileType::SimOutfits)))]
     SimOutfits(SimOutfits),
+    #[br(pre_assert(matches!(type_id, KnownDBPFFileType::TextureResource)))]
+    ResourceCollection(ResourceCollection),
 
     /// used only for internal moves
     #[default]
     // match all the other types, because otherwise error passing would break
     #[br(pre_assert(!matches!(type_id,
     KnownDBPFFileType::PropertySet |
-    KnownDBPFFileType::SimOutfits)))]
+    KnownDBPFFileType::SimOutfits |
+    KnownDBPFFileType::TextureResource)))]
     Unknown,
 }
 

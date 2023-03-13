@@ -1,5 +1,3 @@
-extern crate core;
-
 pub mod filetypes;
 mod lazy_file_ptr;
 pub mod header_v1;

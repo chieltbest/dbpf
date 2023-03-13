@@ -709,6 +709,7 @@ dependencies = [
  "binrw",
  "modular-bitfield",
  "refpack",
+ "texpresso",
 ]
 
 [[package]]
@@ -2603,6 +2604,15 @@ dependencies = [
  "redox_syscall 0.2.16",
  "remove_dir_all",
  "winapi",
+]
+
+[[package]]
+name = "texpresso"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8277e703c934b9693d0773d5749faacc6366b3d81d012da556a4cfd4ab87f336"
+dependencies = [
+ "libm",
 ]
 
 [[package]]

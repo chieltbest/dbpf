@@ -1,10 +1,11 @@
+use std::ffi::OsString;
+use std::os::unix::ffi::OsStringExt;
 use std::fmt::{Debug, Formatter};
-use std::fs::read;
 use std::io::{Read, Seek, Write};
 use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, Endian};
 
 #[binrw]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct String {
     #[br(temp)]
     #[bw(calc = data.len() as u32)]
@@ -19,8 +20,9 @@ impl Debug for String {
     }
 }
 
+#[derive(Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct BigInt {
-    num: usize,
+    pub num: usize,
 }
 
 impl BinRead for BigInt {
@@ -55,9 +57,19 @@ impl BinWrite for BigInt {
 
 /// Also referred to as 7BITSTR, a string that encodes it's length in a variable-length int before the data
 #[binrw]
+#[derive(Clone, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct BigString {
+    #[br(temp)]
     #[bw(calc = BigInt{num: data.len()})]
     len: BigInt,
     #[br(count = len.num)]
-    data: Vec<u8>,
+    pub data: Vec<u8>,
+}
+
+impl Debug for BigString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BigString")
+            .field("data", &OsString::from_vec(self.data.clone()))
+            .finish()
+    }
 }
