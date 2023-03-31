@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek};
 use std::num::NonZeroU32;
 use binrw::{args, binread, BinRead, BinResult, binrw, VecArgs};
@@ -102,11 +102,15 @@ pub struct IndexEntryV1 {
 
     #[brw(ignore)]
     pub compression: Option<CompressionType>,
+    #[br(calc = size)]
+    #[bw(ignore)]
+    pub decompressed_size: u32,
     #[br(args {
     offset: u32::from(location) as u64,
     inner: args ! {
     count: size as usize,
     compression_type: CompressionType::Uncompressed,
+    decompressed_size,
     type_id
     }})]
     pub data: LazyFilePtr<Zero, FileData, FileDataBinReadArgs>,
@@ -148,7 +152,7 @@ impl Header for HeaderV1 {
         if !previous_read {
             if let Ok(index) = &mut data {
                 let mut error: BinResult<()> = Ok(());
-                let mut compressed_entries = HashSet::new();
+                let mut compressed_entries = HashMap::new();
 
                 index.entries.retain_mut(|entry| {
                     match entry.type_id {
@@ -162,7 +166,9 @@ impl Header for HeaderV1 {
                                         version: self.index_minor_version
                                     })?;
                                 for entry in res.entries {
-                                    compressed_entries.insert((entry.type_id, entry.group_id, entry.instance_id));
+                                    compressed_entries.insert(
+                                        (entry.type_id, entry.group_id, entry.instance_id),
+                                        entry.decompressed_size);
                                 }
                                 Ok(())
                             });
@@ -177,12 +183,13 @@ impl Header for HeaderV1 {
                 error?;
 
                 for entry in &mut index.entries {
-                    entry.compression = Some(
-                        if compressed_entries.contains(&(entry.type_id, entry.group_id, entry.instance_id)) {
-                            CompressionType::RefPack
-                        } else {
-                            CompressionType::Uncompressed
-                        });
+                    if let Some(decompressed_size) =
+                        compressed_entries.get(&(entry.type_id, entry.group_id, entry.instance_id)) {
+                        entry.compression = Some(CompressionType::RefPack);
+                        entry.decompressed_size = *decompressed_size;
+                    } else {
+                        entry.compression = Some(CompressionType::Uncompressed);
+                    }
                 }
             }
         }
@@ -235,7 +242,7 @@ impl IndexEntry for IndexEntryV1 {
     }
 
     fn set_instance(&mut self, instance: u64) -> Result<(), DBPFError> {
-        self.instance_id = InstanceId { id: instance };
+        self.instance_id.id = instance;
         Ok(())
     }
 }

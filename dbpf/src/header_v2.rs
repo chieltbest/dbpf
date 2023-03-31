@@ -99,7 +99,7 @@ pub struct IndexEntryV2 {
 
     pub file_location: u32,
     pub file_size: FileSize,
-    pub file_size_decompressed: u32,
+    pub decompressed_size: u32,
 
     #[brw(if(file_size.ext_compressed(), CompressionType::Uncompressed))]
     pub compression_type: CompressionType,
@@ -111,6 +111,7 @@ pub struct IndexEntryV2 {
     inner: args ! {
     count: file_size.size() as usize,
     compression_type,
+    decompressed_size,
     type_id
     }})]
     pub data: LazyFilePtr<Zero, FileData, FileDataBinReadArgs>,

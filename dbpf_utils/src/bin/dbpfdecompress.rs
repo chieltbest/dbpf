@@ -1,5 +1,3 @@
-#![feature(cstr_from_bytes_until_nul)]
-
 use std::env;
 use std::ffi::{CStr, OsStr};
 use std::io::{Cursor, Read, Seek};

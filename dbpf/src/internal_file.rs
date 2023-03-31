@@ -10,7 +10,7 @@ mod texture_resource;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 use binrw::{binread, BinRead, BinWrite, BinResult, binrw, NamedArgs};
-use refpack::format::{Reference, Simcity4, TheSims12};
+use refpack::format::{Reference, Simcity4, TheSims12, TheSims34};
 use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use crate::internal_file::property_set::PropertySet;
@@ -28,6 +28,7 @@ enum FileDataInternal {
 pub struct FileDataBinReadArgs {
     count: usize,
     pub compression_type: CompressionType,
+    decompressed_size: u32,
     type_id: DBPFFileType,
 }
 
@@ -35,9 +36,15 @@ pub struct FileDataBinReadArgs {
 #[br(import_raw(args: FileDataBinReadArgs))]
 #[derive(Clone, Debug)]
 pub struct FileData {
-    #[br(temp, postprocess_now, args {count: args.count, compression_type: args.compression_type})]
+    #[br(temp, postprocess_now,
+    args {
+    count: args.count,
+    compression_type: args.compression_type,
+    decompressed_size: args.decompressed_size
+    })]
     compressed: CompressedFileData,
     #[br(calc = args.type_id)]
+    #[bw(ignore)]
     type_id: DBPFFileType,
     #[br(calc = FileDataInternal::Compressed(compressed))]
     data: FileDataInternal,
@@ -101,12 +108,15 @@ impl FileData {
 }
 
 #[binrw]
-#[br(import { count: usize, compression_type: CompressionType })]
+#[br(import { count: usize, compression_type: CompressionType, decompressed_size: u32 })]
 #[derive(Clone, Debug, Default)]
 pub struct CompressedFileData {
     #[br(calc = compression_type)]
     #[bw(ignore)]
     pub compression_type: CompressionType,
+    #[br(calc = decompressed_size)]
+    #[bw(ignore)]
+    pub decompressed_size: u32,
     #[br(count = count)]
     pub data: Vec<u8>,
 }
@@ -115,32 +125,44 @@ impl CompressedFileData {
     fn compress(data: RawFileData, compression_type: CompressionType) -> CompressedFileData {
         CompressedFileData {
             compression_type,
+            decompressed_size: data.data.len() as u32,
             data: match compression_type {
                 CompressionType::Uncompressed => data.data,
+                CompressionType::RefPack => {
+                    refpack::easy_compress::<TheSims12>(&data.data).unwrap()
+                    // TODO add error handling
+                    // TODO add a config switch for compression type
+                }
+                CompressionType::ZLib => {
+                    miniz_oxide::deflate::compress_to_vec_zlib(&data.data, 10)
+                }
                 _ => todo!(),
             },
         }
     }
 
     fn decompress(self) -> RawFileData {
-        match self.compression_type {
-            CompressionType::Uncompressed => {
-                RawFileData { data: self.data }
-            }
-            CompressionType::RefPack => {
-                RawFileData {
-                    // try all formats by (hopefully) the order of occurrence
-                    data: refpack::easy_decompress::<TheSims12>(&self.data)
-                        .or_else(|_| refpack::easy_decompress::<Simcity4>(&self.data))
-                        .or_else(|_| refpack::easy_decompress::<Reference>(&self.data))
-                        .unwrap()
-                    // TODO add some actual error handling here
+        RawFileData {
+            data: match self.compression_type {
+                CompressionType::Uncompressed => self.data,
+                CompressionType::RefPack => {
+                        // try all formats in the order of how restrictive they are
+                        refpack::easy_decompress::<TheSims12>(&self.data)
+                            .or_else(|_| refpack::easy_decompress::<Simcity4>(&self.data))
+                            .or_else(|_| refpack::easy_decompress::<TheSims34>(&self.data))
+                            .or_else(|_| refpack::easy_decompress::<Reference>(&self.data))
+                            .unwrap()
+                        // TODO add some actual error handling here
                 }
-            }
-            _ => {
-                todo!()
-            }
+                CompressionType::ZLib => {
+                    miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(
+                        &self.data, self.decompressed_size as usize).unwrap()
+                    // TODO error handling, again
+                }
+                _ => todo!(),
+            },
         }
+
     }
 }
 

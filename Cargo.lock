@@ -707,8 +707,9 @@ name = "dbpf"
 version = "0.1.0"
 dependencies = [
  "binrw",
+ "miniz_oxide 0.7.1",
  "modular-bitfield",
- "refpack",
+ "refpack 3.0.1",
  "texpresso",
 ]
 
@@ -724,7 +725,7 @@ dependencies = [
  "futures",
  "humansize",
  "image",
- "refpack",
+ "refpack 2.0.0",
  "rfd",
  "serde",
  "serde_json",
@@ -1036,7 +1037,7 @@ dependencies = [
  "flume",
  "half",
  "lebe",
- "miniz_oxide",
+ "miniz_oxide 0.6.2",
  "smallvec",
  "threadpool",
  "zune-inflate",
@@ -1058,7 +1059,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8a2db397cb1c8772f31494cb8917e48cd1e64f0fa7efac59fbd741a0a8ce841"
 dependencies = [
  "crc32fast",
- "miniz_oxide",
+ "miniz_oxide 0.6.2",
 ]
 
 [[package]]
@@ -1692,6 +1693,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "miniz_oxide"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7810e0be55b428ada41041c41f32c9f1a42817901b4ccf45fa3d4b6561e74c7"
+dependencies = [
+ "adler",
+ "simd-adler32",
+]
+
+[[package]]
 name = "mio"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2098,7 +2109,7 @@ dependencies = [
  "bitflags",
  "crc32fast",
  "flate2",
- "miniz_oxide",
+ "miniz_oxide 0.6.2",
 ]
 
 [[package]]
@@ -2244,6 +2255,16 @@ name = "refpack"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3588f748dfcef4de1189729f5440db741cb8a4dc299456b95c89c9dec751591"
+dependencies = [
+ "byteorder",
+ "thiserror",
+]
+
+[[package]]
+name = "refpack"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "131aab487059b43b930f56768b9f4df4ef52615ecfe1d63caf98f9b83da0da9d"
 dependencies = [
  "byteorder",
  "thiserror",
