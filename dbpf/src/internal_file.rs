@@ -10,12 +10,31 @@ mod texture_resource;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 use binrw::{binread, BinRead, BinWrite, BinResult, binrw, NamedArgs};
+use miniz_oxide::inflate::DecompressError;
 use refpack::format::{Reference, Simcity4, TheSims12, TheSims34};
+use refpack::RefPackError;
+use thiserror::Error;
 use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use crate::internal_file::property_set::PropertySet;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
+
+#[derive(Error, Debug)]
+pub enum CompressionError {
+    #[error(transparent)]
+    RefPack(#[from] RefPackError),
+    #[error("{0}")]
+    ZLib(DecompressError),
+    #[error(transparent)]
+    BinResult(#[from] binrw::Error)
+}
+
+impl From<DecompressError> for CompressionError {
+    fn from(value: DecompressError) -> Self {
+        CompressionError::ZLib(value)
+    }
+}
 
 #[derive(Clone, Debug)]
 enum FileDataInternal {
@@ -51,28 +70,28 @@ pub struct FileData {
 }
 
 impl FileData {
-    pub fn compressed(&mut self, compression_type: CompressionType) -> &mut CompressedFileData {
+    pub fn compressed(&mut self, compression_type: CompressionType) -> Result<&mut CompressedFileData, CompressionError> {
         match &mut self.data {
             FileDataInternal::Compressed(data)
-            if data.compression_type == compression_type => {}
-            _ => {
-                let data = self.decompressed();
-                let compressed = CompressedFileData::compress(std::mem::take(data), compression_type);
+            if data.compression_type != compression_type => {
+                let data = self.decompressed()?;
+                let compressed = CompressedFileData::compress(std::mem::take(data), compression_type)?;
                 self.data = FileDataInternal::Compressed(compressed);
             }
+            _ => {}
         }
         match &mut self.data {
-            FileDataInternal::Compressed(data) => data,
+            FileDataInternal::Compressed(data) => Ok(data),
             _ => unreachable!(),
         }
     }
 
     /// Decompresses the data if it is not already, and then returns a reference to that data
     /// The decompressed data will be stored for future calls
-    pub fn decompressed(&mut self) -> &mut RawFileData {
+    pub fn decompressed(&mut self) -> Result<&mut RawFileData, CompressionError> {
         match self.data {
             FileDataInternal::Compressed(ref mut data) => {
-                self.data = FileDataInternal::Uncompressed(std::mem::take(data).decompress());
+                self.data = FileDataInternal::Uncompressed(std::mem::take(data).decompress()?);
             }
             FileDataInternal::Decoded(ref mut data) => {
                 self.data = FileDataInternal::Uncompressed(std::mem::take(data).to_bytes());
@@ -80,28 +99,27 @@ impl FileData {
             _ => {}
         }
         match self.data {
-            FileDataInternal::Uncompressed(ref mut data) => data,
+            FileDataInternal::Uncompressed(ref mut data) => Ok(data),
             _ => unreachable!(),
         }
     }
 
-    pub fn decoded(&mut self) -> Option<BinResult<&mut DecodedFile>> {
+    pub fn decoded(&mut self) -> Result<Option<&mut DecodedFile>, CompressionError> {
         match self.data {
             FileDataInternal::Decoded(_) => {}
             _ => {
                 let type_id = self.type_id;
-                let decompressed = self.decompressed();
+                let decompressed = self.decompressed()?;
                 match decompressed.decode(type_id) {
-                    Some(Ok(data)) => {
-                        self.data = FileDataInternal::Decoded(data);
+                    Some(data) => {
+                        self.data = FileDataInternal::Decoded(data?);
                     }
-                    Some(Err(err)) => return Some(Err(err)),
-                    None => return None,
+                    None => return Ok(None),
                 }
             }
         }
         match &mut self.data {
-            FileDataInternal::Decoded(decoded) => Some(Ok(decoded)),
+            FileDataInternal::Decoded(decoded) => Ok(Some(decoded)),
             _ => unreachable!(),
         }
     }
@@ -122,15 +140,14 @@ pub struct CompressedFileData {
 }
 
 impl CompressedFileData {
-    fn compress(data: RawFileData, compression_type: CompressionType) -> CompressedFileData {
-        CompressedFileData {
+    fn compress(data: RawFileData, compression_type: CompressionType) -> Result<CompressedFileData, CompressionError> {
+        Ok(CompressedFileData {
             compression_type,
             decompressed_size: data.data.len() as u32,
             data: match compression_type {
                 CompressionType::Uncompressed => data.data,
                 CompressionType::RefPack => {
-                    refpack::easy_compress::<TheSims12>(&data.data).unwrap()
-                    // TODO add error handling
+                    refpack::easy_compress::<TheSims12>(&data.data)?
                     // TODO add a config switch for compression type
                 }
                 CompressionType::ZLib => {
@@ -138,31 +155,27 @@ impl CompressedFileData {
                 }
                 _ => todo!(),
             },
-        }
+        })
     }
 
-    fn decompress(self) -> RawFileData {
-        RawFileData {
+    fn decompress(self) -> Result<RawFileData, CompressionError> {
+        Ok(RawFileData {
             data: match self.compression_type {
                 CompressionType::Uncompressed => self.data,
                 CompressionType::RefPack => {
-                        // try all formats in the order of how restrictive they are
-                        refpack::easy_decompress::<TheSims12>(&self.data)
-                            .or_else(|_| refpack::easy_decompress::<Simcity4>(&self.data))
-                            .or_else(|_| refpack::easy_decompress::<TheSims34>(&self.data))
-                            .or_else(|_| refpack::easy_decompress::<Reference>(&self.data))
-                            .unwrap()
-                        // TODO add some actual error handling here
+                    // try all formats in the order of how restrictive they are
+                    refpack::easy_decompress::<TheSims12>(&self.data)
+                        .or_else(|_| refpack::easy_decompress::<Simcity4>(&self.data))
+                        .or_else(|_| refpack::easy_decompress::<TheSims34>(&self.data))
+                        .or_else(|_| refpack::easy_decompress::<Reference>(&self.data))?
                 }
                 CompressionType::ZLib => {
                     miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(
-                        &self.data, self.decompressed_size as usize).unwrap()
-                    // TODO error handling, again
+                        &self.data, self.decompressed_size as usize)?
                 }
                 _ => todo!(),
             },
-        }
-
+        })
     }
 }
 
@@ -223,17 +236,17 @@ impl Debug for RawFileData {
 #[brw(little)]
 #[derive(Clone, Debug, Default)]
 pub enum DecodedFile {
-    #[br(pre_assert(matches!(type_id, KnownDBPFFileType::PropertySet)))]
+    #[br(pre_assert(matches ! (type_id, KnownDBPFFileType::PropertySet)))]
     PropertySet(PropertySet),
-    #[br(pre_assert(matches!(type_id, KnownDBPFFileType::SimOutfits)))]
+    #[br(pre_assert(matches ! (type_id, KnownDBPFFileType::SimOutfits)))]
     SimOutfits(SimOutfits),
-    #[br(pre_assert(matches!(type_id, KnownDBPFFileType::TextureResource)))]
+    #[br(pre_assert(matches ! (type_id, KnownDBPFFileType::TextureResource)))]
     ResourceCollection(ResourceCollection),
 
     /// used only for internal moves
     #[default]
     // match all the other types, because otherwise error passing would break
-    #[br(pre_assert(!matches!(type_id,
+    #[br(pre_assert(! matches ! (type_id,
     KnownDBPFFileType::PropertySet |
     KnownDBPFFileType::SimOutfits |
     KnownDBPFFileType::TextureResource)))]
@@ -244,6 +257,7 @@ impl DecodedFile {
     pub fn to_bytes(self) -> RawFileData {
         let mut data = Cursor::new(Vec::new());
         self.write(&mut data).unwrap();
+        // TODO write error handling?
         RawFileData { data: data.into_inner() }
     }
 }

@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 binrw = "0.11.1"
-refpack = "3.0.1"
+refpack = "3.0"
 modular-bitfield = "0.11.2"
+thiserror = "1.0"
 texpresso = "2.0.1"
 miniz_oxide = { version = "0.7.1", features = ["simd"] }

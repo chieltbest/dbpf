@@ -17,7 +17,7 @@ fn unpack_header<R: Read + Seek>(header: &mut impl Header, reader: &mut R, dir_p
                 let compression_type = entry.compression_type();
 
                 if let Ok(data) = entry.data(reader) {
-                    let raw = data.decompressed();
+                    let raw = data.decompressed().unwrap();
                     let file_basename = if let Some(str) = match type_id {
                         DBPFFileType::Known(t) => {
                             if t.properties().embedded_filename {

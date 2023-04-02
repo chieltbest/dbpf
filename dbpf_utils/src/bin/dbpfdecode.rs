@@ -14,11 +14,10 @@ fn read_all<R: Read + Seek>(header: &mut impl Header, reader: &mut R) {
                 match entry.data(reader) {
                     Err(err) => eprintln!("{err}"),
                     Ok(data) => {
-                        data.decompressed();
-                        /*match data.decoded() {
-                            Some(Err(err)) => eprintln!("{err:?}"),
+                        match data.decompressed() {
+                            Err(err) => eprintln!("{err}"),
                             _ => {}
-                        }*/
+                        }
                     }
                 }
             }

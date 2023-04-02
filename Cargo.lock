@@ -711,6 +711,7 @@ dependencies = [
  "modular-bitfield",
  "refpack 3.0.1",
  "texpresso",
+ "thiserror",
 ]
 
 [[package]]

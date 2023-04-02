@@ -160,7 +160,7 @@ impl Header for HeaderV1 {
                         if error.is_ok() => {
                             entry.compression = Some(CompressionType::Uncompressed);
                             let data_res = entry.data(reader).and_then(|data| {
-                                let data = &mut data.decompressed().data;
+                                let data = &mut data.decompressed().expect("Uncompressed data decompress is infallible").data;
                                 let res: DBPFDirectory = DBPFDirectory::read_args(
                                     &mut Cursor::new(data), args! {
                                         version: self.index_minor_version
