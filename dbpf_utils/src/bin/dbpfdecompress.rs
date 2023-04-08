@@ -2,11 +2,11 @@ use std::env;
 use std::ffi::{CStr, OsStr};
 use std::io::{Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
-use dbpf::{CompressionType, DBPFFile, Header, Index, IndexEntry};
+use dbpf::{CompressionType, DBPFFile, DBPFFile, Index, IndexEntry};
 use binrw::{BinRead, Error};
 use dbpf::filetypes::DBPFFileType;
 
-fn unpack_header<R: Read + Seek>(header: &mut impl Header, reader: &mut R, dir_path: &Path) {
+fn unpack_header<R: Read + Seek>(header: &mut impl DBPFFile, reader: &mut R, dir_path: &Path) {
     match header.index(reader) {
         Ok(index) => {
             let entries = index.entries();

@@ -47,7 +47,7 @@ enum FileDataInternal {
 pub struct FileDataBinReadArgs {
     count: usize,
     pub compression_type: CompressionType,
-    decompressed_size: u32,
+    pub decompressed_size: u32,
     type_id: DBPFFileType,
 }
 
@@ -73,12 +73,12 @@ impl FileData {
     pub fn compressed(&mut self, compression_type: CompressionType) -> Result<&mut CompressedFileData, CompressionError> {
         match &mut self.data {
             FileDataInternal::Compressed(data)
-            if data.compression_type != compression_type => {
+            if data.compression_type == compression_type => {}
+            _ => {
                 let data = self.decompressed()?;
                 let compressed = CompressedFileData::compress(std::mem::take(data), compression_type)?;
                 self.data = FileDataInternal::Compressed(compressed);
             }
-            _ => {}
         }
         match &mut self.data {
             FileDataInternal::Compressed(data) => Ok(data),
@@ -91,10 +91,10 @@ impl FileData {
     pub fn decompressed(&mut self) -> Result<&mut RawFileData, CompressionError> {
         match self.data {
             FileDataInternal::Compressed(ref mut data) => {
-                self.data = FileDataInternal::Uncompressed(std::mem::take(data).decompress()?);
+                self.data = FileDataInternal::Uncompressed(data.clone().decompress()?);
             }
             FileDataInternal::Decoded(ref mut data) => {
-                self.data = FileDataInternal::Uncompressed(std::mem::take(data).to_bytes());
+                self.data = FileDataInternal::Uncompressed(data.clone().to_bytes());
             }
             _ => {}
         }
@@ -127,7 +127,7 @@ impl FileData {
 
 #[binrw]
 #[br(import { count: usize, compression_type: CompressionType, decompressed_size: u32 })]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct CompressedFileData {
     #[br(calc = compression_type)]
     #[bw(ignore)]
@@ -176,6 +176,16 @@ impl CompressedFileData {
                 _ => todo!(),
             },
         })
+    }
+}
+
+impl Debug for CompressedFileData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompressedFileData")
+            .field("compression_type", &self.compression_type)
+            .field("decompressed_size", &self.decompressed_size)
+            .field("compressed_bytes", &self.data.len())
+            .finish()
     }
 }
 

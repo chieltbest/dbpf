@@ -2,11 +2,11 @@ use std::env;
 use std::ffi::OsStr;
 use std::io::{Cursor, Read, Seek};
 use std::os::unix::ffi::OsStrExt;
-use dbpf::{DBPFFile, Header, Index, IndexEntry};
+use dbpf::{DBPFFile, DBPFFile, Index, IndexEntry};
 use binrw::{BinRead, Error};
 use walkdir::WalkDir;
 
-fn read_all<R: Read + Seek>(header: &mut impl Header, reader: &mut R) {
+fn read_all<R: Read + Seek>(header: &mut impl DBPFFile, reader: &mut R) {
     match header.index(reader) {
         Ok(index) => {
             for (i, entry) in index.entries().into_iter().enumerate() {
@@ -54,7 +54,7 @@ fn main() -> Result<(), Error> {
                 Ok(DBPFFile::HeaderV2(ref mut header)) => read_all(header, &mut input),
                 _ => {}
             }
-            // println!("{:#X?}", file);
+            println!("{:#X?}", file);
         });
     }
     Ok(())

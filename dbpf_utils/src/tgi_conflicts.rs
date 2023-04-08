@@ -1,18 +1,17 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::{Debug, Display, Formatter};
-use std::io::{Read, Seek};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
-use binrw::{BinRead, Error};
+use binrw::BinResult;
 use binrw::io::BufReader;
 
 use futures::{stream, StreamExt};
 use walkdir::WalkDir;
 use tokio::fs::File;
 
-use dbpf::{DBPFFile, Header, Index, IndexEntry};
+use dbpf::DBPFFile;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::filetypes::DBPFFileType::Known;
 
@@ -36,12 +35,6 @@ impl Debug for TGI {
     }
 }
 
-#[derive(Debug)]
-enum GetTGIsError {
-    Header(Error),
-    Index(Error),
-}
-
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TGIConflict {
     pub original: PathBuf,
@@ -60,35 +53,22 @@ impl Display for TGIConflict {
 }
 
 #[instrument(skip_all, level = "trace")]
-fn get_tgis<R: Read + Seek>(header: &mut impl Header, reader: &mut R) -> Result<Vec<TGI>, GetTGIsError> {
-    let index = match header.index(reader) {
-        Err(err) => return Err(GetTGIsError::Index(err)),
-        Ok(index) => index,
-    };
-    let tgis = index.entries()
-        .iter()
+fn get_tgis(header: DBPFFile) -> Vec<TGI> {
+    header.index.iter()
         .map(|file| TGI {
-            type_id: file.get_type().clone(),
-            group_id: file.get_group(),
-            instance_id: file.get_instance(),
+            type_id: file.type_id,
+            group_id: file.group_id,
+            instance_id: file.instance_id,
         })
-        .collect();
-    Ok(tgis)
+        .collect()
 }
 
 #[instrument(level = "error")]
 async fn get_path_tgis(path: PathBuf) -> (PathBuf, Option<Vec<TGI>>) {
     let data = File::open(&path).await.unwrap().into_std().await;
     let mut data = BufReader::new(data);
-    let result = tokio::task::spawn_blocking(move || {
-        DBPFFile::read(&mut data)
-            .map_err(|err| GetTGIsError::Header(err))
-            .and_then(|mut result| {
-                match result {
-                    DBPFFile::HeaderV1(ref mut header) => get_tgis(header, &mut data),
-                    DBPFFile::HeaderV2(ref mut header) => get_tgis(header, &mut data),
-                }
-            })
+    let result = tokio::task::spawn_blocking(move || -> BinResult<Vec<TGI>> {
+        Ok(get_tgis(DBPFFile::read(&mut data)?))
     }).await.unwrap();
     match result {
         Ok(tgis) => {

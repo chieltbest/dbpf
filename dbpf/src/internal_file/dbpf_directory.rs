@@ -1,6 +1,7 @@
 use binrw::{binrw, until_eof};
 use crate::filetypes::DBPFFileType;
-use crate::header_v1::{InstanceId, IndexMinorVersion};
+use crate::header_v1::InstanceId;
+use crate::IndexMinorVersion;
 
 #[binrw]
 #[brw(import{version: IndexMinorVersion})]

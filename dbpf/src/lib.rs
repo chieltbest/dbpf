@@ -4,25 +4,12 @@ pub mod header_v1;
 pub mod header_v2;
 pub mod internal_file;
 pub mod common;
+mod dbpf_file;
 
-use std::io::{Read, Seek};
 use std::num::TryFromIntError;
-use binrw::{BinResult, binrw};
-use crate::filetypes::DBPFFileType;
-use crate::internal_file::FileData;
+use binrw::binrw;
 
-use binrw::{binread};
-use crate::header_v1::HeaderV1;
-use crate::header_v2::HeaderV2;
-
-#[binread]
-#[brw(magic = b"DBPF", little)]
-#[bw(pad_size_to = header_common::HEADER_SIZE)]
-#[derive(Clone, Debug)]
-pub enum DBPFFile {
-    HeaderV1(HeaderV1),
-    HeaderV2(HeaderV2),
-}
+pub use dbpf_file::{DBPFFile, IndexEntry, HoleIndexEntry};
 
 pub const HEADER_SIZE: u32 = 0x60;
 
@@ -33,6 +20,12 @@ pub enum Version {
     V1(V1Minor),
     #[brw(magic = 2u32)]
     V2(V2Minor),
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Self::V2(V2Minor::M1)
+    }
 }
 
 #[binrw]
@@ -53,15 +46,34 @@ pub enum V2Minor {
 }
 
 #[binrw]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct UserVersion {
     major: u32,
     minor: u32,
 }
 
 #[binrw]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Timestamp(u32);
+
+#[binrw]
+#[brw(repr = u32)]
+#[derive(Copy, Clone, Debug, Default)]
+pub enum IndexVersion {
+    #[default]
+    Default = 7,
+    Spore = 0,
+}
+
+#[binrw]
+#[brw(repr = u32)]
+#[derive(Copy, Clone, Debug, Default)]
+pub enum IndexMinorVersion {
+    V0 = 0,
+    V1 = 1,
+    #[default]
+    V2 = 2,
+}
 
 #[binrw]
 #[brw(repr = u16)]
@@ -83,37 +95,4 @@ pub enum DBPFError {
 
     BadInt(TryFromIntError),
     BadFormat(binrw::Error),
-}
-
-pub trait Header {
-    type Index: Index;
-
-    fn version(&mut self) -> &mut Version;
-    fn user_version(&mut self) -> &mut UserVersion;
-    fn flags(&mut self) -> &mut u32;
-    fn created(&mut self) -> &mut Timestamp;
-    fn modified(&mut self) -> &mut Timestamp;
-
-    fn index<R: Read + Seek>(&mut self, reader: &mut R) -> BinResult<&mut Self::Index>;
-}
-
-pub trait Index {
-    type IndexEntry: IndexEntry;
-
-    fn entries(&mut self) -> Vec<&mut Self::IndexEntry>;
-}
-
-pub trait IndexEntry {
-    fn data<R: Read + Seek>(&mut self, reader: &mut R) -> BinResult<&mut FileData>;
-
-    fn compression_type(&self) -> CompressionType;
-
-    fn get_type(&self) -> &DBPFFileType;
-    fn set_type(&mut self, file_type: DBPFFileType) -> Result<(), DBPFError>;
-
-    fn get_group(&self) -> u32;
-    fn set_group(&mut self, group: u32) -> Result<(), DBPFError>;
-
-    fn get_instance(&self) -> u64;
-    fn set_instance(&mut self, instance: u64) -> Result<(), DBPFError>;
 }
