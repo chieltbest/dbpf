@@ -2,6 +2,8 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::fmt::{Debug, Formatter};
 use std::io::{Read, Seek, Write};
+use std::str::Utf8Error;
+use std::string::FromUtf8Error;
 use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, Endian};
 
 #[binrw]
@@ -17,6 +19,28 @@ pub struct String {
 impl Debug for String {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"{}\"", std::string::String::from_utf8_lossy(&self.data))
+    }
+}
+
+impl From<std::string::String> for String {
+    fn from(value: std::string::String) -> Self {
+        Self {
+            data: value.into_bytes()
+        }
+    }
+}
+
+impl String {
+    pub fn as_str_mut(&mut self) -> Result<&mut str, Utf8Error> {
+        std::str::from_utf8_mut(self.data.as_mut_slice())
+    }
+
+    pub fn as_str(&mut self) -> Result<&str, Utf8Error> {
+        std::str::from_utf8(self.data.as_slice())
+    }
+
+    pub fn into_string(self) -> Result<std::string::String, FromUtf8Error> {
+        std::string::String::from_utf8(self.data)
     }
 }
 

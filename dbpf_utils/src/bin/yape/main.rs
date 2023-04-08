@@ -2,7 +2,7 @@ use std::error::Error;
 use binrw::BinResult;
 use std::io::Cursor;
 use eframe::{App, egui, Frame, IconData, NativeOptions, Storage};
-use eframe::egui::{Color32, Context, DragValue, Id, Rect, Response, ScrollArea, Sense, Style, Ui, Visuals};
+use eframe::egui::{Align, Color32, Context, DragValue, Id, Layout, Rect, Response, ScrollArea, Sense, Style, Ui, Visuals};
 use egui_extras::Column;
 use egui_memory_editor::MemoryEditor;
 use egui_memory_editor::option_data::MemoryEditorOptions;
@@ -11,7 +11,15 @@ use tracing_subscriber::layer::SubscriberExt;
 use dbpf::{CompressionType, DBPFFile};
 use dbpf::internal_file::CompressionError;
 
+use editor::Editor;
+use crate::editor::editor_supported;
+
 mod editor;
+
+enum EditorType {
+    HexEditor(MemoryEditor),
+    DecodedEditor,
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
@@ -23,7 +31,7 @@ struct YaPeApp {
     #[serde(skip)]
     open_file: Option<(Cursor<Vec<u8>>, BinResult<DBPFFile>)>,
     #[serde(skip)]
-    open_entry: Option<Result<(MemoryEditor, usize), CompressionError>>,
+    open_entry: Option<Result<(EditorType, usize), CompressionError>>,
 }
 
 impl Default for YaPeApp {
@@ -73,19 +81,35 @@ impl YaPeApp {
 
     fn open_index(&mut self, index: usize) {
         if let Some((cur, Ok(file))) = &mut self.open_file {
-            self.open_entry = Some(file.index[index]
-                .data(cur)
-                .map_err(|err| CompressionError::BinResult(err))
-                .and_then(|d| d.decompressed())
-                .map(|raw| {
-                    (MemoryEditor::new()
-                         .with_address_range("", 0..raw.data.len()),
-                     index)
-                }));
+            let file_type = file.index[index].type_id;
+            let res = file.index[index].data(cur)
+                .map_err(|err| CompressionError::BinResult(err));
+
+            match res.and_then(|entry| {
+                if editor_supported(file_type) {
+                    entry.decoded()?;
+                    Ok(Some(Ok((EditorType::DecodedEditor, index))))
+                } else {
+                    let decompressed = entry.decompressed()?;
+                    Ok(Some(Ok((
+                        EditorType::HexEditor(
+                            MemoryEditor::new().with_address_range(
+                                "",
+                                0..decompressed.data.len())),
+                        index))))
+                }
+            }) {
+                Err(err) => {
+                    self.open_entry = Some(Err(err))
+                }
+                Ok(open) => {
+                    self.open_entry = open;
+                }
+            }
         }
     }
 
-    fn show_table(&mut self, ui: &mut Ui) {
+    fn show_index(&mut self, ui: &mut Ui) {
         let mut open_index = None;
 
         match &mut self.open_file {
@@ -172,6 +196,49 @@ impl YaPeApp {
             self.open_index(i);
         }
     }
+
+    fn show_editor(&mut self, ui: &mut Ui) {
+        if let Some((reader, Ok(file))) = &mut self.open_file {
+            match &mut self.open_entry {
+                None => {}
+                Some(Err(err)) => {
+                    ui.colored_label(Color32::RED, format!("{err:?}"));
+                }
+                Some(Ok((editor, i))) => {
+                    match editor {
+                        EditorType::HexEditor(editor) => {
+                            let data = file.index[*i].data(reader).unwrap().decompressed().unwrap();
+                            if let Ok(mut str) = String::from_utf8(data.data.clone()) {
+                                ui.centered_and_justified(|ui|
+                                    ScrollArea::vertical().show(ui, |ui| {
+                                        if ui.code_editor(&mut str).changed() {
+                                            data.data = str.into_bytes();
+                                        }
+                                    })
+                                );
+                            } else {
+                                // this method of persisting config is ugly but robust
+                                editor.options = self.memory_editor_options.clone();
+                                // the editor can change some internal config data
+                                editor.draw_editor_contents(
+                                    ui,
+                                    data,
+                                    |mem, addr| Some(mem.data[addr]),
+                                    |mem, addr, byte| mem.data[addr] = byte,
+                                );
+                                // then copy it back to the main config
+                                self.memory_editor_options = editor.options.clone();
+                            }
+                        }
+                        EditorType::DecodedEditor => {
+                            let decoded = file.index[*i].data(reader).unwrap().decoded().unwrap().unwrap();
+                            decoded.show_editor(ui);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl App for YaPeApp {
@@ -213,42 +280,11 @@ impl App for YaPeApp {
             .resizable(true)
             .max_width(ctx.available_rect().width() - 500.0)
             .show(ctx, |ui| {
-                if let Some((reader, Ok(file))) = &mut self.open_file {
-                    match &mut self.open_entry {
-                        None => {}
-                        Some(Err(err)) => {
-                            ui.colored_label(Color32::RED, err.to_string());
-                        }
-                        Some(Ok((editor, i))) => {
-                            let data = file.index[*i].data(reader).unwrap().decompressed().unwrap();
-                            if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-                                ui.centered_and_justified(|ui|
-                                    ScrollArea::vertical().show(ui, |ui| {
-                                        if ui.code_editor(&mut str).changed() {
-                                            data.data = str.into_bytes();
-                                        }
-                                    })
-                                );
-                            } else {
-                                // this method of persisting config is ugly but robust
-                                editor.options = self.memory_editor_options.clone();
-                                // the editor can change some internal config data
-                                editor.draw_editor_contents(
-                                    ui,
-                                    data,
-                                    |mem, addr| Some(mem.data[addr]),
-                                    |mem, addr, byte| mem.data[addr] = byte,
-                                );
-                                // then copy it back to the main config
-                                self.memory_editor_options = editor.options.clone();
-                            }
-                        }
-                    }
-                }
+                self.show_editor(ui);
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.show_table(ui);
+            self.show_index(ui);
         });
     }
 

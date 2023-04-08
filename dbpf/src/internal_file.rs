@@ -245,6 +245,7 @@ impl Debug for RawFileData {
 #[br(import {type_id: KnownDBPFFileType})]
 #[brw(little)]
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub enum DecodedFile {
     #[br(pre_assert(matches ! (type_id, KnownDBPFFileType::PropertySet)))]
     PropertySet(PropertySet),

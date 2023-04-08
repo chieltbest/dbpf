@@ -55,10 +55,10 @@ pub struct Item {
 #[brw(magic = 0xCBE750E0u32)]
 #[derive(Clone, Debug)]
 pub struct CPF {
-    version: u16,
+    pub version: u16,
     #[br(temp)]
     #[bw(calc = entries.len() as u32)]
     count: u32,
     #[br(count = count)]
-    entries: Vec<Item>,
+    pub entries: Vec<Item>,
 }
