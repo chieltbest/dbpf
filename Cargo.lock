@@ -722,6 +722,7 @@ dependencies = [
  "dbpf",
  "eframe",
  "egui_extras",
+ "egui_memory_editor",
  "embed-resource",
  "futures",
  "humansize",
@@ -932,6 +933,16 @@ dependencies = [
  "tracing",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "egui_memory_editor"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68e6a942c8c8fbedceca3c22c554d786e5971a83181ba9085ed2efd7f68018f9"
+dependencies = [
+ "egui",
+ "serde",
 ]
 
 [[package]]
