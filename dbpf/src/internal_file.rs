@@ -4,8 +4,8 @@ pub mod xml;
 pub mod dbpf_directory;
 pub mod property_set;
 pub mod sim_outfits;
-mod resource_collection;
-mod texture_resource;
+pub mod resource_collection;
+pub mod texture_resource;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;

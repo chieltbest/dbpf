@@ -42,13 +42,13 @@ pub enum ResourceBlockVersion {
 
 #[binrw]
 #[brw(import {version: bool})]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FileLink {
     pub group_id: u32,
     pub instance_id: u32,
     #[br(if(version))]
     pub resource_id: u32,
-    pub type_id: u32,
+    pub type_id: DBPFFileType,
 }
 
 #[binrw]

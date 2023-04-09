@@ -2,7 +2,6 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::fmt::{Debug, Formatter};
 use std::io::{Read, Seek, Write};
-use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, Endian};
 
@@ -30,17 +29,11 @@ impl From<std::string::String> for String {
     }
 }
 
-impl String {
-    pub fn as_str_mut(&mut self) -> Result<&mut str, Utf8Error> {
-        std::str::from_utf8_mut(self.data.as_mut_slice())
-    }
+impl TryFrom<String> for std::string::String {
+    type Error = FromUtf8Error;
 
-    pub fn as_str(&mut self) -> Result<&str, Utf8Error> {
-        std::str::from_utf8(self.data.as_slice())
-    }
-
-    pub fn into_string(self) -> Result<std::string::String, FromUtf8Error> {
-        std::string::String::from_utf8(self.data)
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        std::string::String::from_utf8(value.data)
     }
 }
 
@@ -95,5 +88,21 @@ impl Debug for BigString {
         f.debug_struct("BigString")
             .field("data", &OsString::from_vec(self.data.clone()))
             .finish()
+    }
+}
+
+impl From<std::string::String> for BigString {
+    fn from(value: std::string::String) -> Self {
+        Self {
+            data: value.into_bytes()
+        }
+    }
+}
+
+impl TryFrom<BigString> for std::string::String {
+    type Error = FromUtf8Error;
+
+    fn try_from(value: BigString) -> Result<Self, Self::Error> {
+        std::string::String::from_utf8(value.data)
     }
 }

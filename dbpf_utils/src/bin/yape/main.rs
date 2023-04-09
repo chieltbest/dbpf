@@ -2,7 +2,7 @@ use std::error::Error;
 use binrw::BinResult;
 use std::io::Cursor;
 use eframe::{App, egui, Frame, IconData, NativeOptions, Storage};
-use eframe::egui::{Align, Color32, Context, DragValue, Id, Layout, Rect, Response, ScrollArea, Sense, Style, Ui, Visuals};
+use eframe::egui::{Color32, Context, DragValue, Id, Rect, Response, ScrollArea, Sense, Style, Ui, Visuals};
 use egui_extras::Column;
 use egui_memory_editor::MemoryEditor;
 use egui_memory_editor::option_data::MemoryEditorOptions;
@@ -12,13 +12,13 @@ use dbpf::{CompressionType, DBPFFile};
 use dbpf::internal_file::CompressionError;
 
 use editor::Editor;
-use crate::editor::editor_supported;
+use crate::editor::{DecodedFileEditorState, editor_supported};
 
 mod editor;
 
 enum EditorType {
     HexEditor(MemoryEditor),
-    DecodedEditor,
+    DecodedEditor(DecodedFileEditorState),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -87,8 +87,8 @@ impl YaPeApp {
 
             match res.and_then(|entry| {
                 if editor_supported(file_type) {
-                    entry.decoded()?;
-                    Ok(Some(Ok((EditorType::DecodedEditor, index))))
+                    let decoded = entry.decoded()?;
+                    Ok(Some(Ok((EditorType::DecodedEditor(decoded.unwrap().new_editor()), index))))
                 } else {
                     let decompressed = entry.decompressed()?;
                     Ok(Some(Ok((
@@ -197,46 +197,53 @@ impl YaPeApp {
         }
     }
 
-    fn show_editor(&mut self, ui: &mut Ui) {
+    fn show_editor(&mut self, ui: &mut Ui) -> Response {
         if let Some((reader, Ok(file))) = &mut self.open_file {
             match &mut self.open_entry {
-                None => {}
+                None => {
+                    ui.separator()
+                }
                 Some(Err(err)) => {
                     ui.colored_label(Color32::RED, format!("{err:?}"));
+                    ui.separator()
                 }
                 Some(Ok((editor, i))) => {
-                    match editor {
-                        EditorType::HexEditor(editor) => {
-                            let data = file.index[*i].data(reader).unwrap().decompressed().unwrap();
-                            if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-                                ui.centered_and_justified(|ui|
-                                    ScrollArea::vertical().show(ui, |ui| {
-                                        if ui.code_editor(&mut str).changed() {
-                                            data.data = str.into_bytes();
-                                        }
-                                    })
-                                );
-                            } else {
-                                // this method of persisting config is ugly but robust
-                                editor.options = self.memory_editor_options.clone();
-                                // the editor can change some internal config data
-                                editor.draw_editor_contents(
-                                    ui,
-                                    data,
-                                    |mem, addr| Some(mem.data[addr]),
-                                    |mem, addr, byte| mem.data[addr] = byte,
-                                );
-                                // then copy it back to the main config
-                                self.memory_editor_options = editor.options.clone();
+                    ui.vertical(|ui| {
+                        match editor {
+                            EditorType::HexEditor(editor) => {
+                                let data = file.index[*i].data(reader).unwrap().decompressed().unwrap();
+                                if let Ok(mut str) = String::from_utf8(data.data.clone()) {
+                                    ui.centered_and_justified(|ui|
+                                        ScrollArea::vertical().show(ui, |ui| {
+                                            if ui.code_editor(&mut str).changed() {
+                                                data.data = str.into_bytes();
+                                            }
+                                        })
+                                    );
+                                } else {
+                                    // this method of persisting config is ugly but robust
+                                    editor.options = self.memory_editor_options.clone();
+                                    // the editor can change some internal config data
+                                    editor.draw_editor_contents(
+                                        ui,
+                                        data,
+                                        |mem, addr| Some(mem.data[addr]),
+                                        |mem, addr, byte| mem.data[addr] = byte,
+                                    );
+                                    // then copy it back to the main config
+                                    self.memory_editor_options = editor.options.clone();
+                                }
+                            }
+                            EditorType::DecodedEditor(state) => {
+                                let decoded = file.index[*i].data(reader).unwrap().decoded().unwrap().unwrap();
+                                decoded.show_editor(state, ui);
                             }
                         }
-                        EditorType::DecodedEditor => {
-                            let decoded = file.index[*i].data(reader).unwrap().decoded().unwrap().unwrap();
-                            decoded.show_editor(ui);
-                        }
-                    }
+                    }).response
                 }
             }
+        } else {
+            ui.separator()
         }
     }
 }
@@ -280,7 +287,7 @@ impl App for YaPeApp {
             .resizable(true)
             .max_width(ctx.available_rect().width() - 500.0)
             .show(ctx, |ui| {
-                self.show_editor(ui);
+                self.show_editor(ui)
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {

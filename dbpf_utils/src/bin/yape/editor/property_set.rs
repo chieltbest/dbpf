@@ -6,7 +6,11 @@ use dbpf::internal_file::property_set::PropertySet;
 use crate::editor::{Editor, string_editor};
 
 impl Editor for PropertySet {
-    fn show_editor(&mut self, ui: &mut Ui) {
+    type EditorState = ();
+
+    fn new_editor(&self) -> Self::EditorState {}
+
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) {
         fn typed_drag_value(value: &mut Data, ui: &mut Ui) {
             match value {
                 Data::UInt(n) => ui.add(DragValue::new(n)),
