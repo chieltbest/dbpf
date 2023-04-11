@@ -5,7 +5,6 @@ pub mod dbpf_directory;
 pub mod property_set;
 pub mod sim_outfits;
 pub mod resource_collection;
-pub mod texture_resource;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
@@ -27,7 +26,7 @@ pub enum CompressionError {
     #[error("{0}")]
     ZLib(DecompressError),
     #[error(transparent)]
-    BinResult(#[from] binrw::Error)
+    BinResult(#[from] binrw::Error),
 }
 
 impl From<DecompressError> for CompressionError {
@@ -94,7 +93,7 @@ impl FileData {
                 self.data = FileDataInternal::Uncompressed(data.clone().decompress()?);
             }
             FileDataInternal::Decoded(ref mut data) => {
-                self.data = FileDataInternal::Uncompressed(data.clone().to_bytes());
+                self.data = FileDataInternal::Uncompressed(data.clone().to_bytes()?);
             }
             _ => {}
         }
@@ -196,17 +195,7 @@ pub struct RawFileData {
 
 impl RawFileData {
     pub fn decode(&self, file_type: DBPFFileType) -> Option<BinResult<DecodedFile>> {
-        match file_type {
-            DBPFFileType::Known(known) => {
-                let mut cursor = Cursor::new(&self.data);
-                match DecodedFile::read_args(&mut cursor, DecodedFileBinReadArgs { type_id: known }) {
-                    // only if there are no variant matches on the top level, otherwise it's a backtrace
-                    Ok(DecodedFile::Unknown) => { None }
-                    decoded => Some(decoded),
-                }
-            }
-            _ => None
-        }
+        DecodedFile::decode_bytes(&self.data, file_type)
     }
 }
 
@@ -241,34 +230,39 @@ impl Debug for RawFileData {
     }
 }
 
-#[binrw]
-#[br(import {type_id: KnownDBPFFileType})]
-#[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum DecodedFile {
-    #[br(pre_assert(matches ! (type_id, KnownDBPFFileType::PropertySet)))]
     PropertySet(PropertySet),
-    #[br(pre_assert(matches ! (type_id, KnownDBPFFileType::SimOutfits)))]
     SimOutfits(SimOutfits),
-    #[br(pre_assert(matches ! (type_id, KnownDBPFFileType::TextureResource)))]
-    ResourceCollection(ResourceCollection),
-
-    /// used only for internal moves
-    #[default]
-    // match all the other types, because otherwise error passing would break
-    #[br(pre_assert(! matches ! (type_id,
-    KnownDBPFFileType::PropertySet |
-    KnownDBPFFileType::SimOutfits |
-    KnownDBPFFileType::TextureResource)))]
-    Unknown,
+    TextureResource(ResourceCollection),
 }
 
 impl DecodedFile {
-    pub fn to_bytes(self) -> RawFileData {
+    pub fn decode_bytes(data: &[u8], file_type: DBPFFileType) -> Option<BinResult<Self>> {
+        let mut cursor = Cursor::new(data);
+        match file_type {
+            DBPFFileType::Known(KnownDBPFFileType::PropertySet) => {
+                Some(PropertySet::read(&mut cursor).map(|r| DecodedFile::PropertySet(r)))
+            }
+            DBPFFileType::Known(KnownDBPFFileType::SimOutfits) => {
+                Some(SimOutfits::read(&mut cursor).map(|r| DecodedFile::SimOutfits(r)))
+            }
+            DBPFFileType::Known(KnownDBPFFileType::TextureResource) => {
+                Some(ResourceCollection::read(&mut cursor).map(|r| DecodedFile::TextureResource(r)))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn to_bytes(self) -> BinResult<RawFileData> {
         let mut data = Cursor::new(Vec::new());
-        self.write(&mut data).unwrap();
+        match self {
+            DecodedFile::PropertySet(x) => x.write(&mut data)?,
+            DecodedFile::SimOutfits(x) => x.write(&mut data)?,
+            DecodedFile::TextureResource(x) => x.write(&mut data)?,
+        }
         // TODO write error handling?
-        RawFileData { data: data.into_inner() }
+        Ok(RawFileData { data: data.into_inner() })
     }
 }

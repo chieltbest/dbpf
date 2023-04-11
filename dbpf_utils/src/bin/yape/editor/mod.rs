@@ -1,4 +1,4 @@
-use eframe::egui::{Response, Ui};
+use eframe::egui::{Response, TextEdit, Ui};
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::DecodedFile;
 use crate::editor::resource_collection::ResourceCollectionEditorState;
@@ -25,7 +25,7 @@ impl Editor for DecodedFile {
 
     fn new_editor(&self) -> Self::EditorState {
         match self {
-            DecodedFile::ResourceCollection(rcol) => {
+            DecodedFile::TextureResource(rcol) => {
                 DecodedFileEditorState::ResourceCollection(rcol.new_editor())
             }
             _ => DecodedFileEditorState::None,
@@ -35,7 +35,7 @@ impl Editor for DecodedFile {
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) {
         match self {
             DecodedFile::PropertySet(prop) => prop.show_editor(&mut (), ui),
-            DecodedFile::ResourceCollection(rcol) => {
+            DecodedFile::TextureResource(rcol) => {
                 if let DecodedFileEditorState::ResourceCollection(rcol_state) = state {
                     rcol.show_editor(rcol_state, ui);
                 }
@@ -57,7 +57,8 @@ fn string_editor<T: TryInto<String> + From<String> + Clone>(string: &mut T, ui: 
     let string_res = string.clone().try_into();
     match string_res {
         Ok(mut str) => {
-            let res = ui.text_edit_singleline(&mut str);
+            let text_edit = TextEdit::singleline(&mut str).desired_width(f32::INFINITY);
+            let res = text_edit.show(ui).response;
             if res.changed() {
                 *string = str.into();
             }

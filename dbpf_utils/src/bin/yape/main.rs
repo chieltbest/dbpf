@@ -204,7 +204,9 @@ impl YaPeApp {
                     ui.separator()
                 }
                 Some(Err(err)) => {
-                    ui.colored_label(Color32::RED, format!("{err:?}"));
+                    ScrollArea::vertical().show(ui, |ui| {
+                        ui.label(format!("{err:?}"));
+                    });
                     ui.separator()
                 }
                 Some(Ok((editor, i))) => {

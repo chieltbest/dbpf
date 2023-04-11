@@ -1,6 +1,6 @@
 use eframe::egui::{DragValue, ScrollArea, Ui};
 use dbpf::internal_file::resource_collection::{ResourceCollection, ResourceData};
-use crate::editor::{Editor, string_editor};
+use crate::editor::Editor;
 use crate::editor::texture_resource::TextureResourceEditorState;
 
 pub enum ResourceEditorState {
@@ -29,8 +29,7 @@ impl Editor for ResourceCollection {
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) {
         ScrollArea::vertical().show(ui, |ui| {
-            let mut resource_version = self.version.is_some();
-            ui.checkbox(&mut resource_version, "Has resource id");
+            ui.checkbox(&mut self.version, "Has resource id");
 
             ui.separator();
 
@@ -49,8 +48,6 @@ impl Editor for ResourceCollection {
                 ui.label(entry.type_id.properties()
                     .map(|prop| prop.name.to_string())
                     .unwrap_or_else(|| format!("{:08X}", entry.type_id.code())));
-
-                string_editor(&mut entry.name, ui);
 
                 match &mut entry.data {
                     ResourceData::Texture(texture) => {
