@@ -46,19 +46,19 @@ pub enum V2Minor {
 }
 
 #[binrw]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub struct UserVersion {
     major: u32,
     minor: u32,
 }
 
 #[binrw]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Default)]
 pub struct Timestamp(u32);
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum IndexVersion {
     #[default]
     Default = 7,
@@ -67,7 +67,7 @@ pub enum IndexVersion {
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum IndexMinorVersion {
     V0 = 0,
     V1 = 1,

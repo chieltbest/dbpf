@@ -5,7 +5,7 @@ use crate::header_v1::InstanceId;
 
 #[binrw]
 #[brw(import {version: IndexMinorVersion})]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Entry {
     pub type_id: DBPFFileType,
     pub group_id: u32,

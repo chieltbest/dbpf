@@ -294,6 +294,12 @@ pub enum DBPFFileType {
     Unknown(u32),
 }
 
+impl Default for DBPFFileType {
+    fn default() -> Self {
+        Self::Unknown(0)
+    }
+}
+
 enum EmbeddedFilename {
     Embedded,
     No,
@@ -485,6 +491,24 @@ impl DBPFFileType {
                 t.properties().extension
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| format!("{t:?}"))
+            }
+            Self::Unknown(u) => format!("{u:08X}"),
+        }
+    }
+
+    pub fn abbreviation(&self) -> String {
+        match self {
+            Self::Known(t) => {
+                t.properties().abbreviation.to_string()
+            }
+            Self::Unknown(u) => format!("{u:08X}"),
+        }
+    }
+
+    pub fn full_name(&self) -> String {
+        match self {
+            Self::Known(t) => {
+                t.properties().name.to_string()
             }
             Self::Unknown(u) => format!("{u:08X}"),
         }

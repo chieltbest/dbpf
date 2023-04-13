@@ -1,5 +1,5 @@
 use binrw::binrw;
-use crate::internal_file::cpf::CPF;
+use crate::internal_file::common::cpf::CPF;
 // use crate::internal_file::xml::XML;
 
 #[binrw]

@@ -1,7 +1,7 @@
 use eframe::egui::{DragValue, Ui};
 use egui_extras::Column;
 use dbpf::common;
-use dbpf::internal_file::cpf::Data;
+use dbpf::internal_file::common::cpf::Data;
 use dbpf::internal_file::property_set::PropertySet;
 use crate::editor::{Editor, string_editor};
 

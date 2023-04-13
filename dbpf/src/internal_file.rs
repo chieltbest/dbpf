@@ -1,10 +1,10 @@
-pub mod cpf;
-pub mod xml;
+pub mod common;
 
 pub mod dbpf_directory;
 pub mod property_set;
 pub mod sim_outfits;
 pub mod resource_collection;
+pub mod behaviour_function;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
