@@ -3,11 +3,12 @@ use dbpf::internal_file::resource_collection::{ResourceCollection, ResourceData}
 use crate::editor::Editor;
 use crate::editor::texture_resource::TextureResourceEditorState;
 
+#[derive(Debug)]
 pub enum ResourceEditorState {
     TextureResource(TextureResourceEditorState),
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ResourceCollectionEditorState {
     pub resource_editor_states: Vec<ResourceEditorState>,
 }

@@ -2,11 +2,13 @@ use eframe::egui::{Grid, Response, TextEdit, Ui};
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::DecodedFile;
 use crate::editor::resource_collection::ResourceCollectionEditorState;
+use crate::editor::sim_outfits::SimOutfitsEditorState;
 
 mod property_set;
 mod resource_collection;
 mod sim_outfits;
 mod texture_resource;
+mod file_type;
 
 pub trait Editor {
     type EditorState;
@@ -16,8 +18,11 @@ pub trait Editor {
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui);
 }
 
+#[derive(Debug, Default)]
 pub enum DecodedFileEditorState {
     ResourceCollection(ResourceCollectionEditorState),
+    SimOutfits(SimOutfitsEditorState),
+    #[default]
     None,
 }
 
@@ -26,6 +31,9 @@ impl Editor for DecodedFile {
 
     fn new_editor(&self) -> Self::EditorState {
         match self {
+            DecodedFile::SimOutfits(skin) => {
+                DecodedFileEditorState::SimOutfits(skin.new_editor())
+            }
             DecodedFile::TextureResource(rcol) => {
                 DecodedFileEditorState::ResourceCollection(rcol.new_editor())
             }
@@ -36,7 +44,11 @@ impl Editor for DecodedFile {
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) {
         match self {
             DecodedFile::PropertySet(gzps) => gzps.show_editor(&mut (), ui),
-            DecodedFile::SimOutfits(skin) => skin.show_editor(&mut (), ui),
+            DecodedFile::SimOutfits(skin) => {
+                if let DecodedFileEditorState::SimOutfits(skin_state) = state {
+                    skin.show_editor(skin_state, ui)
+                }
+            }
             DecodedFile::TextureResource(rcol) => {
                 if let DecodedFileEditorState::ResourceCollection(rcol_state) = state {
                     rcol.show_editor(rcol_state, ui);
@@ -77,39 +89,58 @@ fn string_editor<T: TryInto<String> + From<String> + Clone>(string: &mut T, ui: 
     }
 }
 
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub struct VecEditorState<T: Editor> {
+    columns: usize,
+    elem_states: Vec<T::EditorState>,
+}
+
+impl<T: Editor> Default for VecEditorState<T> {
+    fn default() -> Self {
+        Self {
+            columns: 1,
+            elem_states: vec![],
+        }
+    }
+}
+
 impl<T: Editor + Default> Editor for Vec<T> {
-    /// number of columns and vec of T editor states
-    type EditorState = (usize, Vec<T::EditorState>);
+    type EditorState = VecEditorState<T>;
 
     fn new_editor(&self) -> Self::EditorState {
-        (2, self.iter().map(|elem| elem.new_editor()).collect())
+        Self::EditorState {
+            columns: 1,
+            elem_states: self.iter().map(|elem| elem.new_editor()).collect(),
+        }
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) {
         Grid::new("generic vector editor")
             .min_col_width(0.0)
             .striped(true)
-            .num_columns(state.0 + 1)
+            .num_columns(state.columns + 1)
             .show(ui, |ui| {
-                let del: Vec<_> = self.iter_mut().zip(state.1.iter_mut()).map(|(elem, state)| {
-                    let del = ui.button("🗑").clicked();
+                let del: Vec<_> = self.iter_mut()
+                    .zip(state.elem_states.iter_mut())
+                    .map(|(elem, state)| {
+                        let del = ui.button("🗑").clicked();
 
-                    elem.show_editor(state, ui);
+                        elem.show_editor(state, ui);
 
-                    ui.end_row();
+                        ui.end_row();
 
-                    del
-                }).collect();
+                        del
+                    }).collect();
 
                 let mut it = del.iter();
                 self.retain(|_| !*it.next().unwrap());
                 it = del.iter();
-                state.1.retain(|_| !*it.next().unwrap());
+                state.elem_states.retain(|_| !*it.next().unwrap());
 
                 // add new element
                 if ui.button("🗋").clicked() {
                     let new = T::default();
-                    state.1.push(new.new_editor());
+                    state.elem_states.push(new.new_editor());
                     self.push(new);
                 }
             });

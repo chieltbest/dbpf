@@ -707,6 +707,7 @@ name = "dbpf"
 version = "0.1.0"
 dependencies = [
  "binrw",
+ "enum-iterator",
  "miniz_oxide 0.7.1",
  "modular-bitfield",
  "refpack 3.0.1",
@@ -721,12 +722,16 @@ dependencies = [
  "binrw",
  "dbpf",
  "eframe",
+ "egui_dock",
  "egui_extras",
  "egui_memory_editor",
  "embed-resource",
+ "enum-iterator",
  "futures",
+ "fuzzy-matcher",
  "humansize",
  "image",
+ "miniz_oxide 0.7.1",
  "refpack 2.0.0",
  "rfd",
  "serde",
@@ -911,6 +916,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_dock"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be7e6eb63cb936413bd2a4f54be4a9ef53a48252f25864f5f946d4954d7332bd"
+dependencies = [
+ "egui",
+ "serde",
+]
+
+[[package]]
 name = "egui_extras"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -972,6 +987,26 @@ dependencies = [
  "toml",
  "vswhom",
  "winreg",
+]
+
+[[package]]
+name = "enum-iterator"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "706d9e7cf1c7664859d79cd524e4e53ea2b67ea03c98cc2870c5e539695d597e"
+dependencies = [
+ "enum-iterator-derive",
+]
+
+[[package]]
+name = "enum-iterator-derive"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "355f93763ef7b0ae1c43c4d8eccc9d5848d84ad1a1d8ce61c421d1ac85a19d05"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1213,6 +1248,15 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "fuzzy-matcher"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54614a3312934d066701a80f20f15fa3b56d67ac7722b39eea5b4c9dd1d66c94"
+dependencies = [
+ "thread_local",
 ]
 
 [[package]]

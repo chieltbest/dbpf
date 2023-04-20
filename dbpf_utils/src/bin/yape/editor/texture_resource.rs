@@ -1,10 +1,25 @@
-use eframe::egui::{ColorImage, DragValue, TextureOptions, Ui};
+use std::fmt::{Debug, Formatter};
+use eframe::egui::{ColorImage, DragValue, ScrollArea, TextureOptions, Ui};
 use dbpf::internal_file::resource_collection::texture_resource::{TextureResource, TextureResourceData};
 use crate::editor::{Editor, string_editor};
 
 #[derive(Default)]
 pub struct TextureResourceEditorState {
     textures: Vec<Vec<Option<egui_extras::RetainedImage>>>,
+}
+
+impl Debug for TextureResourceEditorState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_list()
+            .entries(self.textures.iter().map(|texture| {
+                texture.iter().map(|mip| {
+                    mip.as_ref().map(|img| {
+                        format!("{}: {:?}", img.debug_name(), img.size_vec2())
+                    })
+                }).collect::<Vec<_>>()
+            }))
+            .finish()
+    }
 }
 
 impl Editor for TextureResource {
@@ -50,20 +65,22 @@ impl Editor for TextureResource {
                              texture.creator_id,
                              texture.format_flag));
 
-            ui.horizontal_wrapped(|ui| {
-                for (mip_num, mip_level) in texture.entries.iter().enumerate() {
-                    match mip_level {
-                        TextureResourceData::Embedded(_) => {
-                            let image = state.textures[texture_num][mip_num].as_ref().unwrap();
-                            image.show(ui);
-                        }
-                        TextureResourceData::LIFOFile { file_name } => {
-                            ui.end_row();
-                            ui.label(format!("file: {}",
-                                             String::from_utf8_lossy(&file_name.data)));
+            ScrollArea::horizontal().show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    for (mip_num, mip_level) in texture.entries.iter().enumerate() {
+                        match mip_level {
+                            TextureResourceData::Embedded(_) => {
+                                let image = state.textures[texture_num][mip_num].as_ref().unwrap();
+                                image.show(ui);
+                            }
+                            TextureResourceData::LIFOFile { file_name } => {
+                                ui.end_row();
+                                ui.label(format!("file: {}",
+                                                 String::from_utf8_lossy(&file_name.data)));
+                            }
                         }
                     }
-                }
+                });
             });
         }
     }

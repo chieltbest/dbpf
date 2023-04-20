@@ -1,10 +1,12 @@
 // taken from http://simswiki.info/wiki.php?title=List_of_Sims_2_Formats_by_Type
 
-use binrw::binrw;
+use std::io::Cursor;
+use binrw::{binrw, BinRead, BinWrite};
+use enum_iterator::Sequence;
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, Sequence)]
 #[non_exhaustive]
 pub enum KnownDBPFFileType {
     // UI
@@ -512,5 +514,14 @@ impl DBPFFileType {
             }
             Self::Unknown(u) => format!("{u:08X}"),
         }
+    }
+}
+
+impl From<u32> for DBPFFileType {
+    fn from(value: u32) -> Self {
+        let mut bytes = Cursor::new(vec![]);
+        value.write_le(&mut bytes).unwrap();
+        bytes.set_position(0);
+        <Self as BinRead>::read_le(&mut bytes).unwrap()
     }
 }

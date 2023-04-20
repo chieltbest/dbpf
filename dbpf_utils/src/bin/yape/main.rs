@@ -1,24 +1,79 @@
+use std::cell::RefCell;
 use std::error::Error;
+use std::fmt::{Debug, Formatter};
 use binrw::BinResult;
-use std::io::Cursor;
+use std::io::{Cursor, Read, Seek};
+use std::path::PathBuf;
+use std::rc::{Rc, Weak};
 use eframe::{App, egui, Frame, IconData, NativeOptions, Storage};
-use eframe::egui::{Color32, Context, DragValue, Id, Rect, Response, ScrollArea, Sense, Style, Ui, Visuals};
+use eframe::egui::{Color32, Context, DragValue, Id, Rect, Response, ScrollArea, Sense, Style, Ui, Visuals, WidgetText};
+use egui_dock::{Node, TabViewer, Tree};
 use egui_extras::Column;
 use egui_memory_editor::MemoryEditor;
 use egui_memory_editor::option_data::MemoryEditorOptions;
 use serde::{Deserialize, Serialize};
 use tracing_subscriber::layer::SubscriberExt;
-use dbpf::{CompressionType, DBPFFile};
+use dbpf::{CompressionType, DBPFFile, IndexEntry};
 use dbpf::internal_file::CompressionError;
 
-use editor::Editor;
-use crate::editor::{DecodedFileEditorState, editor_supported};
+use crate::editor::{DecodedFileEditorState, Editor, editor_supported};
 
 mod editor;
 
 enum EditorType {
     HexEditor(MemoryEditor),
     DecodedEditor(DecodedFileEditorState),
+    Error(CompressionError),
+}
+
+impl Debug for EditorType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple(match self {
+            EditorType::HexEditor(_) => "HexEditor",
+            EditorType::DecodedEditor(_) => "DecodedEditor",
+            EditorType::Error(_) => "Error",
+        }).field(match self {
+            EditorType::HexEditor(hex) => &hex.options,
+            EditorType::DecodedEditor(decoded) => decoded,
+            EditorType::Error(err) => err,
+        }).finish()
+    }
+}
+
+impl Default for EditorType {
+    fn default() -> Self {
+        Self::HexEditor(MemoryEditor::default())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct EntryEditorTab {
+    #[serde(skip)]
+    state: EditorType,
+    #[serde(skip)]
+    data: Weak<RefCell<IndexEntry>>,
+
+    // used for (de)serialising
+    index: Option<usize>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+enum YaPeTab {
+    File,
+    Entry(EntryEditorTab),
+}
+
+#[derive(Serialize, Deserialize)]
+struct YaPeAppData {
+    memory_editor_options: MemoryEditorOptions,
+
+    open_file_path: Option<PathBuf>,
+
+    #[serde(skip)]
+    open_file: Option<(Cursor<Vec<u8>>, BinResult<DBPFFile>, Vec<Rc<RefCell<IndexEntry>>>)>,
+
+    #[serde(skip)]
+    open_new_tab_index: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -26,12 +81,10 @@ enum EditorType {
 struct YaPeApp {
     ui_scale: f32,
     dark_mode_preference: Option<bool>,
-    memory_editor_options: MemoryEditorOptions,
 
-    #[serde(skip)]
-    open_file: Option<(Cursor<Vec<u8>>, BinResult<DBPFFile>)>,
-    #[serde(skip)]
-    open_entry: Option<Result<(EditorType, usize), CompressionError>>,
+    tab_tree: Tree<YaPeTab>,
+
+    data: YaPeAppData,
 }
 
 impl Default for YaPeApp {
@@ -39,85 +92,71 @@ impl Default for YaPeApp {
         Self {
             ui_scale: 1.0,
             dark_mode_preference: None,
-            memory_editor_options: MemoryEditorOptions::default(),
 
-            open_file: None,
-            open_entry: None,
-        }
-    }
-}
+            tab_tree: Tree::new(vec![YaPeTab::File]),
 
-impl YaPeApp {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        if let Some(storage) = cc.storage {
-            let new: YaPeApp = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-            cc.egui_ctx.set_pixels_per_point(new.ui_scale);
-            return new;
-        }
+            data: YaPeAppData {
+                memory_editor_options: MemoryEditorOptions::default(),
 
-        Self::default()
-    }
-}
+                open_file_path: None,
 
-impl YaPeApp {
-    fn set_dark_mode(&mut self, dark: bool, ctx: &Context) {
-        self.dark_mode_preference = Some(dark);
-        ctx.set_style(Style {
-            visuals: if dark {
-                Visuals::dark()
-            } else {
-                Visuals::light()
+                open_file: None,
+
+                open_new_tab_index: None,
             },
-            ..Default::default()
-        })
+        }
     }
+}
 
-    fn open_file(&mut self, bytes: Vec<u8>) {
-        let mut cursor = Cursor::new(bytes);
-        let parsed = DBPFFile::read(&mut cursor);
-        self.open_file = Some((cursor, parsed));
-        self.open_entry = None;
-    }
-
-    fn open_index(&mut self, index: usize) {
-        if let Some((cur, Ok(file))) = &mut self.open_file {
-            let file_type = file.index[index].type_id;
-            let res = file.index[index].data(cur)
-                .map_err(|err| CompressionError::BinResult(err));
-
-            match res.and_then(|entry| {
-                if editor_supported(file_type) {
-                    let decoded = entry.decoded()?;
-                    Ok(Some(Ok((EditorType::DecodedEditor(decoded.unwrap().new_editor()), index))))
-                } else {
-                    let decompressed = entry.decompressed()?;
-                    Ok(Some(Ok((
-                        EditorType::HexEditor(
-                            MemoryEditor::new().with_address_range(
-                                "",
-                                0..decompressed.data.len())),
-                        index))))
+impl EntryEditorTab {
+    fn show<R: Read + Seek>(&mut self, ui: &mut Ui, reader: &mut R) {
+        if let Some(data) = self.data.upgrade() {
+            match &mut self.state {
+                EditorType::Error(err) => {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        ui.label(format!("{err:?}"));
+                    });
                 }
-            }) {
-                Err(err) => {
-                    self.open_entry = Some(Err(err))
+                EditorType::HexEditor(editor) => {
+                    let mut data_ref = data.borrow_mut();
+                    let data = data_ref.data(reader).unwrap().decompressed().unwrap();
+                    if let Ok(mut str) = String::from_utf8(data.data.clone()) {
+                        ui.centered_and_justified(|ui|
+                            ScrollArea::vertical().show(ui, |ui| {
+                                if ui.code_editor(&mut str).changed() {
+                                    data.data = str.into_bytes();
+                                }
+                            })
+                        );
+                    } else {
+                        editor.draw_editor_contents(
+                            ui,
+                            data,
+                            |mem, addr| Some(mem.data[addr]),
+                            |mem, addr, byte| mem.data[addr] = byte,
+                        );
+                    }
                 }
-                Ok(open) => {
-                    self.open_entry = open;
+                EditorType::DecodedEditor(state) => {
+                    let mut data_ref = data.borrow_mut();
+                    let decoded = data_ref.data(reader).unwrap().decoded().unwrap().unwrap();
+                    decoded.show_editor(state, ui);
                 }
             }
         }
     }
+}
 
+impl YaPeAppData {
     fn show_index(&mut self, ui: &mut Ui) {
         let mut open_index = None;
 
         match &mut self.open_file {
             None => {}
-            Some((_, Err(err))) => {
+            Some((_, Err(err), _entries)) => {
                 ui.colored_label(Color32::RED, err.to_string());
             }
-            Some((_, Ok(file))) => {
+            Some((_, Ok(_file), entries)) => {
                 egui_extras::TableBuilder::new(ui)
                     .striped(true)
                     .column(Column::auto()
@@ -142,7 +181,7 @@ impl YaPeApp {
                     })
                     .body(|mut body| {
                         let button_height = body.ui_mut().style().spacing.interact_size.y;
-                        body.rows(button_height, file.index.len(),
+                        body.rows(button_height, entries.len(),
                                   |i, mut row| {
                                       let mut sense_fun = |ui: &mut Ui, res: Response| {
                                           if ui.interact(
@@ -154,7 +193,7 @@ impl YaPeApp {
                                           }
                                       };
 
-                                      let entry = &mut file.index[i];
+                                      let mut entry = entries[i].borrow_mut();
                                       row.col(|ui| {
                                           let t = entry.type_id;
                                           let res = ui.horizontal_centered(|ui|
@@ -192,60 +231,166 @@ impl YaPeApp {
             }
         }
 
-        if let Some(i) = open_index {
-            self.open_index(i);
+        self.open_new_tab_index = open_index;
+    }
+}
+
+impl TabViewer for YaPeAppData {
+    type Tab = YaPeTab;
+
+    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        match tab {
+            YaPeTab::File => self.show_index(ui),
+            YaPeTab::Entry(entry) => {
+                if let Some((cur, _file, _entries)) = &mut self.open_file {
+                    entry.show(ui, cur);
+                }
+            }
         }
     }
 
-    fn show_editor(&mut self, ui: &mut Ui) -> Response {
-        if let Some((reader, Ok(file))) = &mut self.open_file {
-            match &mut self.open_entry {
-                None => {
-                    ui.separator()
-                }
-                Some(Err(err)) => {
-                    ScrollArea::vertical().show(ui, |ui| {
-                        ui.label(format!("{err:?}"));
-                    });
-                    ui.separator()
-                }
-                Some(Ok((editor, i))) => {
-                    ui.vertical(|ui| {
-                        match editor {
-                            EditorType::HexEditor(editor) => {
-                                let data = file.index[*i].data(reader).unwrap().decompressed().unwrap();
-                                if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-                                    ui.centered_and_justified(|ui|
-                                        ScrollArea::vertical().show(ui, |ui| {
-                                            if ui.code_editor(&mut str).changed() {
-                                                data.data = str.into_bytes();
-                                            }
-                                        })
-                                    );
-                                } else {
-                                    // this method of persisting config is ugly but robust
-                                    editor.options = self.memory_editor_options.clone();
-                                    // the editor can change some internal config data
-                                    editor.draw_editor_contents(
-                                        ui,
-                                        data,
-                                        |mem, addr| Some(mem.data[addr]),
-                                        |mem, addr, byte| mem.data[addr] = byte,
-                                    );
-                                    // then copy it back to the main config
-                                    self.memory_editor_options = editor.options.clone();
-                                }
-                            }
-                            EditorType::DecodedEditor(state) => {
-                                let decoded = file.index[*i].data(reader).unwrap().decoded().unwrap().unwrap();
-                                decoded.show_editor(state, ui);
-                            }
-                        }
-                    }).response
+    fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
+        match tab {
+            YaPeTab::File => "Index".into(),
+            YaPeTab::Entry(entry) => {
+                if let Some(index) = entry.data.upgrade() {
+                    index.borrow().type_id.full_name().into()
+                } else {
+                    "Unknown".into()
                 }
             }
-        } else {
-            ui.separator()
+        }
+    }
+
+    fn force_close(&mut self, tab: &mut Self::Tab) -> bool {
+        match tab {
+            YaPeTab::File => false,
+            YaPeTab::Entry(entry) => entry.data.strong_count() == 0,
+        }
+    }
+}
+
+impl YaPeApp {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        if let Some(storage) = cc.storage {
+            let mut new: YaPeApp = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            cc.egui_ctx.set_pixels_per_point(new.ui_scale);
+
+            if let Some(path) = new.data.open_file_path.clone() {
+                new.open_file(std::fs::read(path).unwrap());
+
+                if let Some((data, _file, rc_entries)) = &mut new.data.open_file {
+                    new.tab_tree.iter_mut().for_each(|elem| {
+                        match elem {
+                            Node::Leaf { tabs, .. } => {
+                                tabs.iter_mut().for_each(|elem| {
+                                    match elem {
+                                        YaPeTab::File => {}
+                                        YaPeTab::Entry(entry) => {
+                                            if let Some(i) = entry.index {
+                                                *entry = Self::open_index(data, rc_entries, i);
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            _ => {}
+                        }
+                    });
+                }
+            }
+
+            return new;
+        }
+
+        Self::default()
+    }
+
+    fn set_dark_mode(&mut self, dark: bool, ctx: &Context) {
+        self.dark_mode_preference = Some(dark);
+        ctx.set_style(Style {
+            visuals: if dark {
+                Visuals::dark()
+            } else {
+                Visuals::light()
+            },
+            ..Default::default()
+        })
+    }
+
+    fn open_file(&mut self, bytes: Vec<u8>) {
+        let mut cursor = Cursor::new(bytes);
+        let mut parsed = DBPFFile::read(&mut cursor);
+        let rc_index = match &mut parsed {
+            Ok(file) => {
+                std::mem::take(&mut file.index)
+                    .into_iter()
+                    .map(|entry| {
+                        Rc::new(RefCell::new(entry))
+                    })
+                    .collect()
+            }
+            Err(_) => vec![],
+        };
+
+        self.data.open_file = Some((cursor, parsed, rc_index));
+
+
+        let mut file_index_tab_found = false;
+        self.tab_tree.tabs().for_each(|tab| {
+            match tab {
+                YaPeTab::File => {
+                    file_index_tab_found = true;
+                }
+                YaPeTab::Entry(_) => {}
+            }
+        });
+        if !file_index_tab_found {
+            self.tab_tree.push_to_first_leaf(YaPeTab::File);
+        }
+    }
+
+    #[must_use]
+    fn open_index<R: Read + Seek>(reader: &mut R, rc_entries: &Vec<Rc<RefCell<IndexEntry>>>, index: usize) -> EntryEditorTab {
+        let index_entry = &rc_entries[index];
+        let mut entry_ref = index_entry.borrow_mut();
+        let file_type = entry_ref.type_id;
+        let res = entry_ref.data(reader)
+            .map_err(|err| CompressionError::BinResult(err))
+            .and_then(|entry| {
+                if editor_supported(file_type) {
+                    let decoded = entry.decoded()?;
+                    Ok(EditorType::DecodedEditor(decoded.unwrap().new_editor()))
+                } else {
+                    let decompressed = entry.decompressed()?;
+                    Ok(EditorType::HexEditor(
+                        MemoryEditor::new().with_address_range(
+                            "", 0..decompressed.data.len())))
+                }
+            });
+
+        match res {
+            Err(err) => {
+                EntryEditorTab {
+                    state: EditorType::Error(err),
+                    data: Rc::downgrade(index_entry),
+                    index: None,
+                }
+            }
+            Ok(editor_state) => {
+                EntryEditorTab {
+                    state: editor_state,
+                    data: Rc::downgrade(index_entry),
+                    index: None,
+                }
+            }
+        }
+    }
+
+    fn open_index_tab(&mut self, index: usize) {
+        if let Some((cur, _file, rc_entries)) = &mut self.data.open_file {
+            let tab = Self::open_index(cur, rc_entries, index);
+            self.tab_tree.push_to_focused_leaf(YaPeTab::Entry(tab));
         }
     }
 }
@@ -254,10 +399,11 @@ impl App for YaPeApp {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         ctx.input(|i| i.raw.dropped_files.get(0).map(|f| f.clone()))
             .map(|file| {
-                if let Some(bytes) = file.bytes {
-                    self.open_file(Vec::from(&*bytes));
-                } else if let Some(path) = file.path {
+                if let Some(path) = file.path {
+                    self.data.open_file_path = Some(path.clone());
                     self.open_file(std::fs::read(path).unwrap());
+                } else if let Some(bytes) = file.bytes {
+                    self.open_file(Vec::from(&*bytes));
                 }
             });
 
@@ -285,19 +431,47 @@ impl App for YaPeApp {
                 });
             });
 
-        egui::SidePanel::right("data_display")
-            .resizable(true)
-            .max_width(ctx.available_rect().width() - 500.0)
-            .show(ctx, |ui| {
-                self.show_editor(ui)
-            });
+        let style = egui_dock::Style::from_egui(ctx.style().as_ref());
+        egui_dock::DockArea::new(&mut self.tab_tree)
+            .style(style)
+            .show(ctx, &mut self.data);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.show_index(ui);
-        });
+        if let Some(new_tab_index) = self.data.open_new_tab_index {
+            self.data.open_new_tab_index = None;
+            self.open_index_tab(new_tab_index);
+        }
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
+        // save editor tab rc indices
+        if let Some((_data, _file, rc_entries)) = &self.data.open_file {
+            self.tab_tree.iter_mut().for_each(|node| {
+                match node {
+                    Node::Empty => {}
+                    Node::Leaf { tabs, .. } => {
+                        tabs.iter_mut().for_each(|tab| {
+                            match tab {
+                                YaPeTab::File => {}
+                                YaPeTab::Entry(entry) => {
+                                    entry.index = rc_entries.iter()
+                                        .enumerate()
+                                        .find_map(|(i, elem)| {
+                                            if entry.data.ptr_eq(&Rc::downgrade(elem)) {
+                                                Some(i)
+                                            } else {
+                                                None
+                                            }
+                                        });
+                                }
+                            }
+                        })
+                    }
+                    Node::Vertical { .. } => {}
+                    Node::Horizontal { .. } => {}
+                }
+            });
+        }
+
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 }
