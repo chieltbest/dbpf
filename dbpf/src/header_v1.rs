@@ -1,55 +1,19 @@
 use std::collections::HashMap;
-use std::io::{Cursor, Read, Seek};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::num::NonZeroU32;
-use binrw::{args, binread, BinRead, BinResult, binrw, VecArgs};
-use crate::{Timestamp, UserVersion, Version, CompressionType, IndexVersion, IndexMinorVersion, HEADER_SIZE, HoleIndexEntry};
+use binrw::{args, binread, BinRead, BinResult, binrw, BinWrite, BinWriterExt, Endian, Error};
+use crate::{CompressionType, IndexEntry, IndexMinorVersion};
+use crate::dbpf_file::Index;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use crate::lazy_file_ptr::{LazyFilePtr, Zero};
-use crate::internal_file::{FileData, FileDataBinReadArgs};
-use crate::internal_file::dbpf_directory::DBPFDirectory;
+use crate::internal_file::{CompressedFileData, CompressionError, FileData, FileDataBinReadArgs, FileDataInternal};
+use crate::internal_file::dbpf_directory::{DBPFDirectory, DBPFDirectoryBinWriteArgs, DBPFDirectoryEntry};
 
 #[binread]
-#[derive(Clone, Debug)]
-pub(crate) struct HeaderV1 {
-    #[brw(assert(matches ! (version, Version::V1(_))))]
-    pub version: Version,
-    pub user_version: UserVersion,
-    pub flags: u32,
-    pub created: Timestamp,
-    pub modified: Timestamp,
-    pub index_version: IndexVersion,
-    #[br(temp)]
-    index_entry_count: u32,
-    #[br(temp)]
-    index_location: u32,
-    #[br(temp)]
-    index_size: u32,
-    #[br(temp)]
-    hole_index_entry_count: u32,
-    #[brw(args { inner: args ! {count: hole_index_entry_count as usize, inner: ()} })]
-    #[brw(assert(hole_index_entry_count == 0 || hole_index.ptr >= HEADER_SIZE))]
-    pub hole_index: LazyFilePtr<u32, Vec<HoleIndexEntry>, VecArgs<()>>,
-    #[br(temp)]
-    #[brw(assert(hole_index_size == hole_index_entry_count * 8))]
-    hole_index_size: u32,
-    pub index_minor_version: IndexMinorVersion,
-
-    #[brw(args {
-    offset: index_location as u64,
-    inner: args ! {
-    count: index_entry_count as usize,
-    version: index_minor_version
-    }})]
-    #[brw(assert(index_size == index_entry_count * if matches ! (index_minor_version, IndexMinorVersion::V2) { 24 } else { 20 }))]
-    #[brw(assert(index_entry_count == 0 || index_location >= HEADER_SIZE, "index count was {} (non-zero) while index location was {}", index_entry_count, index.ptr))]
-    index: LazyFilePtr<Zero, IndexV1, IndexV1BinReadArgs>,
-}
-
-#[binread]
-#[brw(import { count: usize, version: IndexMinorVersion })]
+#[br(import { count: usize, version: IndexMinorVersion })]
 #[derive(Clone, Debug)]
 pub(crate) struct IndexV1 {
-    #[brw(args { count: count, inner: args ! { version: version } })]
+    #[br(args { count: count, inner: args ! { version: version } })]
     pub entries: Vec<IndexEntryV1>,
 }
 
@@ -95,54 +59,182 @@ pub(crate) struct IndexEntryV1 {
     pub data: LazyFilePtr<Zero, FileData, FileDataBinReadArgs>,
 }
 
-impl HeaderV1 {
-    pub fn index<R: Read + Seek>(&mut self, reader: &mut R) -> BinResult<&mut IndexV1> {
-        let previous_read = self.index.is_read();
-        let index = self.index.get(reader)?;
-        if !previous_read {
-            let mut error: BinResult<()> = Ok(());
-            let mut compressed_entries = HashMap::new();
+impl Index for IndexV1 {
+    fn try_into_vec<R: Read + Seek>(mut self, reader: &mut R, index_version: IndexMinorVersion) -> BinResult<Vec<IndexEntry>> {
+        let mut compressed_entries = HashMap::new();
 
-            index.entries.retain_mut(|entry| {
-                match entry.type_id {
-                    DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory)
-                    if error.is_ok() => {
-                        entry.compression = Some(CompressionType::Uncompressed);
-                        let data_res = entry.data.get(reader).and_then(|data| {
-                            let data = &mut data.decompressed().expect("Uncompressed data decompress is infallible").data;
-                            let res: DBPFDirectory = DBPFDirectory::read_args(
-                                &mut Cursor::new(data), args! {
-                                        version: self.index_minor_version
+        self.entries.iter_mut().map(|entry| {
+            match entry.type_id {
+                DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory) => {
+                    let data = entry.data.get(reader)?;
+                    let raw_data = &mut data.decompressed()
+                        .expect("Uncompressed data decompress is infallible")
+                        .data;
+                    let res: DBPFDirectory = DBPFDirectory::read_args(
+                        &mut Cursor::new(raw_data), args! {
+                                        version: index_version
                                     })?;
-                            for entry in res.entries {
-                                compressed_entries.insert(
-                                    (entry.type_id, entry.group_id, entry.instance_id),
-                                    entry.decompressed_size);
-                            }
-                            Ok(())
-                        });
-                        if let Err(err) = data_res {
-                            error = Err(err);
-                        }
-                        false
+                    for entry in res.entries {
+                        compressed_entries.insert(
+                            (entry.type_id, entry.group_id, entry.instance_id),
+                            entry.decompressed_size);
                     }
-                    _ => true,
+                    Ok(())
                 }
-            });
-            error?;
-
-            for entry in &mut index.entries {
-                if let Some(decompressed_size) =
-                    compressed_entries.get(&(entry.type_id, entry.group_id, entry.instance_id)) {
-                    entry.compression = Some(CompressionType::RefPack);
-
-                    entry.data.args.inner.compression_type = CompressionType::RefPack;
-                    entry.data.args.inner.decompressed_size = *decompressed_size;
-                } else {
-                    entry.compression = Some(CompressionType::Uncompressed);
-                }
+                _ => Ok(()),
             }
+        }).collect::<BinResult<()>>()?;
+
+        self.entries.into_iter().filter_map(|entry| {
+            if matches!(entry.type_id,
+                DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory)) {
+                return None;
+            }
+
+            let mut compression = CompressionType::Uncompressed;
+            let mut data = entry.data;
+
+            if let Some(decompressed_size) =
+                compressed_entries.get(&(entry.type_id, entry.group_id, entry.instance_id)) {
+                compression = CompressionType::RefPack;
+
+                data.args.inner.compression_type = CompressionType::RefPack;
+                data.args.inner.decompressed_size = *decompressed_size;
+            }
+
+            Some(Ok(IndexEntry {
+                type_id: entry.type_id,
+                group_id: entry.group_id,
+                instance_id: entry.instance_id.id,
+                compression,
+                data,
+            }))
+        }).collect()
+    }
+
+    fn write_entries<W: Write + Seek, R: Read + Seek>(
+        writer: &mut W,
+        reader: &mut R,
+        entries: &mut Vec<IndexEntry>,
+        index_version: IndexMinorVersion) -> Result<(Vec<u8>, usize), CompressionError> {
+        let mut index_buf = Cursor::new(Vec::new());
+
+        let has_compressed = entries.iter()
+            .any(|e| matches!(e.compression, CompressionType::RefPack));
+        let num_entries = entries.len() + if has_compressed {
+            1
+        } else {
+            0
+        };
+
+        let index_size = num_entries * match index_version {
+            IndexMinorVersion::V0 |
+            IndexMinorVersion::V1 => 20,
+            IndexMinorVersion::V2 => 24,
+            IndexMinorVersion::V3 => return Err(Error::AssertFail {
+                message: "Header v1 does not support index minor v3".to_string(),
+                pos: 0,
+            }.into())
+        };
+        writer.seek(SeekFrom::Current(index_size as i64))
+            .map_err(|err| Error::from(err))?;
+
+        let dir = DBPFDirectory {
+            entries: entries.iter_mut().filter_map(|entry| {
+                match entry.compression {
+                    CompressionType::Uncompressed => None,
+                    _ => Some((|| match entry.compression {
+                        CompressionType::RefPack => Ok(
+                            DBPFDirectoryEntry {
+                                type_id: entry.type_id,
+                                group_id: entry.group_id,
+                                instance_id: InstanceId {
+                                    id: entry.instance_id,
+                                },
+                                decompressed_size:
+                                entry.data(reader)?
+                                    .compressed(CompressionType::RefPack)?
+                                    .decompressed_size,
+                            }
+                        ),
+                        CompressionType::Streamable |
+                        CompressionType::Deleted |
+                        CompressionType::ZLib => Err(CompressionError::from(Error::AssertFail {
+                            message: format!("Unsupported compression type found in header v1 DBPF file: {:?}",
+                                             entry.compression),
+                            pos: 0,
+                        })),
+                        _ => unreachable!(),
+                    })())
+                }
+            }).collect::<Result<Vec<_>, CompressionError>>()?,
+        };
+
+        if has_compressed {
+            let mut dir_buf = Cursor::new(Vec::new());
+            dir_buf.write_le_args(&dir,
+                                  DBPFDirectoryBinWriteArgs::builder()
+                                      .version(index_version)
+                                      .finalize())?;
+
+            let dir_entry = IndexEntry {
+                type_id: DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory),
+                group_id: 0xE86B1EEF,
+                instance_id: 0x286B1F03,
+
+                compression: CompressionType::Uncompressed,
+
+                data: LazyFilePtr::from_data(
+                    FileData {
+                        type_id: DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory),
+                        data: FileDataInternal::Compressed(CompressedFileData {
+                            compression_type: CompressionType::Uncompressed,
+                            decompressed_size: dir_buf.position() as u32,
+                            data: dir_buf.into_inner(),
+                        }),
+                    },
+                    Endian::Little,
+                    FileDataBinReadArgs::builder()
+                        .count(0)
+                        .compression_type(CompressionType::Uncompressed)
+                        .decompressed_size(0)
+                        .type_id(DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory))
+                        .finalize(),
+                ),
+            };
+
+            entries.insert(0, dir_entry);
         }
-        Ok(index)
+
+        for entry in &mut *entries {
+            entry.type_id.write_le(&mut index_buf)?;
+            entry.group_id.write_le(&mut index_buf)?;
+            InstanceId {
+                id: entry.instance_id,
+            }.write_le_args(&mut index_buf, args! {
+                    version: index_version
+                })?;
+
+            let location = writer.stream_position()
+                .map_err(|err| Error::from(err))? as u32;
+            // this will cause all entries in the index to be opened, maybe do a clone?
+            let compression = entry.compression;
+            let data = entry.data(reader)?;
+            let compressed = data.compressed(compression)?;
+
+            compressed.write_le(writer)?;
+
+            let size = writer.stream_position()
+                .map_err(|err| Error::from(err))? as u32 - location;
+
+            location.write_le(&mut index_buf)?;
+            size.write_le(&mut index_buf)?;
+        }
+
+        if has_compressed {
+            entries.remove(0);
+        }
+
+        Ok((index_buf.into_inner(), num_entries))
     }
 }

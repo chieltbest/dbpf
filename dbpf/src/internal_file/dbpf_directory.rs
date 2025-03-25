@@ -1,4 +1,4 @@
-use binrw::{binrw, until_eof};
+use binrw::{binrw, helpers::until_eof};
 use crate::filetypes::DBPFFileType;
 use crate::header_v1::InstanceId;
 use crate::IndexMinorVersion;

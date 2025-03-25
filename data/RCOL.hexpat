@@ -76,6 +76,26 @@ struct TextureResource<auto texture_version> {
     TextureResourceTexture<texture_version_copy, mip_levels> textures[num_textures];
 };
 
+struct MaterialProperty {
+    String name;
+    String value;
+};
+
+struct MaterialDefinition<auto version> {
+    FileName file_name;
+    
+    String material_description;
+    String material_type;
+    
+    u32 property_count;
+    MaterialProperty properties[property_count];
+    
+    if (version > 8) {
+        u32 name_count;
+        String names[name_count];
+    }
+};
+
 // RCOL definition
 
 struct FileLink<auto version> {
@@ -99,6 +119,9 @@ struct ResourceEntry {
     if (type_id == 0x1C4A276C) {
         TextureResource<version> res;
     }
+    if (type_id == 0x49596978) {
+        MaterialDefinition<version> res;
+    }
 };
 
 struct ResourceCollection {
@@ -114,9 +137,3 @@ struct ResourceCollection {
 };
 
 ResourceCollection file @ 0x00;
-
-
-
-
-
-

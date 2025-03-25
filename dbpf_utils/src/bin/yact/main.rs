@@ -1,4 +1,3 @@
-#![feature(drain_filter)]
 #![windows_subsystem = "windows"]
 
 mod filtered_conflict_list;
@@ -10,8 +9,8 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{Receiver, TryRecvError};
-use eframe::{App, egui, Frame, IconData, NativeOptions, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window};
+use eframe::{App, egui, Frame, NativeOptions, Storage};
+use eframe::egui::{Color32, containers, Context, DragValue, IconData, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, ViewportBuilder, Visuals, Window};
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
@@ -254,12 +253,13 @@ impl DBPFApp {
                         })
                         .body(|body| {
                             body.rows(14.0, known_conflicts.len(),
-                                      |i, mut row| {
+                                      |mut row| {
+                                          let i = row.index();
+
                                           let mut path_label_fn = |ui: &mut Ui, path| {
                                               ui.add(Label::new(Self::strip_prefix(
                                                   &self.scan_ran_with_folders, path)
                                                   .unwrap_or(path).to_string_lossy())
-                                                  .wrap(false)
                                                   .sense(Sense::click()))
                                                   .context_menu(|ui| {
                                                       ui.button("Forget known conflict")
@@ -383,12 +383,11 @@ impl DBPFApp {
 
         frame.show(ui, |ui| {
             ui.horizontal_centered(|ui| {
-                ui.add(Label::new(text)
-                    .wrap(false)
+                let lbl = ui.add(Label::new(text)
                     .sense(Sense::click()))
-                    .context_menu(|ui| self.conflict_menu(path, conflict, ui))
-                    .on_hover_text_at_pointer(tooltip)
-                    .clicked().then(|| {
+                    .on_hover_text_at_pointer(tooltip);
+                lbl.context_menu(|ui| self.conflict_menu(path, conflict, ui));
+                lbl.clicked().then(|| {
                     highlight = true;
                 });
 
@@ -419,8 +418,8 @@ impl DBPFApp {
                 let filtered = self.conflict_list.get_filtered().clone();
                 let mut highlight = None;
                 body.rows(14.0, filtered.len(),
-                          |i, mut row| {
-                              let conflict = &filtered[i];
+                          |mut row| {
+                              let conflict = &filtered[row.index()];
                               row.col(|ui| {
                                   if self.show_path_cell(
                                       conflict,
@@ -446,12 +445,8 @@ impl DBPFApp {
 }
 
 impl App for DBPFApp {
-    fn update(&mut self, ctx: &Context, frame: &mut Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         self.update_state(ctx);
-
-        if !frame.is_web() {
-            egui::gui_zoom::zoom_with_keyboard_shortcuts(ctx, frame.info().native_pixels_per_point);
-        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
@@ -537,24 +532,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ).expect("set up the subscriber");
 
     let icon = include_bytes!("../../../res/yact.png");
-    let image = image::io::Reader::new(Cursor::new(icon))
+    let image = image::ImageReader::new(Cursor::new(icon))
         .with_guessed_format()?.decode()?;
     let buf = Vec::from(image.as_bytes());
 
     let native_options = NativeOptions {
-        icon_data: Some(IconData {
-            width: image.width(),
-            height: image.height(),
-            rgba: buf,
-        }),
-        drag_and_drop_support: true,
-        resizable: true,
+        viewport: ViewportBuilder::default()
+            .with_icon(IconData {
+                width: image.width(),
+                height: image.height(),
+                rgba: buf,
+            })
+            .with_drag_and_drop(true)
+            .with_resizable(true),
         ..Default::default()
     };
 
     eframe::run_native("Yet Another Conflict Tool",
                        native_options,
                        Box::new(|cc|
-                           Box::new(DBPFApp::new(cc))))?;
+                           Ok(Box::new(DBPFApp::new(cc)))))?;
     Ok(())
 }

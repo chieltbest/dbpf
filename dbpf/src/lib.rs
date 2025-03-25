@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 pub mod filetypes;
 mod lazy_file_ptr;
 pub mod header_v1;
@@ -73,6 +76,7 @@ pub enum IndexMinorVersion {
     V1 = 1,
     #[default]
     V2 = 2,
+    V3 = 3,
 }
 
 #[binrw]

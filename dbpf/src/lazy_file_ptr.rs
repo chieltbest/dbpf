@@ -11,6 +11,20 @@ pub struct LazyFilePtr<Ptr, T: BinRead, Args: Clone> {
     data: Option<T>,
 }
 
+impl<Ptr: Default, T: BinRead, Args: Clone> LazyFilePtr<Ptr, T, Args> {
+    pub fn from_data(data: T, endian: Endian, args: Args) -> Self {
+        Self {
+            ptr: Ptr::default(),
+            args: LazyFilePtrArgs {
+                offset: 0,
+                inner: args,
+            },
+            endian,
+            data: Some(data),
+        }
+    }
+}
+
 impl<Ptr, T, Args> BinRead for LazyFilePtr<Ptr, T, Args>
     where for<'a> Ptr: BinRead<Args<'a>=()> + IntoSeekFrom,
           T: BinRead,
@@ -38,8 +52,8 @@ impl<'a, Ptr: IntoSeekFrom, T: BinRead> LazyFilePtr<Ptr, T, T::Args<'a>> where T
             let before = reader.seek(SeekFrom::Start(relative_to))?;
             reader.seek(self.ptr.into_seek_from())?;
 
-            let mut inner = T::read_options(reader, self.endian, self.args.inner.clone())?;
-            inner.after_parse(reader, self.endian, self.args.inner.clone())?;
+            let inner = T::read_options(reader, self.endian, self.args.inner.clone())?;
+            // TODO inner.after_parse(reader, self.endian, self.args.inner.clone())?;
 
             reader.seek(SeekFrom::Start(before))?;
 
@@ -55,7 +69,7 @@ impl<'a, Ptr: IntoSeekFrom, T: BinRead> LazyFilePtr<Ptr, T, T::Args<'a>> where T
     }
 }
 
-impl<'a, Ptr: IntoSeekFrom, T: BinRead + Debug> Debug for LazyFilePtr<Ptr, T, T::Args<'a>> where T::Args<'a>: Clone {
+impl<'a, Ptr: IntoSeekFrom + Debug, T: BinRead + Debug> Debug for LazyFilePtr<Ptr, T, T::Args<'a>> where T::Args<'a>: Clone {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LazyFilePtr")
             .field("ptr", &self.ptr)

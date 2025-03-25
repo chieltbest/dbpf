@@ -3,3 +3,12 @@ members = [
     "dbpf",
     "dbpf_utils",
 ]
+
+resolver = "2"
+
+[profile.release]
+opt-level = 2 # fast and small wasm
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 2

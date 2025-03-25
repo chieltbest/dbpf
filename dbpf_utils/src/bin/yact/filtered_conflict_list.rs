@@ -187,7 +187,7 @@ impl FilteredConflictList {
         for tgi in &conflict.tgis {
             if let DBPFFileType::Known(t) = tgi.type_id {
                 if self.get_check_enabled(&t) &&
-                    (self.show_known || !self.is_known(&conflict)) {
+                    (self.show_known || !known) {
                     // type should be shown in filtered list
                     is_shown = true;
                 }

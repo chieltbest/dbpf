@@ -15,7 +15,7 @@ pub struct Entry {
 
 #[binrw]
 #[brw(magic = 0xDEADBEEFu32, little)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SimOutfits {
     pub version: IndexMinorVersion,
     #[br(temp)]

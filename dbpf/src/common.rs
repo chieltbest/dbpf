@@ -1,12 +1,10 @@
-use std::ffi::OsString;
-use std::os::unix::ffi::OsStringExt;
 use std::fmt::{Debug, Formatter};
 use std::io::{Read, Seek, Write};
 use std::string::FromUtf8Error;
 use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, Endian};
 
 #[binrw]
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct String {
     #[br(temp)]
     #[bw(calc = data.len() as u32)]
@@ -18,6 +16,14 @@ pub struct String {
 impl Debug for String {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"{}\"", std::string::String::from_utf8_lossy(&self.data))
+    }
+}
+
+impl From<&str> for String {
+    fn from(value: &str) -> Self {
+        Self {
+            data: Vec::from(value)
+        }
     }
 }
 
@@ -86,8 +92,16 @@ pub struct BigString {
 impl Debug for BigString {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BigString")
-            .field("data", &OsString::from_vec(self.data.clone()))
+            .field("data", &std::string::String::from_utf8(self.data.clone()))
             .finish()
+    }
+}
+
+impl From<&str> for BigString {
+    fn from(value: &str) -> Self {
+        Self {
+            data: Vec::from(value)
+        }
     }
 }
 

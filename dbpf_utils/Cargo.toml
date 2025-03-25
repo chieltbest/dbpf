@@ -4,33 +4,39 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-binrw = "0.11.1"
+binrw = "0.14"
 dbpf = { path = "../dbpf" }
-refpack = "2.0.0"
 humansize = "2.1.3"
-walkdir = "2.3.2"
-
-tokio = { version = "1.25.0", features = ["full"] }
-tokio-util = { version = "0.7.7", features = ["io", "io-util"] }
-futures = "0.3.26"
-
-tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
-
-eframe = { version = "0.21.3", features = ["dark-light", "persistence"] }
-serde = "1.0.152"
-serde_json = "1.0.93"
-egui_extras = "0.21.0"
-rfd = "0.11.1"
-image = "0.24.5"
+lru = "0.13"
 fuzzy-matcher = "0.3.7"
-enum-iterator = "1.4.0"
-egui_memory_editor = { version = "0.2.2", features = ["serde"] }
-egui_dock = { version = "0.4.0", features = ["serde"] }
-miniz_oxide = "0.7.1"
+
+futures = "0.3"
+
+eframe = { version = "0.30", features = ["persistence"] }
+serde = "1.0.203"
+serde_json = "1.0.120"
+egui_extras = "0.30"
+rfd = "0.15.2"
+image = "0.25.1"
+enum-iterator = "2.1.0"
+egui_memory_editor = { version = "0.2.11", features = ["serde"] }
+egui_dock = { version = "0.15.0", features = ["serde"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+open = "5.3.0"
+
+walkdir = "2"
+
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+tokio = { version = "1.38", features = ["full"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+log = "0.4.22"
+wasm-bindgen-futures = "0.4.50"
+web-sys = "0.3.77"
 
 [build-dependencies]
-embed-resource = "1.8.0"
+embed-resource = "3.0.1"

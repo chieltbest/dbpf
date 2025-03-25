@@ -5,12 +5,14 @@ pub mod property_set;
 pub mod sim_outfits;
 pub mod resource_collection;
 pub mod behaviour_function;
+pub mod text_list;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 use binrw::{binread, BinRead, BinWrite, BinResult, binrw, NamedArgs};
 use miniz_oxide::inflate::DecompressError;
-use refpack::format::{Reference, Simcity4, TheSims12, TheSims34};
+use refpack::data::compression::CompressionOptions;
+use refpack::format::{Maxis, Reference, SimEA};
 use refpack::RefPackError;
 use thiserror::Error;
 use crate::CompressionType;
@@ -18,6 +20,7 @@ use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use crate::internal_file::property_set::PropertySet;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
+use crate::internal_file::text_list::TextList;
 
 #[derive(Error, Debug)]
 pub enum CompressionError {
@@ -36,7 +39,7 @@ impl From<DecompressError> for CompressionError {
 }
 
 #[derive(Clone, Debug)]
-enum FileDataInternal {
+pub(crate) enum FileDataInternal {
     Compressed(CompressedFileData),
     Uncompressed(RawFileData),
     Decoded(DecodedFile),
@@ -54,7 +57,7 @@ pub struct FileDataBinReadArgs {
 #[br(import_raw(args: FileDataBinReadArgs))]
 #[derive(Clone, Debug)]
 pub struct FileData {
-    #[br(temp, postprocess_now,
+    #[br(temp,
     args {
     count: args.count,
     compression_type: args.compression_type,
@@ -62,10 +65,9 @@ pub struct FileData {
     })]
     compressed: CompressedFileData,
     #[br(calc = args.type_id)]
-    #[bw(ignore)]
-    type_id: DBPFFileType,
+    pub(crate) type_id: DBPFFileType,
     #[br(calc = FileDataInternal::Compressed(compressed))]
-    data: FileDataInternal,
+    pub(crate) data: FileDataInternal,
 }
 
 impl FileData {
@@ -146,7 +148,7 @@ impl CompressedFileData {
             data: match compression_type {
                 CompressionType::Uncompressed => data.data,
                 CompressionType::RefPack => {
-                    refpack::easy_compress::<TheSims12>(&data.data)?
+                    refpack::easy_compress::<Maxis>(&data.data, CompressionOptions::Optimal)?
                     // TODO add a config switch for compression type
                 }
                 CompressionType::ZLib => {
@@ -163,15 +165,28 @@ impl CompressedFileData {
                 CompressionType::Uncompressed => self.data,
                 CompressionType::RefPack => {
                     // try all formats in the order of how restrictive they are
-                    refpack::easy_decompress::<TheSims12>(&self.data)
-                        .or_else(|_| refpack::easy_decompress::<Simcity4>(&self.data))
-                        .or_else(|_| refpack::easy_decompress::<TheSims34>(&self.data))
-                        .or_else(|_| refpack::easy_decompress::<Reference>(&self.data))?
+                    // TODO add a force format override
+                    refpack::easy_decompress::<Maxis>(&self.data)
+                        .and_then(|v| {
+                            // eprintln!("sims2");
+                            Ok(v)
+                        })
+                        .or_else(|_| refpack::easy_decompress::<SimEA>(&self.data)
+                            .and_then(|v| {
+                                // eprintln!("sims3");
+                                Ok(v)
+                            }))
+                        .or_else(|_| refpack::easy_decompress::<Reference>(&self.data)
+                            .and_then(|v| {
+                                // eprintln!("ref");
+                                Ok(v)
+                            }))?
                 }
                 CompressionType::ZLib => {
                     miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(
                         &self.data, self.decompressed_size as usize)?
                 }
+                CompressionType::Deleted => self.data,
                 _ => todo!(),
             },
         })
@@ -235,7 +250,8 @@ impl Debug for RawFileData {
 pub enum DecodedFile {
     PropertySet(PropertySet),
     SimOutfits(SimOutfits),
-    TextureResource(ResourceCollection),
+    ResourceCollection(ResourceCollection),
+    TextList(TextList),
 }
 
 impl DecodedFile {
@@ -248,8 +264,15 @@ impl DecodedFile {
             DBPFFileType::Known(KnownDBPFFileType::SimOutfits) => {
                 Some(SimOutfits::read(&mut cursor).map(|r| DecodedFile::SimOutfits(r)))
             }
-            DBPFFileType::Known(KnownDBPFFileType::TextureResource) => {
-                Some(ResourceCollection::read(&mut cursor).map(|r| DecodedFile::TextureResource(r)))
+            DBPFFileType::Known(KnownDBPFFileType::TextureResource |
+                                KnownDBPFFileType::MaterialDefinition) => {
+                Some(ResourceCollection::read(&mut cursor).map(|r| DecodedFile::ResourceCollection(r)))
+            }
+            DBPFFileType::Known(KnownDBPFFileType::TextList |
+                                KnownDBPFFileType::CatalogDescription |
+                                KnownDBPFFileType::CatalogString |
+                                KnownDBPFFileType::PieMenuStrings) => {
+                Some(TextList::read(&mut cursor).map(|r| DecodedFile::TextList(r)))
             }
             _ => None,
         }
@@ -260,7 +283,8 @@ impl DecodedFile {
         match self {
             DecodedFile::PropertySet(x) => x.write(&mut data)?,
             DecodedFile::SimOutfits(x) => x.write(&mut data)?,
-            DecodedFile::TextureResource(x) => x.write(&mut data)?,
+            DecodedFile::ResourceCollection(x) => x.write(&mut data)?,
+            DecodedFile::TextList(x) => x.write(&mut data)?,
         }
         // TODO write error handling?
         Ok(RawFileData { data: data.into_inner() })

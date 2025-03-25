@@ -6,6 +6,7 @@ use enum_iterator::Sequence;
 
 #[binrw]
 #[brw(repr = u32)]
+#[repr(u32)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, Sequence)]
 #[non_exhaustive]
 pub enum KnownDBPFFileType {

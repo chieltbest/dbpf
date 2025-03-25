@@ -1,5 +1,5 @@
-use std::fmt::{Debug, Formatter};
-use binrw::{binrw, until_eof};
+/*use std::fmt::{Debug, Formatter};
+use binrw::{binrw, helpers::until_eof};
 
 #[binrw]
 #[brw(little)]
@@ -13,4 +13,4 @@ impl Debug for XML {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", String::from_utf8_lossy(&self.data))
     }
-}
+}*/

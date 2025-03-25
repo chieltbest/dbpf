@@ -1,5 +1,6 @@
 use std::fmt::Write;
-use eframe::egui::{Key, ScrollArea, TextEdit, Ui};
+use eframe::egui;
+use eframe::egui::{Key, Response, ScrollArea, TextEdit, Ui};
 use eframe::egui::text::{CCursor, CCursorRange};
 use fuzzy_matcher::FuzzyMatcher;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
@@ -45,13 +46,14 @@ fn dbpf_file_type_search_strings(file_type: KnownDBPFFileType) -> Vec<String> {
 impl Editor for DBPFFileType {
     type EditorState = DBPFFileTypeEditorState;
 
-    fn new_editor(&self) -> Self::EditorState {
+    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
         Self::EditorState {
             search_string: "".to_string(),
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        // TODO use the innerresponse properly
         let mut text_edit_response = None;
         let inner_res = ui.menu_button(self.full_name(), |ui| {
             text_edit_response = Some(TextEdit::singleline(&mut state.search_string).show(ui));
@@ -93,21 +95,28 @@ impl Editor for DBPFFileType {
                     }
                 }
                 ui.close_menu();
+                text_edit_response.as_mut().unwrap().response.mark_changed();
             }
         });
         if inner_res.response.clicked() {
-            if let Some(mut text_res) = text_edit_response {
-                text_res.state.set_ccursor_range(Some(CCursorRange {
+            if let Some(ref mut text_res) = text_edit_response {
+                text_res.state.cursor.set_char_range(Some(CCursorRange {
                     secondary: CCursor::new(0),
                     primary: CCursor::new(state.search_string.len()),
                 }));
-                text_res.state.store(ui.ctx(), text_res.response.id);
+                text_res.state.clone().store(ui.ctx(), text_res.response.id);
                 text_res.response.request_focus();
             }
         }
 
         if let Some(str) = dbpf_file_type_hover_string(*self) {
-            inner_res.response.on_hover_text(str);
+            inner_res.response.clone().on_hover_text(str);
+        }
+
+        if let Some(inner) = text_edit_response {
+            inner_res.response | inner.response
+        } else {
+            inner_res.response
         }
     }
 }

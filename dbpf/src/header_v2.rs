@@ -1,13 +1,14 @@
-use std::io::{Read, Seek};
+use std::io::{Read, Write, Seek};
 use binrw::{args, binread, BinResult, BinRead, BinWrite};
 use modular_bitfield::bitfield;
 use modular_bitfield::prelude::*;
+use crate::{CompressionType, IndexEntry, IndexMinorVersion};
 use crate::filetypes::DBPFFileType;
 use crate::lazy_file_ptr::{LazyFilePtr, Zero};
-use crate::{Timestamp, UserVersion, Version, HEADER_SIZE, CompressionType};
-use crate::internal_file::{FileData, FileDataBinReadArgs};
+use crate::dbpf_file::Index;
+use crate::internal_file::{CompressionError, FileData, FileDataBinReadArgs};
 
-#[binread]
+/*#[binread]
 #[derive(Clone, Debug)]
 pub(crate) struct HeaderV2 {
     #[brw(assert(matches ! (version, Version::V2(_))))]
@@ -37,7 +38,7 @@ pub(crate) struct HeaderV2 {
     #[br(args { inner: args ! { count: index_entry_count as usize }})]
     #[brw(assert(index_entry_count == 0 || index.ptr >= HEADER_SIZE as u64, "index count was {} (non-zero) while index location was {}", index_entry_count, index.ptr))]
     pub index: LazyFilePtr<u64, IndexV2, IndexV2BinReadArgs>,
-}
+}*/
 
 #[bitfield]
 #[derive(BinRead, BinWrite, Clone, Copy, Debug)]
@@ -88,7 +89,7 @@ group_id: Option < u32 >,
 instance_id_ex: Option < u32 >})]
 #[derive(Clone, Debug)]
 pub(crate) struct IndexEntryV2 {
-    #[brw(if (matches!(type_id, None), type_id.unwrap()))]
+    #[brw(if (matches ! (type_id, None), type_id.unwrap()))]
     pub type_id: DBPFFileType,
     #[brw(if (matches ! (group_id, None), group_id.unwrap()))]
     pub group_id: u32,
@@ -120,8 +121,28 @@ pub(crate) struct IndexEntryV2 {
     pub data: LazyFilePtr<Zero, FileData, FileDataBinReadArgs>,
 }
 
-impl HeaderV2 {
-    pub fn index<R: Read + Seek>(&mut self, reader: &mut R) -> BinResult<&mut IndexV2> {
-        self.index.get(reader)
+impl Index for IndexV2 {
+    fn try_into_vec<R: Read + Seek>(self, reader: &mut R, index_version: IndexMinorVersion)
+                                    -> BinResult<Vec<IndexEntry>> {
+        self.entries.into_iter().map(|entry| {
+            Ok(IndexEntry {
+                type_id: entry.type_id,
+                group_id: entry.group_id,
+                instance_id: entry.instance_id as u64 | ((entry.instance_id_ex as u64) << 32),
+
+                compression: entry.compression_type,
+
+                data: entry.data,
+            })
+        }).collect()
+    }
+
+    fn write_entries<W: Write + Seek, R: Read + Seek>(
+        writer: &mut W,
+        reader: &mut R,
+        entries: &mut Vec<IndexEntry>,
+        index_version: IndexMinorVersion)
+        -> Result<(Vec<u8>, usize), CompressionError> {
+        todo!()
     }
 }

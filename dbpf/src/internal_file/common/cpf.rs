@@ -1,8 +1,10 @@
 use binrw::binrw;
+use derive_more::{From, TryInto};
 use crate::common::String;
 
 #[binrw]
 #[brw(repr = u32)]
+#[repr(u32)]
 #[derive(Copy, Clone, Debug)]
 pub enum DataType {
     UInt = 0xEB61E4F7,
@@ -14,7 +16,7 @@ pub enum DataType {
 
 #[binrw]
 #[br(import {data_type: DataType})]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, From, TryInto)]
 pub enum Data {
     #[br(pre_assert(matches ! (data_type, DataType::UInt)))]
     UInt(u32),
@@ -49,6 +51,15 @@ pub struct Item {
     pub name: String,
     #[br(args{data_type})]
     pub data: Data,
+}
+
+impl Item {
+    pub fn new(name: impl Into<String>, data: impl Into<Data>) -> Self {
+        Self {
+            name: name.into(),
+            data: data.into(),
+        }
+    }
 }
 
 #[binrw]

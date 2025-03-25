@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+    <mime-type type="application/x-dbpf">
+        <comment>Maxis DBPF package</comment>
+        <glob pattern="*.package"/>
+    </mime-type>
+</mime-info>

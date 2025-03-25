@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+    <mime-type type="application/sims2pack">
+        <comment>Sims 2 Pack</comment>
+        <glob pattern="*.Sims2Pack"/>
+    </mime-type>
+</mime-info>

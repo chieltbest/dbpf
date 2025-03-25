@@ -7,11 +7,15 @@
       <sourceFolder url="file://$MODULE_DIR$/dbpf/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dbpf/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dbpf_utils/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/dbpf_utils/batl/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/dbpf_utils/yact/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/dbpf_utils/yape/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/input" />
       <excludeFolder url="file://$MODULE_DIR$/dbpf/target" />
       <excludeFolder url="file://$MODULE_DIR$/dbpf_utils/target" />
       <excludeFolder url="file://$MODULE_DIR$/dbpf_utils/input" />
+      <excludeFolder url="file://$MODULE_DIR$/dbpf_utils/dist" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

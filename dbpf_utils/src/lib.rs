@@ -1,11 +1,13 @@
+#[cfg(not(target_arch = "wasm32"))]
 pub mod tgi_conflicts;
+pub mod editor;
 
-use std::future::Future;
-use tokio::time::Instant;
-use tracing_subscriber::layer::SubscriberExt;
-
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn application_main<Fut>(main: impl FnOnce() -> Fut)
-    where Fut: Future {
+    where Fut: std::future::Future {
+    use tokio::time::Instant;
+    use tracing_subscriber::layer::SubscriberExt;
+
     tracing::subscriber::set_global_default(tracing_subscriber::registry()
         // .with(tracing_tracy::TracyLayer::new())
         .with(tracing_subscriber::fmt::layer().pretty())

@@ -1,16 +1,20 @@
 use binrw::{args, binrw};
 use crate::common::BigString;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
+use crate::internal_file::resource_collection::material_definition::MaterialDefinition;
 use crate::internal_file::resource_collection::texture_resource::TextureResource;
 
 pub mod texture_resource;
+pub mod material_definition;
 
 #[binrw]
 #[brw(import {type_id: DBPFFileType, version: ResourceBlockVersion})]
 #[derive(Clone, Debug)]
 pub enum ResourceData {
     #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::TextureResource))))]
-    Texture(#[brw(args {version})] TextureResource),
+    Texture(#[brw(args {version: version.clone()})] TextureResource),
+    #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::MaterialDefinition))))]
+    Material(#[brw(args {version: version.clone()})] MaterialDefinition),
 }
 
 #[binrw]
@@ -29,18 +33,23 @@ pub struct FileName {
 }
 
 #[binrw]
-#[brw(magic = 0xFFFF0001u32)]
+// #[brw(magic = 0xFFFF0001u32)]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ResourceVersion;
+pub struct ResourceVersion {
+    pub magic: u32,
+}
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum ResourceBlockVersion {
     V7 = 7,
     V8 = 8,
     #[default]
     V9 = 9,
+    V10 = 10,
+    V11 = 11,
 }
 
 #[binrw]
@@ -49,7 +58,7 @@ pub enum ResourceBlockVersion {
 pub struct FileLink {
     pub group_id: u32,
     pub instance_id: u32,
-    #[br(if (version))]
+    #[brw(if (version))]
     pub resource_id: u32,
     pub type_id: DBPFFileType,
 }
@@ -71,14 +80,14 @@ pub struct ResourceEntry {
 #[derive(Clone, Debug, Default)]
 pub struct ResourceCollection {
     #[br(map = | x: Option < ResourceVersion > | x.is_some())]
-    #[bw(map = | x | x.then_some(ResourceVersion {}))]
+    #[bw(map = | x | x.then_some(ResourceVersion { magic: 0xFFFF0001u32 }))]
     pub version: bool,
 
     #[br(temp)]
     #[bw(calc = links.len() as u32)]
     link_count: u32,
     #[br(args {count: link_count as usize, inner: args ! {version: version}})]
-    #[bw(args {version: * version})]
+    #[bw(args {version: version.is_some()})]
     pub links: Vec<FileLink>,
 
     #[br(temp)]

@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
-use binrw::BinResult;
+use binrw::{BinRead, BinResult};
 use binrw::io::BufReader;
 
 use futures::{stream, StreamExt};

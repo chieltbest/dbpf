@@ -3,7 +3,7 @@ use std::ffi::{CStr, OsStr};
 use std::io::{Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 use dbpf::{CompressionType, DBPFFile};
-use binrw::Error;
+use binrw::{BinRead, Error};
 use dbpf::filetypes::DBPFFileType;
 
 fn unpack_header<R: Read + Seek>(header: DBPFFile, reader: &mut R, dir_path: &Path) {
