@@ -25,13 +25,19 @@ egui_dock = { version = "0.15.0", features = ["serde"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 open = "5.3.0"
-
 walkdir = "2"
 
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 tokio = { version = "1.38", features = ["full"] }
+rayon = "1.10.0"
+tokio-rayon = "2.1.0"
+num_cpus = "1.16.0"
+
+thiserror = "2.0.11"
+
+clap = { version = "4.5.33", features = ["derive", "unicode"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 log = "0.4.22"
