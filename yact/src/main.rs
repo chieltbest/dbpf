@@ -306,7 +306,7 @@ impl DBPFApp {
         ui.button("Copy name")
             .clicked().then(|| {
             if let Some(stem) = path.file_stem().and_then(|str| str.to_str()) {
-                ui.output_mut(|o| o.copied_text = stem.to_string())
+                ui.ctx().copy_text(stem.to_string());
             } else {
                 warn!("could not get file stem");
             }
@@ -315,7 +315,7 @@ impl DBPFApp {
         ui.button("Copy name.package")
             .clicked().then(|| {
             if let Some(name) = path.file_name().and_then(|str| str.to_str()) {
-                ui.output_mut(|o| o.copied_text = name.to_string());
+                ui.ctx().copy_text(name.to_string());
             } else {
                 warn!("could not get filename");
             }
@@ -323,12 +323,12 @@ impl DBPFApp {
         });
         ui.button("Copy full path")
             .clicked().then(|| {
-            ui.output_mut(|o| o.copied_text = path.to_string_lossy().to_string());
+            ui.ctx().copy_text(path.to_string_lossy().to_string());
             ui.close_menu();
         });
         ui.button("Copy full conflict data")
             .clicked().then(|| {
-            ui.output_mut(|o| o.copied_text = format!("{}", conflict));
+            ui.ctx().copy_text(format!("{}", conflict));
             ui.close_menu();
         });
     }
@@ -369,7 +369,7 @@ impl DBPFApp {
 
         let tooltip = Self::conflict_description_string(stripped_path, &conflict.tgis);
 
-        let mut frame = containers::Frame::none();
+        let mut frame = containers::Frame::new();
         let selected = self.highlighted_conflict.as_ref().map(|c| conflict == c).unwrap_or(false);
         if selected {
             frame.fill = if ui.style().visuals.dark_mode {
@@ -531,7 +531,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with(tracing_subscriber::filter::EnvFilter::from_default_env())
     ).expect("set up the subscriber");
 
-    let icon = include_bytes!("../../../res/yact.png");
+    let icon = include_bytes!("../icon.png");
     let image = image::ImageReader::new(Cursor::new(icon))
         .with_guessed_format()?.decode()?;
     let buf = Vec::from(image.as_bytes());

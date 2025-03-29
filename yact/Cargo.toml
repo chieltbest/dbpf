@@ -1,0 +1,26 @@
+[package]
+name = "yact"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+dbpf = { path = "../dbpf" }
+dbpf_utils = { path = "../dbpf_utils" }
+
+futures = "0.3"
+
+eframe = { version = "0.31.0", features = ["persistence"] }
+serde = "1.0.203"
+serde_json = "1.0.140"
+egui_extras = "0.31.0"
+rfd = "0.15"
+image = "0.25"
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+tokio = { version = "1.38", features = ["full"] }
+
+[build-dependencies]
+embed-resource = "3.0"

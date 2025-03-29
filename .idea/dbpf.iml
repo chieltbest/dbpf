@@ -10,6 +10,9 @@
       <sourceFolder url="file://$MODULE_DIR$/dbpf_utils/batl/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dbpf_utils/yact/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dbpf_utils/yape/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/batl/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/yact/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/yape/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/input" />
       <excludeFolder url="file://$MODULE_DIR$/dbpf/target" />

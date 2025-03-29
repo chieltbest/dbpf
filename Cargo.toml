@@ -1,7 +1,10 @@
 [workspace]
 members = [
+    "batl",
     "dbpf",
     "dbpf_utils",
+    "yact",
+    "yape",
 ]
 
 resolver = "2"

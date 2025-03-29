@@ -638,7 +638,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::filter::EnvFilter::from_default_env())
     ).expect("set up the subscriber");
 
-    let icon = include_bytes!("../../../res/yape.png");
+    let icon = include_bytes!("../icon.png");
     let image = image::ImageReader::new(Cursor::new(icon))
         .with_guessed_format()?.decode()?;
     let buf = Vec::from(image.as_bytes());
