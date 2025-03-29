@@ -351,6 +351,9 @@ impl YaPeApp {
         if let Some(storage) = cc.storage {
             let mut new: YaPeApp = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
             cc.egui_ctx.set_pixels_per_point(new.ui_scale);
+            if let Some(dark) = new.dark_mode_preference {
+                new.set_dark_mode(dark, &cc.egui_ctx);
+            }
 
             if let Some(path) = new.data.open_file_path.clone() {
                 new.open_file(path);
