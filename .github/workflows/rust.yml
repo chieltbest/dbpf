@@ -1,0 +1,47 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-upload:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          RUSTTARGET: x86_64-pc-windows-gnu
+          UPLOAD_MODE: none
+      - name: Install appimagetool
+        uses: jaxxstorm/action-install-gh-release@v1.10.0
+        with: # Grab the latest version
+          repo: AppImage/appimagetool
+      - name: Install cargo appimage
+        run: cargo install cargo-appimage
+      - name: Build batl appimage
+        run: cargo appimage
+        working-directory: batl/
+      - name: Build yact appimage
+        run: cargo appimage
+        working-directory: yact/
+      - name: Build yape appimage
+        run: cargo appimage
+        working-directory: yape/
+      - name: Update latest release
+        uses: actions/upload-artifact@v3
+        with:
+          name: Binary
+          path: |
+            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
+            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+            target/appimage/batl.AppImage
+            target/appimage/yact.AppImage
+            target/appimage/yape.AppImage
+            
