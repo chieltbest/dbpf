@@ -1,7 +1,9 @@
 name: Deploy
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+    - main
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,13 +38,11 @@ jobs:
         run: cargo appimage
         working-directory: yape/
       - name: Update latest release
-        uses: actions/upload-artifact@v4
+        uses: johnwbyrd/update-release@v1
         with:
-          name: Binary
-          path: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release: latest
+          files: |
             target/appimage/batl.AppImage
             target/appimage/yact.AppImage
             target/appimage/yape.AppImage
-            
