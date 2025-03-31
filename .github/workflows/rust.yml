@@ -35,7 +35,7 @@ jobs:
         run: cargo appimage
         working-directory: yape/
       - name: Update latest release
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Binary
           path: |
