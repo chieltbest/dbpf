@@ -8,19 +8,17 @@ env:
 
 jobs:
   build-and-upload:
-    name: release ${{ matrix.target }}
+    name: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          RUSTTARGET: x86_64-pc-windows-gnu
-          SRC_DIR: batl/
-          TOOLCHAIN_VERSION: 1.85
-          UPLOAD_MODE: none
+      # - name: Compile and release
+      #   uses: rust-build/rust-build.action@v1.4.5
+      #   with:
+      #     RUSTTARGET: x86_64-pc-windows-gnu
+      #     SRC_DIR: batl/
+      #     TOOLCHAIN_VERSION: 1.85
+      #     UPLOAD_MODE: none
       - name: Install appimagetool
         uses: jaxxstorm/action-install-gh-release@v1.10.0
         with: # Grab the latest version
