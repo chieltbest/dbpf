@@ -19,14 +19,11 @@ jobs:
       #     SRC_DIR: batl/
       #     TOOLCHAIN_VERSION: 1.85
       #     UPLOAD_MODE: none
-      - name: Install appimagetool
-        uses: jaxxstorm/action-install-gh-release@v2.0.0
+      - name: Setup AppImageTool
+        uses: AnimMouse/setup-appimage@v1
         with:
-          repo: AppImage/appimagetool
-          asset-name: appimagetool-x86_64.AppImage
-          rename-to: appimagetool
-          chmod: 0755
-          extension-matching: disable
+          name: appimagetool
+          url: https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
       - name: Install cargo appimage
         run: cargo install cargo-appimage
       - name: Build batl appimage
