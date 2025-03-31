@@ -23,7 +23,7 @@ jobs:
         uses: jaxxstorm/action-install-gh-release@v1.10.0
         with: # Grab the latest version
           repo: AppImage/appimagetool
-          asset-name: appimagetool_x86-64.AppImage
+          asset-name: appimagetool-x86_64.AppImage
           rename-to: appimagetool
           chmod: 0755
           extension-matching: disable
