@@ -20,8 +20,8 @@ jobs:
       #     TOOLCHAIN_VERSION: 1.85
       #     UPLOAD_MODE: none
       - name: Install appimagetool
-        uses: jaxxstorm/action-install-gh-release@v1.10.0
-        with: # Grab the latest version
+        uses: jaxxstorm/action-install-gh-release@v2.0.0
+        with:
           repo: AppImage/appimagetool
           asset-name: appimagetool-x86_64.AppImage
           rename-to: appimagetool
