@@ -146,7 +146,7 @@ impl Editor for TextureFilterOperation {
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut selected: usize = self.clone().into();
 
-        let ires = ComboBox::from_id_source(ui.id().with(0))
+        let ires = ComboBox::from_id_salt(ui.id().with(0))
             .selected_text(match selected {
                 0 => "Width",
                 1 => "Height",
@@ -191,7 +191,7 @@ impl Editor for TextureFilterOperation {
             TextureFilterOperation::Height(c, y) |
             TextureFilterOperation::Memory(c, y) |
             TextureFilterOperation::Mip(c, y) => {
-                let res = ComboBox::from_id_source(ui.id().with(1))
+                let res = ComboBox::from_id_salt(ui.id().with(1))
                     .selected_text(format!("{c}"))
                     .show_ui(ui, |ui| {
                         [
