@@ -2,7 +2,6 @@
 name = "dbpf_utils"
 version = "0.1.0"
 edition = "2021"
-build = "build.rs"
 
 [dependencies]
 binrw = "0.14"
