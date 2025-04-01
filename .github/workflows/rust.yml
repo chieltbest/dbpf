@@ -38,11 +38,17 @@ jobs:
         run: cargo appimage
         working-directory: yape/
       - name: Update latest release
-        uses: johnwbyrd/update-release@v1.0.0
+        uses: mini-bomba/create-github-release@v1.2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release: latest
+          tag: "latest"
+          prerelease: true
+          name: "Latest Commit that compiles"
+          body: |
+            This automatic release is built from commit ${{ env.GIT_HASH }}
+
+            Commit message:
+            ${{ env.GIT_MESSAGE }}
           files: |
-            target/appimage/batl.AppImage
-            target/appimage/yact.AppImage
-            target/appimage/yape.AppImage
+            target/appimage/*.AppImage
+          clear_attachments: true
