@@ -15,15 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - run: rustup toolchain install stable --profile minimal
+      - run: rustup toolchain install stable --profile minimal --target x86_64-pc-windows-gnu
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
-      # - name: Compile and release
-      #   uses: rust-build/rust-build.action@v1.4.5
-      #   with:
-      #     RUSTTARGET: x86_64-pc-windows-gnu
-      #     SRC_DIR: batl/
-      #     TOOLCHAIN_VERSION: 1.85
-      #     UPLOAD_MODE: none
+      - run: cargo build --release --target x86_64-pc-windows-gnu
       - name: Setup AppImageTool
         uses: AnimMouse/setup-appimage@v1
         with:
@@ -46,12 +41,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: "latest"
           prerelease: true
-          name: "Latest Commit that compiles"
+          name: "Latest Commit"
           body: |
-            This automatic release is built from commit ${{ env.GIT_HASH }}
-
-            Commit message:
-            ${{ env.GIT_MESSAGE }}
+            This automatic release is built from the latest commit that has been successfully compiled and tested.
           files: |
             target/appimage/*.AppImage
+            target/x86_64-pc-windows-gnu/release/batl.exe
+            target/x86_64-pc-windows-gnu/release/yact.exe
+            target/x86_64-pc-windows-gnu/release/yape.exe
+            target/x86_64-pc-windows-gnu/release/dbpfrecompress.exe
           clear_attachments: true
