@@ -48,6 +48,12 @@ jobs:
           name: "Latest Commit"
           body: |
             This automatic release is built from the latest commit that has been successfully compiled and tested.
+            
+            For Windows users:
+            Download the .exe files, then click on the file to run it.
+            
+            For Linux users:
+            Download the .AppImage files, then click on the file to run it.
           files: |
             target/appimage/*.AppImage
             target/x86_64-pc-windows-gnu/release/batl.exe
