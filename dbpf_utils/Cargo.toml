@@ -6,24 +6,26 @@ edition = "2021"
 [dependencies]
 binrw = "0.14"
 dbpf = { path = "../dbpf" }
-humansize = "2.1.3"
-fuzzy-matcher = "0.3.7"
+humansize = "2.1"
+fuzzy-matcher = "0.3"
 
 futures = "0.3"
 
 eframe = { version = "0.30", features = ["persistence"] }
 egui_extras = "0.30"
-enum-iterator = "2.1.0"
+enum-iterator = "2.1"
 
 walkdir = "2"
 
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 tokio = { version = "1.38", features = ["full"] }
-tokio-rayon = "2.1.0"
-num_cpus = "1.16.0"
+tokio-rayon = "2.1"
+num_cpus = "1.16"
 
-thiserror = "2.0.11"
+thiserror = "2.0"
 
-clap = { version = "4.5.33", features = ["derive", "unicode"] }
+image = "0.25"
+
+clap = { version = "4.5", features = ["derive", "unicode"] }

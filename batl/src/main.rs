@@ -10,20 +10,19 @@ mod texture_finder;
 mod ui_image_cache;
 
 use std::error::Error;
-use std::io::Cursor;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{Receiver, TryRecvError};
-use eframe::{App, egui, Frame, NativeOptions, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, IconData, Image, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, ViewportBuilder, Visuals, Window};
+use eframe::{App, egui, Frame, Storage};
+use eframe::egui::{Color32, containers, Context, DragValue, Image, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window};
 use eframe::egui::style::Interaction;
 use eframe::epaint::Vec2;
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::{info, instrument, warn};
-use tracing_subscriber::layer::SubscriberExt;
+use dbpf_utils::graphical_application_main;
 use crate::filtered_texture_list::FilteredTextureList;
 use crate::texture_finder::{find_textures, FoundTexture};
 use crate::ui_image_cache::ImageCache;
@@ -571,34 +570,10 @@ impl App for DBPFApp {
     }
 }
 
-//noinspection ALL
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    tracing::subscriber::set_global_default(tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
-    ).expect("set up the subscriber");
-
-    let icon = include_bytes!("../icon.png");
-    let image = image::ImageReader::new(Cursor::new(icon))
-        .with_guessed_format()?.decode()?;
-    let buf = Vec::from(image.as_bytes());
-
-    let native_options = NativeOptions {
-        viewport: ViewportBuilder::default()
-            .with_icon(IconData {
-                width: image.width(),
-                height: image.height(),
-                rgba: buf,
-            })
-            .with_drag_and_drop(true)
-            .with_resizable(true),
-        ..Default::default()
-    };
-
-    eframe::run_native("Big Awful Texture Locator",
-                       native_options,
-                       Box::new(|cc|
-                           Ok(Box::new(DBPFApp::new(cc)))))?;
-    Ok(())
+fn main() -> Result<(), Box<dyn Error>> {
+    graphical_application_main(
+        include_bytes!("../icon.png"),
+        "Big Awful Texture Locator",
+        Box::new(|cc|
+            Ok(Box::new(DBPFApp::new(cc)))))
 }

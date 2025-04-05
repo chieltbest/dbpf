@@ -5,17 +5,16 @@ mod filtered_conflict_list;
 use crate::filtered_conflict_list::{ConflictTypeFilterWarning, FilteredConflictList, KnownConflict};
 
 use std::error::Error;
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{Receiver, TryRecvError};
-use eframe::{App, egui, Frame, NativeOptions, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, IconData, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, ViewportBuilder, Visuals, Window};
+use eframe::{App, egui, Frame, Storage};
+use eframe::egui::{Color32, containers, Context, DragValue, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window};
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::{info, instrument, warn};
-use tracing_subscriber::layer::SubscriberExt;
+use dbpf_utils::graphical_application_main;
 use dbpf_utils::tgi_conflicts::{find_conflicts, TGI, TGIConflict};
 
 struct DBPFApp {
@@ -369,7 +368,7 @@ impl DBPFApp {
 
         let tooltip = Self::conflict_description_string(stripped_path, &conflict.tgis);
 
-        let mut frame = containers::Frame::new();
+        let mut frame = containers::Frame::none();
         let selected = self.highlighted_conflict.as_ref().map(|c| conflict == c).unwrap_or(false);
         if selected {
             frame.fill = if ui.style().visuals.dark_mode {
@@ -524,33 +523,10 @@ impl App for DBPFApp {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    tracing::subscriber::set_global_default(tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
-    ).expect("set up the subscriber");
-
-    let icon = include_bytes!("../icon.png");
-    let image = image::ImageReader::new(Cursor::new(icon))
-        .with_guessed_format()?.decode()?;
-    let buf = Vec::from(image.as_bytes());
-
-    let native_options = NativeOptions {
-        viewport: ViewportBuilder::default()
-            .with_icon(IconData {
-                width: image.width(),
-                height: image.height(),
-                rgba: buf,
-            })
-            .with_drag_and_drop(true)
-            .with_resizable(true),
-        ..Default::default()
-    };
-
-    eframe::run_native("Yet Another Conflict Tool",
-                       native_options,
-                       Box::new(|cc|
-                           Ok(Box::new(DBPFApp::new(cc)))))?;
-    Ok(())
+fn main() -> Result<(), Box<dyn Error>> {
+    graphical_application_main(
+        include_bytes!("../icon.png"),
+        "Yet Another Conflict Tool",
+        Box::new(|cc|
+            Ok(Box::new(DBPFApp::new(cc)))))
 }

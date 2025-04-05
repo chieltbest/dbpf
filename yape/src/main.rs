@@ -21,6 +21,7 @@ use dbpf::{CompressionType, DBPFFile, IndexEntry};
 use dbpf::internal_file::CompressionError;
 
 use dbpf_utils::editor::{DecodedFileEditorState, Editor, editor_supported};
+use dbpf_utils::graphical_application_main;
 
 enum EditorType {
     HexEditor(MemoryEditor),
@@ -630,39 +631,12 @@ impl App for YaPeApp {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use tracing_subscriber::layer::SubscriberExt;
-    use eframe::NativeOptions;
-    use eframe::egui::{IconData, ViewportBuilder};
-
-    tracing::subscriber::set_global_default(tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
-    ).expect("set up the subscriber");
-
-    let icon = include_bytes!("../icon.png");
-    let image = image::ImageReader::new(Cursor::new(icon))
-        .with_guessed_format()?.decode()?;
-    let buf = Vec::from(image.as_bytes());
-
-    let native_options = NativeOptions {
-        viewport: ViewportBuilder::default()
-            .with_icon(IconData {
-                width: image.width(),
-                height: image.height(),
-                rgba: buf,
-            })
-            .with_drag_and_drop(true)
-            .with_resizable(true),
-        ..Default::default()
-    };
-
-    eframe::run_native("Yet Another Package Editor",
-                       native_options,
-                       Box::new(|cc|
-                           Ok(Box::new(YaPeApp::new(cc)))))?;
-    Ok(())
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    graphical_application_main(
+        include_bytes!("../icon.png"),
+        "Yet Another Package Editor",
+        Box::new(|cc|
+            Ok(Box::new(YaPeApp::new(cc)))))
 }
 
 // When compiling to web using trunk:
