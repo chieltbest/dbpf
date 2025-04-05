@@ -47,6 +47,11 @@ jobs:
           prerelease: true
           name: "Latest Commit"
           body: |
+            > [!CAUTION]
+            > These tools are currently EXPERIMENTAL!
+            > Prepare for any packages you edit with them to be potentially broken.
+            > Make proper backups accordingly.
+  
             This automatic release is built from the latest commit that has been successfully compiled and tested.
             
             For Windows users:
