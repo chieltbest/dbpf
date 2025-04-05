@@ -13,10 +13,9 @@ jobs:
     name: release
     runs-on: ubuntu-latest
     steps:
-      - uses: awalsh128/cache-apt-pkgs-action@latest
+      - uses: tecolicom/actions-use-apt-tools@v1
         with:
-          packages: gcc-mingw-w64
-          execute_install_scripts: true
+          tools: gcc-mingw-w64
       - uses: actions/checkout@master
       - uses: dtolnay/rust-toolchain@stable
         with:
