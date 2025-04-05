@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: gcc-mingw-w64-x86-64
+          packages: gcc-mingw-w64
       - uses: actions/checkout@master
       - uses: dtolnay/rust-toolchain@stable
         with:
