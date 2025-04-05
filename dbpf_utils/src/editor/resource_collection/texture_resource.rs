@@ -47,13 +47,13 @@ impl Editor for TextureResource {
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = self.file_name.name.show_editor(&mut (), ui);
         ui.horizontal_wrapped(|ui| {
-            res |= ui.add(DragValue::new(&mut self.width));
+            res |= ui.add_enabled(false, DragValue::new(&mut self.width));
             ui.label("width");
-            res |= ui.add(DragValue::new(&mut self.height));
+            res |= ui.add_enabled(false, DragValue::new(&mut self.height));
             ui.label("height");
         });
         ui.horizontal(|ui| {
-            res |= ui.add(DragValue::new(&mut self.mip_levels));
+            res |= ui.add_enabled(false, DragValue::new(&mut self.mip_levels));
             ui.label("Mip levels");
         });
         ui.label(format!("format: {:?}", self.format));
