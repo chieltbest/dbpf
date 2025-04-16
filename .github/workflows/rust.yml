@@ -24,10 +24,7 @@ jobs:
       - run: cargo test
       - run: cargo build --release --target x86_64-pc-windows-gnu
       - name: Setup AppImageTool
-        uses: AnimMouse/setup-appimage@v1
-        with:
-          name: appimagetool
-          url: https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+        run: curl --location -o /usr/bin/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
       - name: Install cargo appimage
         run: cargo install cargo-appimage
       - name: Build batl appimage
