@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: tecolicom/actions-use-apt-tools@v1
         with:
+          cache: 'no'
           tools: gcc-mingw-w64
-          method: 'timestamp'
       - uses: actions/checkout@master
       - uses: dtolnay/rust-toolchain@stable
         with:
