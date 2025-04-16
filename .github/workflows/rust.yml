@@ -28,6 +28,7 @@ jobs:
         run: |
           mkdir appimagetool
           curl --location -o appimagetool/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool/appimagetool
           echo "$PWD/appimagetool" >> "$GITHUB_PATH"
       - name: Install cargo appimage
         run: cargo install cargo-appimage
