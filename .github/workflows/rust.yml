@@ -49,7 +49,7 @@ jobs:
             For Linux users:
             Download the .AppImage files, then click on the file to run it.
           files: |
-            target/*.AppImage
+            target/release/*.AppImage
             target/x86_64-pc-windows-gnu/release/batl.exe
             target/x86_64-pc-windows-gnu/release/yact.exe
             target/x86_64-pc-windows-gnu/release/yape.exe
