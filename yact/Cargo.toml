@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
+[package.metadata.packager]
+before-packaging-command = "cargo build --release"
+product-name = "Yet Another Conflict Tool"
+identifier = "nl.chieldouwes.yact"
+icons = ["icon.png"]
+
 [dependencies]
 dbpf = { path = "../dbpf" }
 dbpf_utils = { path = "../dbpf_utils" }

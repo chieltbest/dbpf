@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
+[package.metadata.packager]
+before-packaging-command = "cargo build --release"
+product-name = "Yet Another Package Editor"
+identifier = "nl.chieldouwes.yape"
+icons = ["icon.png"]
+
 [dependencies]
 binrw = "0.14"
 dbpf = { path = "../dbpf" }
