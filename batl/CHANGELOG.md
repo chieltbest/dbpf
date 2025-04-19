@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.1] - 2025-04-19
+
+### 🚀 Features
+
+- *(dbpf)* Add support for header V3 (Spore) files
+
+### 🐛 Bug Fixes
+
+- Texture decode error handling
+
+### 📚 Documentation
+
+- Add dependencies to changelog
+
+### 📦️ Dependencies
+
+- Update to egui 0.31
+
 ## [0.1.0] - 2025-04-19
 
 ### 📚 Documentation

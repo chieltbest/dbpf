@@ -612,7 +612,7 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "batl"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binrw",
  "dbpf",
@@ -5282,7 +5282,7 @@ checksum = "c5b940ebc25896e71dd073bad2dbaa2abfe97b0a391415e22ad1326d9c54e3c4"
 
 [[package]]
 name = "yact"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dbpf",
  "dbpf_utils",
@@ -5305,7 +5305,7 @@ checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "yape"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binrw",
  "dbpf",
