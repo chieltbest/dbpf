@@ -45,9 +45,15 @@ pub fn graphical_application_main(
         }
     }
 
+    let log_dir = eframe::storage_dir(app_name).unwrap().join("log");
+    std::fs::create_dir_all(log_dir.clone())?;
+    let appender = tracing_appender::rolling::daily(log_dir, "rolling.log");
+    let (non_blocking_appender, _guard) = tracing_appender::non_blocking(appender);
+
     tracing::subscriber::set_global_default(
         tracing_subscriber::registry()
-            .with(tracing_subscriber::fmt::layer())
+            .with(tracing_subscriber::fmt::layer().with_writer(non_blocking_appender))
+            .with(tracing_subscriber::fmt::layer().pretty())
             .with(tracing_subscriber::filter::EnvFilter::from_default_env()),
     )
     .expect("set up the subscriber");
