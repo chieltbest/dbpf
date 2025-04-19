@@ -13,8 +13,8 @@ fuzzy-matcher = "0.3"
 
 futures = "0.3"
 
-eframe = { version = "0.30", features = ["persistence"] }
-egui_extras = "0.30"
+eframe = { version = "0.31", features = ["persistence"] }
+egui_extras = "0.31"
 enum-iterator = "2.1"
 
 walkdir = "2"

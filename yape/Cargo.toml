@@ -27,12 +27,12 @@ dbpf_utils = { path = "../dbpf_utils" }
 
 futures = "0.3"
 
-eframe = { version = "0.30", features = ["persistence"] }
+eframe = { version = "0.31", features = ["persistence"] }
 serde = "1.0.203"
-egui_extras = "0.30"
+egui_extras = "0.31"
 rfd = "0.15"
-egui_memory_editor = { version = "0.2", features = ["serde"] }
-egui_dock = { version = "0.15", features = ["serde"] }
+egui_memory_editor = { version = "0.2.12", features = ["serde"] }
+egui_dock = { version = "0.16", features = ["serde"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 open = "5.3"

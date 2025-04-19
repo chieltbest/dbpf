@@ -28,12 +28,12 @@ lru = "0.13"
 
 futures = "0.3"
 
-eframe = { version = "0.30", features = ["persistence"] }
+eframe = { version = "0.31", features = ["persistence"] }
 serde = "1.0.203"
 serde_json = "1.0.120"
-egui_extras = "0.30"
+egui_extras = "0.31"
 rfd = "0.15"
-egui_dock = { version = "0.15", features = ["serde"] }
+egui_dock = { version = "0.16", features = ["serde"] }
 
 open = "5.3"
 walkdir = "2"
