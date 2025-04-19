@@ -33,6 +33,8 @@ pub struct DBPFHeader {
     hole_index_size: u32,
 
     pub index_minor_version: IndexMinorVersion,
+
+    pub(crate) index_offset: u64,
 }
 
 #[binread]
@@ -46,7 +48,7 @@ pub struct DBPFFile {
     )]
     pub hole_index: Vec<HoleIndexEntry>,
 
-    #[br(seek_before = SeekFrom::Start(header.index_location as u64))]
+    #[br(seek_before = SeekFrom::Start(if matches!(header.version, Version::V3(_)) { header.index_offset } else { header.index_location as u64 }))]
     #[br(
         parse_with = parse_index, args ( header.index_entry_count, header.version, header.index_minor_version )
     )]
@@ -63,7 +65,7 @@ fn parse_index(count: u32, version: Version, index_version: IndexMinorVersion) -
                 .version(index_version)
                 .finalize())?
             .try_into_vec(r, index_version),
-        Version::V2(_) => IndexV2::read_le_args(
+        Version::V2(_) | Version::V3(_) => IndexV2::read_le_args(
             r,
             IndexV2BinReadArgs::builder()
                 .count(count as usize)
@@ -121,7 +123,7 @@ impl DBPFFile {
                                                      reader,
                                                      &mut self.index,
                                                      self.header.index_minor_version),
-            Version::V2(_) => todo!(),
+            Version::V2(_) | Version::V3(_) => todo!(),
         }?;
         self.header.index_size = index.len() as u32;
         self.header.index_location = HEADER_SIZE;

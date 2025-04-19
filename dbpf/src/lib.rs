@@ -23,6 +23,8 @@ pub enum Version {
     V1(V1Minor),
     #[brw(magic = 2u32)]
     V2(V2Minor),
+    #[brw(magic = 3u32)]
+    V3(V3Minor),
 }
 
 impl Default for Version {
@@ -46,6 +48,13 @@ pub enum V1Minor {
 pub enum V2Minor {
     M0 = 0,
     M1 = 1,
+}
+
+#[binrw]
+#[brw(repr = u32)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum V3Minor {
+    M0 = 0,
 }
 
 #[binrw]
