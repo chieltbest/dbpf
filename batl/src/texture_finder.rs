@@ -96,7 +96,7 @@ fn get_textures<R: Read + Seek>(path: PathBuf, mut header: DBPFFile, reader: &mu
                     .unwrap()
                     .decoded()
                     .inspect_err(|err| {
-                        eprintln!("Error in {path:?}: {err:#?}");
+                        error!(?path, ?err);
                     })
                     .ok()?
                     // .unwrap()
