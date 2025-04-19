@@ -1,0 +1,113 @@
+name: Release From Tag
+on:
+  push:
+    tags:
+      - "batl/v*.*.*"
+      - "yact/v*.*.*"
+      - "yape/v*.*.*"
+
+jobs:
+  generate-changelog:
+    name: Generate changelog
+    runs-on: ubuntu-latest
+    outputs:
+      release_body: ${{ steps.git-cliff.outputs.content }}
+      release_program: ${{ steps.get-tag.outputs.release_program }}
+      release_version: ${{ steps.get-tag.outputs.release_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Get tag path
+        id: get-tag
+        run: |
+          export REF_NAME=${{ github.ref_name }}
+          echo "release_program=${REF_NAME%%/*}" >> $GITHUB_OUTPUT
+          echo "release_version=${REF_NAME#*/}" >> $GITHUB_OUTPUT
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@main
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: --latest \
+            --tag ${{ steps.get-tag.outputs.release_version }} \
+            --tag-pattern "${{ steps.get-tag.outputs.release_program }}/v*" \
+            --include-path ${{ steps.get-tag.outputs.release_program }}/
+
+  build-and-upload:
+    needs: generate-changelog
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: tecolicom/actions-use-apt-tools@v1
+        with:
+          cache: 'no'
+          tools: gcc-mingw-w64
+      - uses: actions/checkout@master
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test
+      - run: cargo build --profile dist --target x86_64-pc-windows-gnu --bin ${{ needs.generate-changelog.outputs.release_program }}
+      - name: Install cargo packager
+        run: cargo install --locked cargo-packager
+      - name: Build AppImages
+        run: |
+          cargo build --profile dist --bin ${{ needs.generate-changelog.outputs.release_program }}
+          cargo packager --profile dist -f appimage -p ${{ needs.generate-changelog.outputs.release_program }}
+      - name: Make zip files
+        env:
+          PROGRAM: ${{ needs.generate-changelog.outputs.release_program }}
+          VERSION: ${{ needs.generate-changelog.outputs.release_version }}
+        run: |
+          rm -r target/distrib/ || true
+          mkdir target/distrib/
+          mkdir target/distrib/$PROGRAM-$VERSION-linux/
+          mkdir target/distrib/$PROGRAM-$VERSION-windows/
+          
+          cp target/dist/$PROGRAM*.AppImage \
+              target/distrib/$PROGRAM-$VERSION-linux/$PROGRAM.AppImage
+          cp target/x86_64-pc-windows-gnu/dist/$PROGRAM.exe \
+              target/distrib/$PROGRAM-$VERSION-windows/
+          
+          for OS in linux windows; do
+            cp  $PROGRAM/CHANGELOG.md \
+                $PROGRAM/README.md \
+                target/distrib/$PROGRAM-$VERSION-$OS/
+          done
+          
+          cd target/distrib/
+          
+          for OS in linux windows; do
+            zip -9 -r $PROGRAM-$VERSION-$OS.zip \
+                $PROGRAM-$VERSION-$OS/
+          done
+      - name: Update latest release
+        uses: mini-bomba/create-github-release@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          skip_tag_creation: 'true'
+          fail_on_no_files: 'true'
+          name: ${{ needs.generate-changelog.outputs.release_program }} ${{ needs.generate-changelog.outputs.release_version }}
+          body: |
+            > [!CAUTION]
+            > These tools are currently EXPERIMENTAL!
+            > Prepare for any packages you edit with them to be potentially broken.
+            > Make proper backups accordingly.
+            
+            ${{ needs.generate-changelog.outputs.release_body }}
+            
+            # Download/Run
+            
+            ## Windows
+            Under "Assets", download the .zip archive, extract it, then click on the .exe file to run it.
+            > Windows might give you a SmartScreen warning; Windows' SmartScreen doesn't like unsigned executables, \
+              but since it's quite expensive to have executables signed this will be a known flaw for the time being.
+            
+            ## Linux
+            Under "Assets", download the .zip archive, extract it, then click on the .AppImage file to run it.
+          files: |
+            target/distrib/*.zip

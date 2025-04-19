@@ -9,9 +9,22 @@ members = [
 
 resolver = "2"
 
+[workspace.package]
+repository = "https://github.com/chieltbest/dbpf"
+
+[workspace.metadata.release]
+publish = false
+tag-prefix = "{{crate_name}}/"
+pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}", "--tag-pattern", "{{crate_name}}/v*"]
+
 [profile.release]
 opt-level = 2 # fast and small wasm
 
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]
 opt-level = 2
+
+# The profile that CI will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

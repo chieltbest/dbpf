@@ -3,6 +3,8 @@ name = "yact"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
+repository.workspace = true
+publish = false
 
 [package.metadata.packager]
 before-packaging-command = "cargo build --release"
