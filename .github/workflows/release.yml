@@ -84,7 +84,7 @@ jobs:
             zip -9 -r $PROGRAM-$VERSION-$OS.zip \
                 $PROGRAM-$VERSION-$OS/
           done
-      - name: Update latest release
+      - name: Update versioned release
         uses: mini-bomba/create-github-release@v1.2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -108,6 +108,34 @@ jobs:
               but since it's quite expensive to have executables signed this will be a known flaw for the time being.
             
             ## Linux [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2F${{ needs.generate-changelog.outputs.release_version }}/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-linux.zip)
+            Download the .zip archive, extract it, then click on the .AppImage file to run it.
+          files: |
+            target/distrib/*.zip
+      - name: Update latest release
+        uses: mini-bomba/create-github-release@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: "${{ needs.generate-changelog.outputs.release_program }}/latest"
+          skip_tag_creation: 'false'
+          fail_on_no_files: 'true'
+          clear_attachments: 'true'
+          name: ${{ needs.generate-changelog.outputs.release_program }} ${{ needs.generate-changelog.outputs.release_version }} (latest)
+          body: |
+            > [!CAUTION]
+            > These tools are currently EXPERIMENTAL!
+            > Prepare for any packages you edit with them to be potentially broken.
+            > Make proper backups accordingly.
+            
+            ${{ needs.generate-changelog.outputs.release_body }}
+            
+            # Download/Run
+            
+            ## Windows [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-windows.zip)
+            Download the .zip archive, extract it, then click on the .exe file to run it.
+            > Windows might give you a SmartScreen warning; Windows' SmartScreen doesn't like unsigned executables, \
+              but since it's quite expensive to have executables signed this will be a known flaw for the time being.
+            
+            ## Linux [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-linux.zip)
             Download the .zip archive, extract it, then click on the .AppImage file to run it.
           files: |
             target/distrib/*.zip
