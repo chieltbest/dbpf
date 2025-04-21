@@ -400,14 +400,18 @@ impl DBPFApp {
     #[instrument(skip_all)]
     fn show_table(&mut self, ui: &mut Ui) {
         let available_width = ui.available_width();
+        let column_min_width = 100.0;
         egui_extras::TableBuilder::new(ui)
             .striped(true)
             .column(Column::remainder()
-                .at_least(100.0)
-                .at_most(available_width - 10.0)
+                .at_least(column_min_width)
+                .at_most(available_width - column_min_width)
                 .clip(true)
                 .resizable(true))
-            .column(Column::remainder().clip(true))
+            .column(Column::remainder()
+                .at_least(column_min_width)
+                .clip(true)
+                .resizable(true))
             .max_scroll_height(f32::MAX)
             .header(30.0, |mut row| {
                 row.col(|ui| { ui.heading("Original"); });
