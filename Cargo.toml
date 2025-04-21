@@ -18,7 +18,7 @@ tag-prefix = "{{crate_name}}/"
 pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}", "--tag-pattern", "{{crate_name}}/v*"]
 
 [profile.release]
-opt-level = 2 # fast and small wasm
+opt-level = 3
 
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]
