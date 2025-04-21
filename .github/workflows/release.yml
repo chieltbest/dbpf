@@ -102,12 +102,12 @@ jobs:
             
             # Download/Run
             
-            ## Windows
-            Under "Assets", download the .zip archive, extract it, then click on the .exe file to run it.
+            ## Windows [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2F${{ needs.generate-changelog.outputs.release_version }}/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-windows.zip)
+            Download the .zip archive, extract it, then click on the .exe file to run it.
             > Windows might give you a SmartScreen warning; Windows' SmartScreen doesn't like unsigned executables, \
               but since it's quite expensive to have executables signed this will be a known flaw for the time being.
             
-            ## Linux
-            Under "Assets", download the .zip archive, extract it, then click on the .AppImage file to run it.
+            ## Linux [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2F${{ needs.generate-changelog.outputs.release_version }}/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-linux.zip)
+            Download the .zip archive, extract it, then click on the .AppImage file to run it.
           files: |
             target/distrib/*.zip
