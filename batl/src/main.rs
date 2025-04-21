@@ -301,7 +301,7 @@ impl DBPFApp {
         ui.button("Copy name")
             .clicked().then(|| {
             if let Some(stem) = path.file_stem().and_then(|str| str.to_str()) {
-                ui.output_mut(|o| o.copied_text = stem.to_string())
+                ui.ctx().copy_text(stem.to_string());
             } else {
                 warn!("could not get file stem");
             }
@@ -310,7 +310,7 @@ impl DBPFApp {
         ui.button("Copy name.package")
             .clicked().then(|| {
             if let Some(name) = path.file_name().and_then(|str| str.to_str()) {
-                ui.output_mut(|o| o.copied_text = name.to_string());
+                ui.ctx().copy_text(name.to_string());
             } else {
                 warn!("could not get filename");
             }
@@ -318,13 +318,13 @@ impl DBPFApp {
         });
         ui.button("Copy full path")
             .clicked().then(|| {
-            ui.output_mut(|o| o.copied_text = path.to_string_lossy().to_string());
+            ui.ctx().copy_text(path.to_string_lossy().to_string());
             ui.close_menu();
         });
         if let Some(parent) = path.parent() {
             ui.button("Copy directory")
                 .clicked().then(|| {
-                ui.output_mut(|o| o.copied_text = parent.to_string_lossy().to_string());
+                ui.ctx().copy_text(parent.to_string_lossy().to_string());
                 ui.close_menu();
             });
         }
@@ -357,7 +357,7 @@ impl DBPFApp {
 
         let tooltip = Self::texture_description_string(stripped_path, &texture);
 
-        let mut frame = containers::Frame::none();
+        let mut frame = containers::Frame::new();
         let selected = self.highlighted_texture.as_ref().map(|c| texture == c).unwrap_or(false);
         if selected {
             frame.fill = if ui.style().visuals.dark_mode {

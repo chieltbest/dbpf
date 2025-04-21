@@ -368,7 +368,7 @@ impl DBPFApp {
 
         let tooltip = Self::conflict_description_string(stripped_path, &conflict.tgis);
 
-        let mut frame = containers::Frame::none();
+        let mut frame = containers::Frame::new();
         let selected = self.highlighted_conflict.as_ref().map(|c| conflict == c).unwrap_or(false);
         if selected {
             frame.fill = if ui.style().visuals.dark_mode {
