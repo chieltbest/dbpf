@@ -383,6 +383,7 @@ impl DBPFApp {
         frame.show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 let lbl = ui.add(Label::new(text)
+                    .extend()
                     .sense(Sense::click()))
                     .on_hover_text_at_pointer(tooltip);
                 lbl.context_menu(|ui| self.conflict_menu(path, conflict, ui));
