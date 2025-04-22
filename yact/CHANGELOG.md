@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2] - 2025-04-22
+
+### 🐛 Bug Fixes
+
+- Properly set conflict list min column width
+- Temporarily fix double hover text by switching text wrap mode to extend
+- Properly set maximum size for all columns in known conflict menu
+
+### 📦️ Dependencies
+
+- Finish egui 0.31 migration
+
 ## [0.1.1] - 2025-04-19
 
 ### 🚀 Features
