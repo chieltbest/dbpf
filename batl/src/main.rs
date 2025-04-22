@@ -1,9 +1,10 @@
 #![windows_subsystem = "windows"]
 
-// TODO integrated texture viewer
 // TODO texture conversion
 // TODO sort?
 // TODO memory problems
+// TODO mip level memory counting
+// TODO add total memory size
 
 mod filtered_texture_list;
 mod texture_finder;
@@ -15,11 +16,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{Receiver, TryRecvError};
 use eframe::{App, egui, Frame, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, Image, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window};
+use eframe::egui::{Color32, containers, Context, DragValue, Image, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window, TextStyle};
 use eframe::egui::style::Interaction;
 use eframe::epaint::Vec2;
 use egui_extras::Column;
 use futures::channel::oneshot;
+use futures::StreamExt;
 use rfd::FileHandle;
 use tracing::{info, instrument, warn};
 use dbpf_utils::graphical_application_main;
@@ -30,11 +32,43 @@ use crate::ui_image_cache::ImageCache;
 const IMAGE_CACHE_N: usize = 512;
 const IMAGE_MAX_SIZE: f32 = 300.0;
 
+const EXTRA_COLUMN_NAMES: [&str; 7] = [
+    "Group",
+    "Instance",
+    "Width",
+    "Height",
+    "Memory",
+    "Format",
+    "Mip",
+];
+const EXTRA_COLUMN_DESCRIPTIONS: [&str; 7] = [
+    "group id\n\
+    This is used by the game (together with the instance id) internally to refer to the texture",
+    "instance id\n\
+    This is used by the game (together with the group id) internally to refer to the texture",
+    "width of the texture in pixels",
+    "height of the texture in pixels",
+    "amount of bytes this texture takes in memory\n\
+    32-bit programs have an inherent limit of 4GiB (4294967296 bytes) of memory. \
+    This means that if you have a texture that takes 1MiB of memory (1048576 bytes), \
+    it will use up 1/4096th of your maximum memory.",
+    "format of the texture\n\
+    Different formats use different amounts of memory:\n\
+    Raw/Alt: 8 bits per pixel per color channel, so a RawBGRA texture takes 32 bits (4*8) per pixel.\n\
+    Grayscale/Alpha textures are raw textures with 1 channel, so 8 bits per pixel.\n\
+    DXT1: 4 bits per pixel\n\
+    DXT3/5: 8 bits per pixel",
+    "amount of mipmap levels\n\
+    Mipmap levels are smaller embedded textures that help make textures look smoother when zoomed out. \
+    If you use DXVK, you should not have any mipmap levels and force anisotropic filtering instead.",
+];
+
 struct DBPFApp {
     ui_scale: f32,
     dark_mode_preference: Option<bool>,
     show_folders: bool,
     open_known_texture_gui: bool,
+    enabled_columns: [bool; 7],
     scan_folders: String,
 
     scan_ran_with_folders: Vec<PathBuf>,
@@ -54,6 +88,7 @@ impl DBPFApp {
             dark_mode_preference: None,
             show_folders: true,
             open_known_texture_gui: false,
+            enabled_columns: [true; 7],
             scan_folders: "".to_string(),
 
             scan_ran_with_folders: Vec::new(),
@@ -87,6 +122,13 @@ impl DBPFApp {
                 .and_then(|str| str.parse().ok()) {
                 new.show_folders = show_folders;
             }
+            new.enabled_columns = EXTRA_COLUMN_NAMES.map(|name| {
+                let mut key = "enabled_columns_".to_string();
+                key.push_str(name);
+                storage.get_string(&key)
+                    .and_then(|str| str.parse().ok())
+                    .unwrap_or(true)
+            });
             if let Some(downloads_folder) = storage
                 .get_string("downloads_folder") {
                 new.scan_folders = downloads_folder;
@@ -264,9 +306,6 @@ impl DBPFApp {
                                           row.col(|ui| {
                                               path_label_fn(ui, &known_textures[i].path);
                                           });
-                                          // row.col(|ui| {
-                                          //     ui.label(format!("{:#?}", &known_textures[i].tgi.type_id));
-                                          // });
                                           row.col(|ui| {
                                               ui.label(format!("{:X?}", &known_textures[i].tgi.group_id));
                                           });
@@ -407,32 +446,45 @@ impl DBPFApp {
 
     #[instrument(skip_all)]
     fn show_table(&mut self, ui: &mut Ui) {
-        let available_width = ui.available_width();
+
         ui.push_id(ui.make_persistent_id("texture table"), |ui| {
-        egui_extras::TableBuilder::new(ui)
-            .striped(true)
-            .column(Column::remainder()
-                .at_least(100.0)
-                .at_most(available_width - 10.0)
-                .clip(true)
-                .resizable(true))
-            .columns(Column::initial(100.0)
-                         .clip(true)
-                         .resizable(true), 6)
-            .column(Column::remainder().clip(true))
-            .max_scroll_height(f32::MAX)
-            .header(30.0, |mut row| {
-                row.col(|ui| { ui.heading("Path"); });
-                // row.col(|ui| { ui.heading("Type"); });
-                row.col(|ui| { ui.heading("Group"); });
-                row.col(|ui| { ui.heading("Instance"); });
-                row.col(|ui| { ui.heading("Width"); });
-                row.col(|ui| { ui.heading("Height"); });
-                row.col(|ui| { ui.heading("Memory size"); });
-                row.col(|ui| { ui.heading("Format"); });
-                row.col(|ui| { ui.heading("Mip levels"); });
-            })
-            .body(|body| {
+            let col_widths = [60.0, 120.0, 50.0, 55.0, 70.0, 60.0, 40.0];
+
+            let available_width = ui.available_width();
+            let extra_cols_width = col_widths.iter().
+                zip(self.enabled_columns)
+                .filter_map(|(width, enabled)| enabled.then_some(*width + 8.0))
+                .sum::<f32>();
+            let remainder = (available_width - extra_cols_width).max(50.0);
+
+            let mut table = egui_extras::TableBuilder::new(ui)
+                .striped(true)
+                .max_scroll_height(f32::MAX)
+                .column(Column::exact(remainder)
+                            .clip(true));
+            for width in col_widths.into_iter()
+                .zip(self.enabled_columns)
+                .filter_map(|(width, enabled)| enabled.then_some(width)){
+                table = table.column(Column::exact(width));
+            }
+            table
+                .header(30.0, |mut row| {
+                    row.col(|ui| {
+                            ui.heading("Path")
+                                .on_hover_text("the location of the package file\n\
+                            If you want to know the complete path of the package file, either turn on \"Show paths\" \
+                            in the top bar, or hover over the items in the list with your cursor");
+                        });
+
+                    for (_, (name, desc)) in self.enabled_columns.iter()
+                        .zip(EXTRA_COLUMN_NAMES.iter().zip(EXTRA_COLUMN_DESCRIPTIONS))
+                        .filter(|(e, _)| **e) {
+                        row.col(|ui| {
+                            ui.heading(*name).on_hover_text(desc);
+                        });
+                    }
+                })
+                .body(|body| {
                 let filtered = self.texture_list.get_filtered().clone();
                 let mut highlight = None;
                 body.rows(14.0, filtered.len(),
@@ -446,30 +498,27 @@ impl DBPFApp {
                                       highlight = Some(texture.clone());
                                   }
                               });
-                              // row.col(|ui| {
-                              //     ui.label(format!("{:#?}", texture.id.tgi.type_id));
-                              // });
-                              row.col(|ui| {
-                                  ui.label(format!("{:X?}", texture.id.tgi.group_id));
-                              });
-                              row.col(|ui| {
-                                  ui.label(format!("{:X?}", texture.id.tgi.instance_id));
-                              });
-                              row.col(|ui| {
-                                  ui.label(format!("{}", texture.width));
-                              });
-                              row.col(|ui| {
-                                  ui.label(format!("{}", texture.height));
-                              });
-                              row.col(|ui| {
-                                  ui.label(format!("{}", texture.memory_size));
-                              });
-                              row.col(|ui| {
-                                  ui.label(format!("{:?}", texture.format));
-                              });
-                              row.col(|ui| {
-                                  ui.label(format!("{}", texture.mip_levels));
-                              });
+
+                              let columns = [
+                                  format!("{:X?}", texture.id.tgi.group_id),
+                                  format!("{:016X?}", texture.id.tgi.instance_id),
+                                  format!("{}", texture.width),
+                                  format!("{}", texture.height),
+                                  format!("{}", texture.memory_size),
+                                  format!("{:?}", texture.format),
+                                  format!("{}", texture.mip_levels),
+                              ];
+
+                              self.enabled_columns
+                                  .iter()
+                                  .zip(columns)
+                                  .filter(|(e, _)| **e)
+                                  .for_each(|(_, text)| {
+                                      row.col(|ui| {
+                                          ui.style_mut().override_text_style = Some(TextStyle::Monospace);
+                                          ui.label(text);
+                                      });
+                                  });
                           });
                 if let Some(_) = highlight {
                     self.highlighted_texture = highlight;
@@ -527,6 +576,13 @@ impl App for DBPFApp {
 
                     ui.checkbox(&mut self.show_folders, "Show paths")
                         .on_hover_text("Show what folders the packages are in?");
+
+                    ui.menu_button("Enabled columns", |ui| {
+                        self.enabled_columns.iter_mut()
+                            .zip(EXTRA_COLUMN_NAMES).for_each(|(enabled, name)| {
+                            ui.checkbox(enabled, name);
+                        });
+                    }).response.on_hover_text("What columns should be shown in the table?");
                 });
 
                 ui.horizontal(|ui| {
@@ -563,6 +619,15 @@ impl App for DBPFApp {
             storage.set_string("dark_mode", dark.to_string());
         }
         storage.set_string("show_folders", self.show_folders.to_string());
+
+        EXTRA_COLUMN_NAMES.iter()
+            .zip(self.enabled_columns)
+            .for_each(|(name, enabled)| {
+            let mut key = "enabled_columns_".to_string();
+            key.push_str(name);
+            storage.set_string(&key, enabled.to_string());
+        });
+
         storage.set_string("downloads_folder", self.scan_folders.clone());
 
         storage.set_string("open_known_texture_gui", self.open_known_texture_gui.to_string());
