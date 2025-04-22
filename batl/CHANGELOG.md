@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0] - 2025-04-22
+
+### 🚀 Features
+
+- Rework column system in the found texture list
+
+### 📦️ Dependencies
+
+- Finish egui 0.31 migration
+
 ## [0.1.1] - 2025-04-19
 
 ### 🚀 Features
