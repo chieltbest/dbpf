@@ -1,5 +1,9 @@
 #![windows_subsystem = "windows"]
 
+// TODO right click on known conflict > forget known conflict
+// TODO add hidden known conflicts counter
+// TODO show outdated known conflicts
+
 mod filtered_conflict_list;
 
 use crate::filtered_conflict_list::{ConflictTypeFilterWarning, FilteredConflictList, KnownConflict};
@@ -237,14 +241,18 @@ impl DBPFApp {
                     let mut remove = None;
 
                     let available_width = ui.available_width();
+                    let column_min_width = 50.0;
                     egui_extras::TableBuilder::new(ui)
                         .striped(true)
                         .column(Column::remainder()
-                            .at_least(100.0)
-                            .at_most(available_width - 10.0)
+                            .at_least(column_min_width)
+                            .at_most(available_width - column_min_width)
                             .clip(true)
                             .resizable(true))
-                        .column(Column::remainder().clip(true))
+                        .column(Column::remainder()
+                            .at_least(column_min_width)
+                            .clip(true)
+                            .resizable(true))
                         .max_scroll_height(f32::MAX)
                         .header(30.0, |mut row| {
                             row.col(|ui| { ui.heading("Original"); });
