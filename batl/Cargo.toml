@@ -14,7 +14,7 @@ pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md",
     "--include-path", "dbpf/"]
 
 [package.metadata.packager]
-before-packaging-command = "cargo build --release"
+before-packaging-command = "cargo build --profile dist"
 product-name = "Big Awful Texture Locator"
 identifier = "nl.chieldouwes.batl"
 icons = ["icon.png"]
