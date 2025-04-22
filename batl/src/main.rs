@@ -21,7 +21,6 @@ use eframe::egui::style::Interaction;
 use eframe::epaint::Vec2;
 use egui_extras::Column;
 use futures::channel::oneshot;
-use futures::StreamExt;
 use rfd::FileHandle;
 use tracing::{info, instrument, warn};
 use dbpf_utils::graphical_application_main;
