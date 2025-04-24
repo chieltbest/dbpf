@@ -1,5 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// TODO add resource type tooltip
+// TODO add type filter
+// TODO header editor
+// TODO add open with arguments
+
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::fs;
@@ -8,6 +13,7 @@ use binrw::{BinRead, BinResult};
 use std::io::{Cursor, Read, Seek, Write};
 use std::path::PathBuf;
 use std::rc::{Rc, Weak};
+use clap::Parser;
 use eframe::{App, egui, Frame, Storage};
 use eframe::egui::{Align, Button, Color32, Context, DragValue, Id, Label, Layout, Rect, Response, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
 use egui_dock::{DockState, Node, Split, TabViewer};
@@ -348,7 +354,7 @@ impl TabViewer for YaPeAppData {
 }
 
 impl YaPeApp {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>, args: Args) -> Self {
         if let Some(storage) = cc.storage {
             let mut new: YaPeApp = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
             cc.egui_ctx.set_pixels_per_point(new.ui_scale);
@@ -356,7 +362,9 @@ impl YaPeApp {
                 new.set_dark_mode(dark, &cc.egui_ctx);
             }
 
-            if let Some(path) = new.data.open_file_path.clone() {
+            if let Some(path) = args.files.first() {
+                new.open_file(path.clone());
+            } else if let Some(path) = new.data.open_file_path.clone() {
                 new.open_file(path);
 
                 if let Some((data, _file, rc_entries)) = &mut new.data.open_file {
@@ -630,13 +638,22 @@ impl App for YaPeApp {
     }
 }
 
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(version)]
+struct Args {
+    files: Vec<PathBuf>,
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
     graphical_application_main(
         include_bytes!("../icon.png"),
         "Yet Another Package Editor",
         Box::new(|cc|
-            Ok(Box::new(YaPeApp::new(cc)))))
+            Ok(Box::new(YaPeApp::new(cc, args)))))
 }
 
 // When compiling to web using trunk:
@@ -665,7 +682,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(YaPeApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(YaPeApp::new(cc, )))),
             )
             .await;
 

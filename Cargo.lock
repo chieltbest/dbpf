@@ -5308,6 +5308,7 @@ name = "yape"
 version = "0.1.1"
 dependencies = [
  "binrw",
+ "clap",
  "dbpf",
  "dbpf_utils",
  "eframe",
@@ -5317,7 +5318,6 @@ dependencies = [
  "embed-resource",
  "futures",
  "log",
- "open",
  "rfd",
  "serde",
  "thiserror 2.0.12",

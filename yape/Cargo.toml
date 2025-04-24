@@ -20,6 +20,11 @@ product-name = "Yet Another Package Editor"
 identifier = "nl.chieldouwes.yape"
 icons = ["icon.png"]
 
+[[package.metadata.packager.file_associations]]
+extensions = ["package", "dat"]
+mime_type = "application/x-dbpf"
+description = "Maxis DBPF package"
+
 [dependencies]
 binrw = "0.14"
 dbpf = { path = "../dbpf" }
@@ -35,7 +40,6 @@ egui_memory_editor = { version = "0.2.12", features = ["serde"] }
 egui_dock = { version = "0.16", features = ["serde"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-open = "5.3"
 walkdir = "2"
 
 tracing = "0.1"
@@ -44,6 +48,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1.38", features = ["full"] }
 
 thiserror = "2.0"
+
+clap = "4.5.28"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 log = "0.4"
