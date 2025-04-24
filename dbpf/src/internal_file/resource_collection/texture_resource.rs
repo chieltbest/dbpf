@@ -260,7 +260,7 @@ pub struct TextureResource {
 
     pub format: TextureFormat,
     #[br(temp)]
-    #[bw(calc = textures.first().map(|t| t.entries.len()).unwrap_or(0) as u32)]
+    #[bw(calc = self.mip_levels())]
     mip_levels: u32,
     pub purpose: f32,
     #[br(temp)]
@@ -337,5 +337,9 @@ impl TextureResource {
         self.textures.iter_mut().for_each(|texture| {
             texture.entries.drain(..mip_levels);
         });
+    }
+
+    pub fn mip_levels(&self) -> u32 {
+        self.textures.first().map(|t| t.entries.len()).unwrap_or(0) as u32
     }
 }

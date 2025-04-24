@@ -137,7 +137,7 @@ async fn get_path_textures(path: PathBuf) -> (PathBuf, Option<Vec<FoundTexture>>
                 width: tex.width,
                 height: tex.height,
                 format: tex.format,
-                mip_levels: tex.mip_levels,
+                mip_levels: tex.mip_levels(),
                 memory_size: tex.format.compressed_size(tex.width as usize, tex.height as usize) * tex.textures.len(),
             }
         }).collect())
