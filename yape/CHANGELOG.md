@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2025-04-24
+
+### 🚀 Features
+
+- Add ability to open files from a path
+
 ## [0.1.1] - 2025-04-19
 
 ### 🚀 Features
