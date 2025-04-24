@@ -239,6 +239,8 @@ pub struct TextureResourceTexture {
     pub mip_levels: u32,
 
     #[br(count = mip_levels)]
+    #[bw(assert(matches ! (version, ResourceBlockVersion::V9) || entries.len() as u32 == mip_levels,
+        "Cannot have differing amount of mip levels while resource version is not V9"))]
     pub entries: Vec<TextureResourceData>,
 
     // 0xFF000000 or 0xFFFFFFFF when not uploaded online
@@ -257,8 +259,9 @@ pub struct TextureResource {
     pub height: u32,
 
     pub format: TextureFormat,
-    // TODO calc from texture vec len
-    pub mip_levels: u32,
+    #[br(temp)]
+    #[bw(calc = textures.first().map(|t| t.entries.len()).unwrap_or(0) as u32)]
+    mip_levels: u32,
     pub purpose: f32,
     #[br(temp)]
     #[bw(calc = textures.len() as u32)]
@@ -269,7 +272,7 @@ pub struct TextureResource {
     pub file_name_repeat: BigString,
 
     #[br(args {count: num_textures as usize, inner: args ! {version, mip_levels}})]
-    #[bw(args {version, mip_levels: * mip_levels})]
+    #[bw(args {version, mip_levels: mip_levels})]
     pub textures: Vec<TextureResourceTexture>,
 }
 
@@ -291,9 +294,9 @@ impl TextureResource {
                 message: "Mipmap entry is a LIFO file".to_string(),
             });
         };
-        let mip_index = (self.mip_levels - 1) as usize - mip_index;
-        let width = max(self.width >> mip_index, 1) as usize;
-        let height = max(self.height >> mip_index, 1) as usize;
+        let mip_shift = (self.textures[texture_index].entries.len() - 1) - mip_index;
+        let width = max(self.width >> mip_shift, 1) as usize;
+        let height = max(self.height >> mip_shift, 1) as usize;
         let data = data.decompress(width, height, self.format)?;
         Ok(DecodedTexture {
             data,
@@ -323,18 +326,16 @@ impl TextureResource {
     pub fn remove_largest_mip_levels(&mut self, mip_levels: usize) {
         self.width = max(self.width >> mip_levels, 1);
         self.height = max(self.height >> mip_levels, 1);
-        self.mip_levels -= mip_levels as u32;
         self.textures.iter_mut().for_each(|texture| {
-            texture.entries.truncate(self.mip_levels as usize);
+            texture.entries.truncate(texture.entries.len() - mip_levels);
         });
     }
 
-    /// truncate the number of mipmap levels, starting from the smallest first
-    /// mip_levels is the number of mipmap levels that should be left after the operation
+    /// remove n mipmap levels, starting from the smallest first
+    /// mip_levels is the number of mipmap levels that should be removed
     pub fn remove_smallest_mip_levels(&mut self, mip_levels: usize) {
         self.textures.iter_mut().for_each(|texture| {
-            texture.entries.drain(..(self.mip_levels as usize - mip_levels));
+            texture.entries.drain(..mip_levels);
         });
-        self.mip_levels = mip_levels as u32;
     }
 }

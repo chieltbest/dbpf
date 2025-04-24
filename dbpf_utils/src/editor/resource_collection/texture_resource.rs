@@ -53,7 +53,10 @@ impl Editor for TextureResource {
             ui.label("height");
         });
         ui.horizontal(|ui| {
-            res |= ui.add_enabled(false, DragValue::new(&mut self.mip_levels));
+            res |= ui.add_enabled(false, DragValue::new(
+                &mut self.textures.first()
+                    .map(|t| t.entries.len())
+                    .unwrap_or(0)));
             ui.label("Mip levels");
         });
         ui.label(format!("format: {:?}", self.format));
