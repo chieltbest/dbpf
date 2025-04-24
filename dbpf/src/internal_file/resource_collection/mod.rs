@@ -94,7 +94,7 @@ pub struct ResourceCollection {
     #[bw(calc = entries.len() as u32)]
     item_count: u32,
     #[br(count = item_count)]
-    // TODO bw calc
+    #[bw(calc = entries.iter().map(|e| e.type_id).collect())]
     pub index: Vec<DBPFFileType>,
 
     #[br(count = item_count)]
