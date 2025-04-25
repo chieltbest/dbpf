@@ -346,7 +346,7 @@ impl TextureResource {
         new.format = texture_format;
         new.textures.iter_mut().try_for_each(|texture| {
             let total_mip_levels = texture.entries.len();
-            texture.entries.iter_mut().enumerate().try_for_each(|(mip_level, entry)| {
+            texture.entries.iter_mut().enumerate().try_for_each(|(mip_level, entry)| -> BinResult<()> {
                 match entry {
                     TextureResourceData::Embedded(mip) => {
                         let mip_shift = (total_mip_levels - 1) - mip_level;

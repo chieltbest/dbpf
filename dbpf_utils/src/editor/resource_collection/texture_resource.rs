@@ -1,9 +1,9 @@
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 use eframe::egui;
-use eframe::egui::{ColorImage, DragValue, Response, ScrollArea, TextureOptions, Ui};
+use eframe::egui::{ColorImage, ComboBox, DragValue, Response, ScrollArea, TextureOptions, Ui};
 use image::ImageReader;
-use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureResource, TextureResourceData};
+use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureFormat, TextureResource, TextureResourceData};
 use crate::editor::Editor;
 
 #[derive(Default)]
@@ -47,6 +47,8 @@ impl Editor for TextureResource {
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        let mut update_images = false;
+
         let mut res = self.file_name.name.show_editor(&mut (), ui);
         ui.horizontal_wrapped(|ui| {
             res |= ui.add_enabled(false, DragValue::new(&mut self.width));
@@ -62,7 +64,32 @@ impl Editor for TextureResource {
             ui.label("Mip levels");
         });
 
-        ui.label(format!("format: {:?}", self.get_format()));
+        let formats = [
+            TextureFormat::DXT5,
+            TextureFormat::DXT3,
+            TextureFormat::DXT1,
+            TextureFormat::Alpha,
+            TextureFormat::Grayscale,
+            TextureFormat::RawBGRA,
+            TextureFormat::RawBGR,
+            TextureFormat::AltBGRA,
+            TextureFormat::AltBGR,
+        ];
+        let mut current_format = self.get_format();
+        let prev_format = current_format;
+        ComboBox::new("format", "Texture Format")
+            .selected_text(format!("{:?}", current_format))
+            .show_ui(ui, |ui| {
+                for format in formats {
+                    ui.selectable_value(&mut current_format, format, format!("{:?}", format));
+                }
+            });
+        if current_format != prev_format {
+            if let Ok(new) = self.recompress_with_format(current_format) {
+                *self = new;
+                update_images = true;
+            }
+        }
 
         ui.label(format!("purpose: {}", self.purpose));
         for (texture_num, texture) in self.textures.iter_mut().enumerate() {
@@ -95,8 +122,6 @@ impl Editor for TextureResource {
                 });
             });
         }
-
-        let mut update_images = false;
 
         ui.input_mut(|i| {
             if let Some(file) = i.raw.dropped_files.first().cloned() {
