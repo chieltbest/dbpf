@@ -176,6 +176,14 @@ impl EmbeddedTextureResourceMipLevel {
         self.data.resize(format.compressed_size(width, height), 0);
         format.compress(data, width, height, &mut self.data);
     }
+
+    pub fn new(width: usize, height: usize, format: TextureFormat, data: &[u8]) -> Self {
+        let mut new = Self {
+            data: vec![],
+        };
+        new.compress(width, height, format, data);
+        new
+    }
 }
 
 // impl Debug for EmbeddedTextureResourceMipLevel {
@@ -313,12 +321,18 @@ impl TextureResource {
         }).collect()
     }
 
-    pub fn compress(&mut self) {
-        todo!()
-    }
-
-    pub fn compress_all(&mut self) {
-        todo!()
+    pub fn compress_replace(&mut self, decoded_texture: DecodedTexture) {
+        self.width = decoded_texture.width as u32;
+        self.height = decoded_texture.height as u32;
+        self.textures.truncate(1);
+        if let Some(tex) = self.textures.first_mut() {
+            tex.entries = vec![TextureResourceData::Embedded(
+                EmbeddedTextureResourceMipLevel::new(
+                    decoded_texture.width,
+                    decoded_texture.height,
+                    self.format,
+                    &decoded_texture.data))];
+        }
     }
 
     /// remove n mipmap levels, starting from the largest first, effectively decreasing the size of the texture
