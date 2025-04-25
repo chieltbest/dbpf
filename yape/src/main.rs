@@ -519,15 +519,6 @@ fn async_execute<F: Future<Output=()> + 'static>(f: F) {
 
 impl App for YaPeApp {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
-        ctx.input(|i| i.raw.dropped_files.get(0).map(|f| f.clone()))
-            .map(|file| {
-                if let Some(path) = file.path {
-                    self.open_file(path);
-                } else if let Some(bytes) = file.bytes {
-                    self.open_bytes(Vec::from(&*bytes));
-                }
-            });
-
         if let Some(picker) = &mut self.file_picker {
             if let Ok(Some(file)) = picker.try_recv() {
                 self.file_picker = None;
@@ -611,6 +602,16 @@ impl App for YaPeApp {
             self.data.open_new_tab_index = None;
             self.open_index_tab(new_tab_index, ctx);
         }
+
+        ctx.input(|i| i.raw.dropped_files.get(0).map(|f| f.clone()))
+            .map(|file| {
+                if let Some(path) = file.path {
+                    self.open_file(path);
+                } else if let Some(bytes) = file.bytes {
+                    self.open_bytes(Vec::from(&*bytes));
+                }
+                ctx.request_discard("load file from dropped input");
+            });
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {

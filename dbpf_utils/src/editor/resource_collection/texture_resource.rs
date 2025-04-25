@@ -1,7 +1,9 @@
 use std::fmt::{Debug, Formatter};
+use std::io::Cursor;
 use eframe::egui;
 use eframe::egui::{ColorImage, DragValue, Response, ScrollArea, TextureOptions, Ui};
-use dbpf::internal_file::resource_collection::texture_resource::{TextureResource, TextureResourceData};
+use image::ImageReader;
+use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureResource, TextureResourceData};
 use crate::editor::Editor;
 
 #[derive(Default)]
@@ -40,7 +42,7 @@ impl Editor for TextureResource {
                         )
                     })
                 }).collect()
-            }).collect()
+            }).collect(),
         }
     }
 
@@ -86,7 +88,41 @@ impl Editor for TextureResource {
                 });
             });
         }
-        
+
+        let mut update_images = false;
+
+        ui.input_mut(|i| {
+            if let Some(file) = i.raw.dropped_files.first().cloned() {
+                let image = if let Some(path) = file.path {
+                    ImageReader::open(path)
+                        .ok().map(|i| i.decode())
+                } else {
+                    file.bytes.and_then(|bytes|
+                        ImageReader::new(Cursor::new(bytes))
+                            .with_guessed_format()
+                            .ok())
+                        .map(|i| i.decode())
+
+                };
+
+                if let Some(Ok(image)) = image {
+                    self.compress_replace(DecodedTexture {
+                        width: image.width() as usize,
+                        height: image.height() as usize,
+                        data: image.into_rgba8().to_vec(),
+                    });
+
+                    update_images = true;
+
+                    i.raw.dropped_files.clear();
+                }
+            }
+        });
+
+        if update_images {
+            *state = self.new_editor(ui.ctx());
+        }
+
         res
     }
 }
