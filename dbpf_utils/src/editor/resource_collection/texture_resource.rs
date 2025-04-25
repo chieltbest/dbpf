@@ -91,7 +91,13 @@ impl Editor for TextureResource {
             }
         }
 
-        ui.label(format!("purpose: {}", self.purpose));
+        ui.horizontal(|ui| {
+            ui.add(DragValue::new(&mut self.purpose));
+            ui.radio_value(&mut self.purpose, 1.0, "Object");
+            ui.radio_value(&mut self.purpose, 2.0, "Outfit");
+            ui.radio_value(&mut self.purpose, 3.0, "Interface");
+        });
+
         for (texture_num, texture) in self.textures.iter_mut().enumerate() {
             ui.separator();
 
