@@ -61,7 +61,9 @@ impl Editor for TextureResource {
                     .unwrap_or(0)));
             ui.label("Mip levels");
         });
-        ui.label(format!("format: {:?}", self.format));
+
+        ui.label(format!("format: {:?}", self.get_format()));
+
         ui.label(format!("purpose: {}", self.purpose));
         for (texture_num, texture) in self.textures.iter_mut().enumerate() {
             ui.separator();

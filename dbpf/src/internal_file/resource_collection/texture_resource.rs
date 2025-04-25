@@ -266,7 +266,7 @@ pub struct TextureResource {
     pub width: u32,
     pub height: u32,
 
-    pub format: TextureFormat,
+    format: TextureFormat,
     #[br(temp)]
     #[bw(calc = self.mip_levels())]
     mip_levels: u32,
@@ -333,6 +333,39 @@ impl TextureResource {
                     self.format,
                     &decoded_texture.data))];
         }
+    }
+
+    /// recompress all textures in the new format and update the image data
+    ///
+    /// creates a copy of the texture; if the conversion fails the original data is unaffected
+    pub fn recompress_with_format(&self, texture_format: TextureFormat) -> BinResult<Self> {
+        let previous_format = self.format;
+
+        let mut new = self.clone();
+
+        new.format = texture_format;
+        new.textures.iter_mut().try_for_each(|texture| {
+            let total_mip_levels = texture.entries.len();
+            texture.entries.iter_mut().enumerate().try_for_each(|(mip_level, entry)| {
+                match entry {
+                    TextureResourceData::Embedded(mip) => {
+                        let mip_shift = (total_mip_levels - 1) - mip_level;
+                        let width = max(new.width >> mip_shift, 1) as usize;
+                        let height = max(new.height >> mip_shift, 1) as usize;
+                        let texture_data = mip.decompress(width, height, previous_format)?;
+                        mip.compress(width, height, texture_format, &texture_data);
+                        Ok(())
+                    }
+                    TextureResourceData::LIFOFile { .. } => Ok(()),
+                }
+            })
+        })?;
+
+        Ok(new)
+    }
+
+    pub fn get_format(&self) -> TextureFormat {
+        self.format
     }
 
     /// remove n mipmap levels, starting from the largest first, effectively decreasing the size of the texture
