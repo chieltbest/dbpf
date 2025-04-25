@@ -94,7 +94,7 @@ impl TextureFormat {
                 output.copy_from_slice(
                     data.chunks_exact(4)
                         .map(|px| {
-                            [px[3], px[2], px[1], px[0]]
+                            [px[2], px[1], px[0], px[3]]
                         })
                         .flatten()
                         .collect::<Vec<u8>>()
@@ -105,7 +105,7 @@ impl TextureFormat {
                 output.copy_from_slice(
                     data.chunks_exact(4)
                         .map(|px| {
-                            [px[3], px[2], px[1]]
+                            [px[2], px[1], px[0]]
                         })
                         .flatten()
                         .collect::<Vec<u8>>()
@@ -115,8 +115,7 @@ impl TextureFormat {
                 output.copy_from_slice(
                     data.chunks_exact(4)
                         .map(|px| {
-                            ((px[0] as u16) + (px[1] as u16) + (px[2] as u16)
-                                / 3) as u8
+                            (((px[0] as u16) + (px[1] as u16) + (px[2] as u16)) / 3) as u8
                         })
                         .collect::<Vec<u8>>()
                         .as_slice());
