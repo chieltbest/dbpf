@@ -63,11 +63,16 @@ impl Editor for TextureResource {
         });
         ui.label(format!("format: {:?}", self.format));
         ui.label(format!("purpose: {}", self.purpose));
-        for (texture_num, texture) in self.textures.iter().enumerate() {
+        for (texture_num, texture) in self.textures.iter_mut().enumerate() {
             ui.separator();
-            ui.label(format!("creator id: {:08X}, flag: {:X}",
-                             texture.creator_id,
-                             texture.format_flag));
+
+            ui.horizontal(|ui| {
+                ui.add(DragValue::new(&mut texture.creator_id)
+                    .hexadecimal(8, false, true))
+                    | ui.label("Creator ID")
+            }).inner.on_hover_text("Creator ID of the creator of this texture\n\
+                    If the texture has not been uploaded to online services the creator ID will be either \
+                    FF000000 or FFFFFFFF");
 
             ScrollArea::horizontal().show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
