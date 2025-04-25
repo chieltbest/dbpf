@@ -1,15 +1,11 @@
-use std::collections::HashMap;
-use std::fmt::Display;
 use std::io::{Read, Seek, Write};
-use std::string::FromUtf8Error;
-use binrw::{BinRead, BinWrite, BinResult, Endian, BinReaderExt, Error, BinWriterExt};
+use binrw::{BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
 use binrw::Endian::Little;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
 use crate::common;
-use crate::internal_file::common::cpf::{CPF, Data, Item};
+use crate::internal_file::common::cpf::{cpf_get_all, Item, CPF};
+use crate::internal_file::common::Id;
 // use crate::internal_file::xml::XML;
-
-type Id = common::String;
 
 #[derive(Clone, Debug, Default)]
 pub struct Override {
@@ -56,39 +52,8 @@ impl BinRead for PropertySet {
         let pos = reader.stream_position().unwrap_or(0);
         let cpf: CPF = reader.read_type(endian)?;
 
-        let mut entries: HashMap<String, Data> = cpf.entries
-            .into_iter()
-            .map(|entry| {
-                Ok((entry.name.try_into()
-                        .map_err(|err: FromUtf8Error| Error::AssertFail {
-                            pos,
-                            message: err.to_string(),
-                        })?,
-                    entry.data))
-            })
-            .collect::<BinResult<Vec<(String, Data)>>>()?
-            .into_iter()
-            .collect();
-
-        fn get_fn<T>(entries: &mut HashMap<String, Data>, pos: u64, key: &str) -> BinResult<T>
-        where
-            T: TryFrom<Data>,
-            <T as TryFrom<Data>>::Error: Display,
-        {
-            entries.get(key).ok_or(Error::AssertFail {
-                pos,
-                message: format!("Could not find property by key {key}"),
-            }).and_then(|data| {
-                data.clone().try_into()
-                    .map_err(|err| Error::AssertFail {
-                        pos,
-                        message: format!("Data of key {key} has wrong type ({})", err),
-                    })
-            })
-        }
-
         macro_rules! get {
-            ($key:expr) => {get_fn(&mut entries, pos, $key)};
+            ($key:expr) => {cpf.get_item_verify(pos, $key)};
         }
 
         let num_overrides: u32 = get!("numoverrides")?;
@@ -101,34 +66,39 @@ impl BinRead for PropertySet {
             })
         }).collect::<BinResult<_>>()?;
 
-        let new = PropertySet {
-            version: get!("version")?,
-            product: get!("product")?,
-            age: get!("age")?,
-            gender: get!("gender")?,
-            species: get!("species")?,
-            parts: get!("parts")?,
-            outfit: get!("outfit")?,
-            flags: get!("flags")?,
-            name: get!("name")?,
-            creator: get!("creator")?,
-            family: get!("family")?,
-            genetic: get!("genetic")?,
-            priority: get!("priority")
-                .or_else(|_| get_fn::<i32>(&mut entries,
-                                           pos,
-                                           "priority")
-                    .map(|n| n as u32))?,
-            type_: get!("type")?,
-            skintone: get!("skintone")?,
-            hairtone: get!("hairtone")?,
-            category: get!("category")?,
-            shoe: get!("shoe")?,
-            fitness: get!("fitness")?,
-            resourcekeyidx: get!("resourcekeyidx")?,
-            shapekeyidx: get!("shapekeyidx")?,
-            overrides,
-        };
+        let priority = get!("priority")
+            .or_else(|_| cpf.get_item_verify::<i32>(pos, "priority")
+                .map(|n| n as u32))?;
+
+        let type_ = get!("type")?;
+
+        let new = cpf_get_all!(
+            PropertySet,
+            cpf,
+            pos;
+            version,
+            product,
+            age,
+            gender,
+            species,
+            parts,
+            outfit,
+            flags,
+            name,
+            creator,
+            family,
+            genetic,
+            skintone,
+            hairtone,
+            category,
+            shoe,
+            fitness,
+            resourcekeyidx,
+            shapekeyidx;
+            priority,
+            type_,
+            overrides
+        );
 
         Ok(new)
     }
@@ -142,8 +112,6 @@ impl BinWrite for PropertySet {
     type Args<'a> = ();
 
     fn write_options<W: Write + Seek>(&self, writer: &mut W, endian: Endian, _args: Self::Args<'_>) -> BinResult<()> {
-        // TODO use macro to prevent silly bugs :)
-
         macro_rules! get {
             ($key:ident) => {Item::new(stringify!($key), self.$key.clone())};
         }

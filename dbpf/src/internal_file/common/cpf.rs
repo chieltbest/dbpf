@@ -1,4 +1,5 @@
-use binrw::binrw;
+use std::fmt::Display;
+use binrw::{binrw, BinResult, Error};
 use derive_more::{From, TryInto};
 use crate::common::String;
 
@@ -15,7 +16,7 @@ pub enum DataType {
 }
 
 #[binrw]
-#[br(import {data_type: DataType})]
+#[br(import{data_type: DataType})]
 #[derive(Clone, Debug, From, TryInto)]
 pub enum Data {
     #[br(pre_assert(matches ! (data_type, DataType::UInt)))]
@@ -73,3 +74,49 @@ pub struct CPF {
     #[br(count = count)]
     pub entries: Vec<Item>,
 }
+
+impl CPF {
+    pub fn get_item(&self, key: &str) -> Option<&Data> {
+        self.entries.iter().find_map(|item| {
+            (item.name == key.into()).then_some(&item.data)
+        })
+    }
+
+    pub fn get_item_verify<T>(&self, stream_position: u64, key: &str) -> BinResult<T>
+    where
+        T: TryFrom<Data>,
+        <T as TryFrom<Data>>::Error: Display,
+    {
+        self.get_item(key).ok_or(Error::AssertFail {
+            pos: stream_position,
+            message: format!("Could not find property by key {key}"),
+        }).and_then(|data| {
+            data.clone().try_into()
+                .map_err(|err| Error::AssertFail {
+                    pos: stream_position,
+                    message: format!("Data of key {key} has wrong type ({})", err),
+                })
+        })
+    }
+}
+
+macro_rules! cpf_get_all {
+    ($t:ident, $cpf:expr, $pos:expr; $($keys:ident),*; $($extras:ident),*) => {
+        $t {
+            $(
+                $keys: $cpf.get_item_verify($pos, stringify!($keys))?,
+            )*
+            $(
+                $extras,
+            )*
+        }
+    };
+    ($t:ident, $cpf:expr, $pos:expr; $($keys:ident),*) => {
+        $t {
+            $(
+                $keys: $cpf.get_item_verify($pos, stringify!($keys))?,
+            )*
+        }
+    };
+}
+pub(crate) use cpf_get_all;

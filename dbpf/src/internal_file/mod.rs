@@ -6,6 +6,7 @@ pub mod sim_outfits;
 pub mod resource_collection;
 pub mod behaviour_function;
 pub mod text_list;
+pub mod binary_index;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
@@ -17,6 +18,7 @@ use refpack::RefPackError;
 use thiserror::Error;
 use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
+use crate::internal_file::binary_index::BinaryIndex;
 use crate::internal_file::property_set::PropertySet;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
@@ -248,9 +250,15 @@ impl Debug for RawFileData {
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum DecodedFile {
+    // CPF/XML
     PropertySet(PropertySet),
-    SimOutfits(SimOutfits),
+    BinaryIndex(BinaryIndex),
+
+    // RCOL
     ResourceCollection(ResourceCollection),
+
+    // others
+    SimOutfits(SimOutfits),
     TextList(TextList),
 }
 
@@ -260,6 +268,9 @@ impl DecodedFile {
         match file_type {
             DBPFFileType::Known(KnownDBPFFileType::PropertySet) => {
                 Some(PropertySet::read(&mut cursor).map(|r| DecodedFile::PropertySet(r)))
+            }
+            DBPFFileType::Known(KnownDBPFFileType::BinaryIndex) => {
+                Some(BinaryIndex::read(&mut cursor).map(|r| DecodedFile::BinaryIndex(r)))
             }
             DBPFFileType::Known(KnownDBPFFileType::SimOutfits) => {
                 Some(SimOutfits::read(&mut cursor).map(|r| DecodedFile::SimOutfits(r)))
@@ -282,6 +293,7 @@ impl DecodedFile {
         let mut data = Cursor::new(Vec::new());
         match self {
             DecodedFile::PropertySet(x) => x.write(&mut data)?,
+            DecodedFile::BinaryIndex(x) => x.write(&mut data)?,
             DecodedFile::SimOutfits(x) => x.write(&mut data)?,
             DecodedFile::ResourceCollection(x) => x.write(&mut data)?,
             DecodedFile::TextList(x) => x.write(&mut data)?,

@@ -20,8 +20,8 @@ pub enum KnownDBPFFileType {
     LotDescription = 0x0BF999E7,
     // XMOL
     MeshOverlayXML = 0x0C1FE246,
-    // XOBJ
-    ObjectXML1 = 0x0C560F39,
+    // BINX
+    BinaryIndex = 0x0C560F39,
     // JPEG
     JPEGImage1 = 0x0C7E9A76,
     // POOL
@@ -331,7 +331,7 @@ impl KnownDBPFFileType {
             TrackSettings => ("Track Settings", "TRKS", None, No),
             LotDescription => ("Lot Description", "LTXT", None, No),
             MeshOverlayXML => ("Mesh Overlay XML", "XMOL", Some("mesh_overlay.xml"), No),
-            ObjectXML1 => ("Object XML", "XOBJ", None, No),
+            BinaryIndex => ("Binary Index", "BINX", None, No),
             JPEGImage1 => ("JPEG Image", "JPEG", None, No),
             PoolSurface => ("Pool Surface", "POOL", None, No),
             FaceModifierXML => ("Face Modifier XML", "XFMD", Some("face_mod.xml"), No),

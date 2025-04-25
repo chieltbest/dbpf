@@ -2,6 +2,7 @@ pub mod cpf;
 pub mod xml;
 
 use binrw::{binrw, NullString};
+use crate::common;
 
 #[binrw]
 #[brw(little)]
@@ -61,3 +62,5 @@ pub enum LanguageCode {
     Aaa = 42,
     Dutch = 43,
 }
+
+pub type Id = common::String;
