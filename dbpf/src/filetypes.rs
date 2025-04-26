@@ -141,17 +141,19 @@ pub enum KnownDBPFFileType {
     // XMTO
     MaterialObjectXML = 0x584D544F,
     // XOBJ
-    ObjectXML2 = 0x584F424A,
+    ObjectClassDump = 0x584F424A,
     // SLUA
     SimPEObjectLua = 0x61754C1B,
     // 5EL
     EnvironmentCubeLighting = 0x6A97042F,
     // 2ARY
     Array2D = 0x6B943B43,
+    // COLL
+    Collection = 0x6C4F359D,
     // LOT
     LotInformation = 0x6C589723,
     // XFNU
-    FaceNeuralXML = 0x6C93B566,
+    FaceNeutralXML = 0x6C93B566,
     // XNGB
     NeighbourhoodObjectXML = 0x6D619378,
     // WNTT
@@ -181,7 +183,7 @@ pub enum KnownDBPFFileType {
     // XFRG
     FaceRegionXML = 0x8C93BF6C,
     // XFCH
-    FaceArchXML = 0x8C93E35C,
+    FaceArchetypeXML = 0x8C93E35C,
     // PMAP
     PredictiveMap = 0x8CC0A14B,
     // SFX
@@ -208,6 +210,8 @@ pub enum KnownDBPFFileType {
     GeometricDataContainer = 0xAC4F8687,
     // SKIN
     SimOutfits = 0xAC506764,
+    // SIMD
+    SimDataXML = 0xAC598EAC,
     // NID
     NeighbourhoodID = 0xAC8A7A2E,
     // XROF
@@ -240,8 +244,8 @@ pub enum KnownDBPFFileType {
     RoofThumbnail = 0xCC489E46,
     // THUMB
     ChimneyThumbnail = 0xCC48C51F,
-    // XOBJ
-    ObjectXML3 = 0xCCA8E925,
+    // XWLL
+    WallXML = 0xCCA8E925,
     // LxNR
     FacialStructure = 0xCCCEF852,
     // MATSHAD
@@ -250,6 +254,8 @@ pub enum KnownDBPFFileType {
     WantsAndFears = 0xCD95548E,
     // CREG
     ContentRegistry = 0xCDB467B8,
+    // PBOP
+    PetBodyOptions = 0xD1954460,
     // CRES
     CreationResource = 0xE519C933,
     // DIR
@@ -258,8 +264,12 @@ pub enum KnownDBPFFileType {
     EffectsResourceTree = 0xEA5118B0,
     // GZPS
     PropertySet = 0xEBCF3E27,
+    // SDNA
+    SimDNA = 0xEBFEE33F,
     // VERS
     VersionInformation = 0xEBFEE342,
+    // ATST
+    AudioTestSettings = 0xEBFEE345,
     // THUB
     TerrainThumbnail = 0xEC3126C4,
     // HCAM
@@ -280,14 +290,11 @@ pub enum KnownDBPFFileType {
 
 // Unknown formats:
 //
-// 0x6C4F359D,
 // 0x8B0C79D6,
 // 0x9D796DB4,
 // 0xB21BE28B,
 // 0xCC2A6A34,
 // 0xCC8A6A69,
-// 0xEBFEE33F,
-// 0xEBFEE342,
 // 0xF9F0C21,
 
 #[binrw]
@@ -394,12 +401,13 @@ impl KnownDBPFFileType {
             PieMenuFunctions => ("Pie Menu Functions", "TTAB", None, Embedded),
             PieMenuStrings => ("Pie Menu Strings", "TTAS", None, Embedded),
             MaterialObjectXML => ("Material Object XML", "XMTO", Some("material_object.xml"), No),
-            ObjectXML2 => ("Object XML", "XOBJ", Some("object.1.xml"), No),
+            ObjectClassDump => ("Object Class Dump", "XOBJ", Some("object.1.xml"), No),
             SimPEObjectLua => ("SimPE Object Lua", "SLUA", None, No),
             EnvironmentCubeLighting => ("Environment Cube Lighting", "5EL", None, No),
             Array2D => ("Array 2D", "2ARY", None, No),
+            Collection => ("Collection", "COLL", None, No),
             LotInformation => ("Lot Information", "LOT", None, No),
-            FaceNeuralXML => ("Face Neural XML", "XFNU", Some("face_neural.xml"), No),
+            FaceNeutralXML => ("Face Neutral XML", "XFNU", Some("face_neutral.xml"), No),
             NeighbourhoodObjectXML => ("Neighbourhood Object XML", "XNGB", Some("neighbourhood_object.xml"), No),
             WantsTreeItemXML => ("Wants Tree Item XML", "WNTT", Some("wants_tree_item.xml"), No),
             MainLotObjects => ("Main Lot Objects", "MOBJT", None, No),
@@ -415,7 +423,7 @@ impl KnownDBPFFileType {
             JPEGImage3 => ("JPEG Image", "JPEG", Some("2.jpg"), No),
             FamilyTies => ("Family Ties", "FAMT", None, No),
             FaceRegionXML => ("Face Region XML", "XFRG", Some("face_region.xml"), No),
-            FaceArchXML => ("Face Arch XML", "XFCH", Some("face_arch.xml"), No),
+            FaceArchetypeXML => ("Face Archetype XML", "XFCH", Some("face_arch.xml"), No),
             PredictiveMap => ("Predictive Map", "PMAP", None, No),
             SoundEffects => ("Sound Effects", "SFX", None, No),
             AcceleratorKeyDefinitions => ("Accelerator Key Definitions", "KEYD", Some("keys.txt"), No),
@@ -429,6 +437,7 @@ impl KnownDBPFFileType {
             Thumbnail => ("Thumbnail", "THUB", Some("thumb.jpg"), No),
             GeometricDataContainer => ("Geometric Data Container", "GMDC", Some("5gd"), No),
             SimOutfits => ("Sim Outfits", "SKIN", None, No),
+            SimDataXML => ("Sim Data XML", "XSIM", None, No),
             NeighbourhoodID => ("Neighbourhood ID", "NID", None, No),
             RoofXML => ("Roof XML", "XROF", Some("roof.xml"), No),
             SurfaceTexture => ("Surface Texture", "STXR", None, No),
@@ -445,16 +454,19 @@ impl KnownDBPFFileType {
             ModularStairThumbnail => ("Modular Stair Thumbnail", "THUB", Some("modular_stair_thumb.jpg"), No),
             RoofThumbnail => ("Roof Thumbnail", "THUB", Some("roof_thumbnail.jpg"), No),
             ChimneyThumbnail => ("Chimney Thumbnail", "THUB", Some("chimney_thumbnail.jpg"), No),
-            ObjectXML3 => ("Object XML", "XOBJ", Some("object.2.xml"), No),
+            WallXML => ("Wall XML", "XWLL", Some("wall.xml"), No),
             FacialStructure => ("Facial Structure", "LXNR", None, No),
             MaxisMaterialShader => ("Maxis Material Shader", "MATSHAD", Some("mat.txt"), No),
             WantsAndFears => ("Wants And Fears", "SWAF", None, No),
             ContentRegistry => ("Content Registry", "CREG", None, No),
+            PetBodyOptions => ("Pet Body Options", "PBOP", None, No),
             CreationResource => ("Creation Resource", "CRES", Some("5cr"), No),
             DBPFDirectory => ("DBPF Directory", "DIR", Some("dir"), No),
             EffectsResourceTree => ("Effects Resource Tree", "FX", Some("fx"), No),
             PropertySet => ("Property Set", "GZPS", None, No),
+            SimDNA => ("Sim DNA", "SDNA", None, No),
             VersionInformation => ("Version Information", "VERS", None, No),
+            AudioTestSettings => ("Audio Test Settings", "ATST", None, No),
             TerrainThumbnail => ("Terrain Thumbnail", "THUB", Some("terrain_thumb.jpg"), No),
             HoodCamera => ("Hood Camera", "HCAM", None, No),
             LevelInformation => ("Level Information", "LIFO", Some("6li"), No),
