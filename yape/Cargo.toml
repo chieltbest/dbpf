@@ -12,7 +12,7 @@ pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md",
     "--tag-pattern", "{{crate_name}}/v*",
     "--include-path", "{{crate_name}}/",
     "--include-path", "dbpf/",
-    "--include-path", "dbpf_utils/editor/"]
+    "--include-path", "dbpf_utils/src/editor/"]
 
 [package.metadata.packager]
 before-packaging-command = "cargo build --profile dist"
