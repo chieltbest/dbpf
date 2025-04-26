@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0] - 2025-04-26
+
+### 🚀 Features
+
+- *(dbpf)* Add function to replace all textures with a new texture
+- Add ability to replace texture resource texture by dragging an image into the editor
+- *(dbpf)* Add texture format recompression function
+- Add ability to edit texture format/compression type
+- *(dbpf)* Add support for BINX (Binary Index) resource type
+
+### 🐛 Bug Fixes
+
+- Correct conversion into raw and grayscale textures
+
+### 🚜 Refactor
+
+- Move internal_file.rs to module
+- Properly calculate rcol index
+- Calcalate mipmap levels from amount of textures
+- *(dbpf)* Add mip_levels convenience function
+
 ## [0.1.2] - 2025-04-24
 
 ### 🚀 Features
