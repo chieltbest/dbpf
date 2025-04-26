@@ -12,6 +12,7 @@ mod file_type;
 mod cpf;
 mod common;
 mod text_list;
+mod binary_index;
 
 pub trait Editor {
     type EditorState;
@@ -47,6 +48,7 @@ impl Editor for DecodedFile {
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         match (self, state) {
             (DecodedFile::PropertySet(gzps), _) => gzps.show_editor(&mut (), ui),
+            (DecodedFile::BinaryIndex(binx), _) => binx.show_editor(&mut (), ui),
             (DecodedFile::SimOutfits(skin),
                 DecodedFileEditorState::SimOutfits(state)) => {
                 skin.show_editor(state, ui)
@@ -65,6 +67,7 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
     match file_type {
         DBPFFileType::Known(
             KnownDBPFFileType::PropertySet |
+            KnownDBPFFileType::BinaryIndex |
             KnownDBPFFileType::SimOutfits |
             KnownDBPFFileType::TextureResource |
             KnownDBPFFileType::MaterialDefinition |
