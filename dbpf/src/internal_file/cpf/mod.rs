@@ -58,7 +58,7 @@ pub enum Data {
 }
 
 impl Data {
-    fn get_type(&self) -> DataType {
+    pub fn get_type(&self) -> DataType {
         match self {
             Data::UInt(_) => DataType::UInt,
             Data::String(_) => DataType::String,
@@ -69,8 +69,14 @@ impl Data {
     }
 }
 
+impl Default for Data {
+    fn default() -> Self {
+        Self::UInt(0)
+    }
+}
+
 #[binrw]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Item {
     #[br(temp)]
     #[bw(calc = data.get_type())]

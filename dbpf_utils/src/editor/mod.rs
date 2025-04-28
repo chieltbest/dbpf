@@ -49,6 +49,7 @@ impl Editor for DecodedFile {
         match (self, state) {
             (DecodedFile::PropertySet(gzps), _) => gzps.show_editor(&mut (), ui),
             (DecodedFile::BinaryIndex(binx), _) => binx.show_editor(&mut (), ui),
+            (DecodedFile::GenericCPF(cpf), _) => cpf.show_editor(&mut (), ui),
             (DecodedFile::SimOutfits(skin),
                 DecodedFileEditorState::SimOutfits(state)) => {
                 skin.show_editor(state, ui)
@@ -66,11 +67,37 @@ impl Editor for DecodedFile {
 pub fn editor_supported(file_type: DBPFFileType) -> bool {
     match file_type {
         DBPFFileType::Known(
-            KnownDBPFFileType::PropertySet |
+            // CPF
+            KnownDBPFFileType::TrackSettings |
+            KnownDBPFFileType::FloorXML |
+            KnownDBPFFileType::NeighbourhoodObjectXML |
+            KnownDBPFFileType::WantsXML |
+            KnownDBPFFileType::MeshOverlayXML |
             KnownDBPFFileType::BinaryIndex |
+            KnownDBPFFileType::FaceModifierXML |
+            KnownDBPFFileType::TextureOverlayXML |
+            KnownDBPFFileType::FenceXML |
+            KnownDBPFFileType::SkinToneXML |
+            KnownDBPFFileType::MaterialOverride |
+            KnownDBPFFileType::Collection |
+            KnownDBPFFileType::FaceNeutralXML |
+            KnownDBPFFileType::HairToneXML |
+            KnownDBPFFileType::FaceRegionXML |
+            KnownDBPFFileType::FaceArchetypeXML |
+            KnownDBPFFileType::SimDataXML |
+            KnownDBPFFileType::RoofXML |
+            KnownDBPFFileType::PetBodyOptions |
+            KnownDBPFFileType::WallXML |
+            KnownDBPFFileType::PropertySet |
+            KnownDBPFFileType::SimDNA |
+            KnownDBPFFileType::VersionInformation |
             KnownDBPFFileType::SimOutfits |
+
+            // RCOL
             KnownDBPFFileType::TextureResource |
             KnownDBPFFileType::MaterialDefinition |
+
+            // STR
             KnownDBPFFileType::TextList |
             KnownDBPFFileType::CatalogDescription |
             KnownDBPFFileType::CatalogString |
@@ -82,6 +109,7 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct VecEditorState<T: Editor> {
+    /// number of columns (besides the delete button) that the editor for a single element will create
     columns: usize,
     elem_states: Vec<T::EditorState>,
 }
