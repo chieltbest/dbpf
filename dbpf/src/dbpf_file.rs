@@ -48,7 +48,7 @@ pub struct DBPFFile {
     )]
     pub hole_index: Vec<HoleIndexEntry>,
 
-    #[br(seek_before = SeekFrom::Start(if matches!(header.version, Version::V3(_)) { header.index_offset } else { header.index_location as u64 }))]
+    #[br(seek_before = SeekFrom::Start(if matches!(header.version, Version::V1(_)) { header.index_location as u64 } else { header.index_offset }))]
     #[br(
         parse_with = parse_index, args ( header.index_entry_count, header.version, header.index_minor_version )
     )]
