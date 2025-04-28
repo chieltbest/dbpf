@@ -1,6 +1,4 @@
 use eframe::egui::{ComboBox, Context, DragValue, Response, Ui};
-use egui_extras::Column;
-use dbpf::common;
 use dbpf::internal_file::cpf::{CPF, Data, CPFVersion, DataType, Item};
 use crate::editor::{Editor, VecEditorState};
 
