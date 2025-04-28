@@ -1,5 +1,5 @@
 use crate::editor::Editor;
-use dbpf::internal_file::binary_index::BinaryIndex;
+use dbpf::internal_file::cpf::binary_index::BinaryIndex;
 use eframe::egui;
 use eframe::egui::{DragValue, Grid, Response, Ui};
 use eframe::emath::Numeric;

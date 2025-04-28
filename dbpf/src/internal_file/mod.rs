@@ -1,16 +1,13 @@
-pub mod common;
-
 pub mod dbpf_directory;
-pub mod property_set;
 pub mod sim_outfits;
 pub mod resource_collection;
 pub mod behaviour_function;
 pub mod text_list;
-pub mod binary_index;
+pub mod cpf;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
-use binrw::{binread, BinRead, BinWrite, BinResult, binrw, NamedArgs};
+use binrw::{binread, binrw, BinRead, BinResult, BinWrite, NamedArgs};
 use miniz_oxide::inflate::DecompressError;
 use refpack::data::compression::CompressionOptions;
 use refpack::format::{Maxis, Reference, SimEA};
@@ -18,8 +15,8 @@ use refpack::RefPackError;
 use thiserror::Error;
 use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
-use crate::internal_file::binary_index::BinaryIndex;
-use crate::internal_file::property_set::PropertySet;
+use cpf::binary_index::BinaryIndex;
+use cpf::property_set::PropertySet;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
 use crate::internal_file::text_list::TextList;

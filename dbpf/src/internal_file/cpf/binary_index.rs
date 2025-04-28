@@ -2,8 +2,8 @@ use std::io::{Read, Seek, Write};
 use binrw::{BinRead, BinWrite, BinResult, Endian, BinReaderExt, BinWriterExt};
 use binrw::Endian::Little;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
-use crate::internal_file::common::cpf::{CPF, Item, cpf_get_all};
-use crate::internal_file::common::Id;
+use crate::internal_file::cpf::{CPF, Item, cpf_get_all, CPFVersion};
+use crate::internal_file::cpf::Id;
 
 #[derive(Clone, Debug, Default)]
 pub struct BinaryIndex {
@@ -57,7 +57,7 @@ impl BinWrite for BinaryIndex {
         }
 
         let cpf = CPF {
-            version: 2,
+            version: CPFVersion::CPF(2),
             entries: vec![
                 get!(iconidx),
                 get!(stringindex),

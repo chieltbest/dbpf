@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::{Align, DragValue, Grid, Response, Ui};
 use eframe::emath::Numeric;
-use dbpf::internal_file::property_set::{Override, PropertySet};
+use dbpf::internal_file::cpf::property_set::{Override, PropertySet};
 use crate::editor::{Editor, VecEditorState};
 
 impl Editor for Override {

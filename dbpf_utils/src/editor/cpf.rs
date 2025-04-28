@@ -2,7 +2,7 @@ use eframe::egui;
 use eframe::egui::{DragValue, Response, Ui};
 use egui_extras::Column;
 use dbpf::common;
-use dbpf::internal_file::common::cpf::{CPF, Data};
+use dbpf::internal_file::cpf::{CPF, Data, CPFVersion, DataType};
 use crate::editor::Editor;
 
 impl Editor for CPF {
@@ -16,14 +16,7 @@ impl Editor for CPF {
                 Data::UInt(n) => ui.add(DragValue::new(n)),
                 Data::String(s) => s.show_editor(&mut (), ui),
                 Data::Float(n) => ui.add(DragValue::new(n)),
-                Data::Bool(b) => {
-                    let mut new = *b > 0;
-                    let res = ui.checkbox(&mut new, "");
-                    if res.changed() {
-                        *b = new as u8;
-                    }
-                    res
-                }
+                Data::Bool(b) => ui.checkbox(b, ""),
                 Data::Int(n) => ui.add(DragValue::new(n)),
             };
             res.context_menu(|ui| {
@@ -40,7 +33,7 @@ impl Editor for CPF {
                     ui.close_menu();
                 }
                 if ui.selectable_label(matches!(value, Data::Bool(_)), "Bool").clicked() {
-                    *value = Data::Bool(0);
+                    *value = Data::Bool(false);
                     ui.close_menu();
                 }
                 if ui.selectable_label(matches!(value, Data::String(_)), "String").clicked() {
@@ -54,8 +47,24 @@ impl Editor for CPF {
         let button_height = ui.style().spacing.interact_size.y;
 
         let ires = ui.horizontal_wrapped(|ui| {
-            ui.label("Version: ");
-            ui.add(DragValue::new(&mut self.version))
+            let mut res = egui::ComboBox::new("cpf_version", "Version ")
+                .selected_text(if matches!(self.version, CPFVersion::XML(_, _)) {
+                    "XML"
+                } else {
+                    "CPF"
+                })
+                .show_ui(ui, |ui| {
+                    if ui.button("XML").clicked() {
+                        self.version = CPFVersion::XML(DataType::String, None); // TODO version selector
+                    }
+                    if ui.button("CPF").clicked() {
+                        self.version = CPFVersion::CPF(2);
+                    }
+                }).response;
+            if let CPFVersion::CPF(version) = &mut self.version {
+                res |= ui.add(DragValue::new(version))
+            }
+            res
         });
         let mut res = ires.response | ires.inner;
         ui.separator();
@@ -82,7 +91,7 @@ impl Editor for CPF {
                         });
                     });
             });
-        
+
         res
     }
 }

@@ -1,6 +1,6 @@
 use eframe::egui;
 use eframe::egui::{Response, Ui};
-use dbpf::internal_file::common::LanguageCode;
+use dbpf::common::LanguageCode;
 use dbpf::internal_file::text_list::{String, TextList};
 use crate::editor::{Editor, VecEditorState};
 

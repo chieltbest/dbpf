@@ -1,6 +1,6 @@
-use crate::internal_file::common::FileName;
+use crate::common::FileName;
 use binrw::NullString;
-use crate::internal_file::common::LanguageCode;
+use crate::common::LanguageCode;
 use binrw::binrw;
 
 #[binrw]

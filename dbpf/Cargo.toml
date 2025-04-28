@@ -12,7 +12,8 @@ binrw = "0.14.0"
 refpack = {git = "https://github.com/chieltbest/refpack-rs.git"}
 modular-bitfield = "0.11.2"
 thiserror = "1.0"
-enum-iterator = "2.1.0"
-derive_more = "0.99.17"
-texpresso = "2.0.1"
+enum-iterator = "2.1"
+derive_more = { version = "2.0", features = ["try_from", "from", "try_into"] }
+texpresso = "2.0"
 miniz_oxide = { version = "0.7.4", features = ["simd"] }
+xmltree = "0.11"

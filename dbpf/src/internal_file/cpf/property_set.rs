@@ -3,9 +3,8 @@ use binrw::{BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
 use binrw::Endian::Little;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
 use crate::common;
-use crate::internal_file::common::cpf::{cpf_get_all, Item, CPF};
-use crate::internal_file::common::Id;
-// use crate::internal_file::xml::XML;
+use crate::internal_file::cpf::{cpf_get_all, CPFVersion, Item, CPF};
+use crate::internal_file::cpf::Id;
 
 #[derive(Clone, Debug, Default)]
 pub struct Override {
@@ -148,7 +147,7 @@ impl BinWrite for PropertySet {
         }
 
         let cpf = CPF {
-            version: 2,
+            version: CPFVersion::CPF(2),
             entries,
         };
         writer.write_type(&cpf, endian)
