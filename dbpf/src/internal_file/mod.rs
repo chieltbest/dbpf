@@ -17,6 +17,7 @@ use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use cpf::binary_index::BinaryIndex;
 use cpf::property_set::PropertySet;
+use crate::internal_file::cpf::CPF;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
 use crate::internal_file::text_list::TextList;
@@ -57,11 +58,11 @@ pub struct FileDataBinReadArgs {
 #[derive(Clone, Debug)]
 pub struct FileData {
     #[br(temp,
-    args {
+        args{
     count: args.count,
     compression_type: args.compression_type,
     decompressed_size: args.decompressed_size
-    })]
+            })]
     compressed: CompressedFileData,
     #[br(calc = args.type_id)]
     pub(crate) type_id: DBPFFileType,
@@ -126,7 +127,7 @@ impl FileData {
 }
 
 #[binrw]
-#[br(import { count: usize, compression_type: CompressionType, decompressed_size: u32 })]
+#[br(import{ count: usize, compression_type: CompressionType, decompressed_size: u32 })]
 #[derive(Clone, Default)]
 pub struct CompressedFileData {
     #[br(calc = compression_type)]
@@ -250,6 +251,7 @@ pub enum DecodedFile {
     // CPF/XML
     PropertySet(PropertySet),
     BinaryIndex(BinaryIndex),
+    GenericCPF(CPF),
 
     // RCOL
     ResourceCollection(ResourceCollection),
@@ -268,6 +270,29 @@ impl DecodedFile {
             }
             DBPFFileType::Known(KnownDBPFFileType::BinaryIndex) => {
                 Some(BinaryIndex::read(&mut cursor).map(|r| DecodedFile::BinaryIndex(r)))
+            }
+            DBPFFileType::Known(KnownDBPFFileType::TrackSettings |
+                                KnownDBPFFileType::FloorXML |
+                                KnownDBPFFileType::NeighbourhoodObjectXML |
+                                KnownDBPFFileType::WantsXML |
+                                KnownDBPFFileType::MeshOverlayXML |
+                                KnownDBPFFileType::FaceModifierXML |
+                                KnownDBPFFileType::TextureOverlayXML |
+                                KnownDBPFFileType::FenceXML |
+                                KnownDBPFFileType::SkinToneXML |
+                                KnownDBPFFileType::MaterialOverride |
+                                KnownDBPFFileType::Collection |
+                                KnownDBPFFileType::FaceNeutralXML |
+                                KnownDBPFFileType::HairToneXML |
+                                KnownDBPFFileType::FaceRegionXML |
+                                KnownDBPFFileType::FaceArchetypeXML |
+                                KnownDBPFFileType::SimDataXML |
+                                KnownDBPFFileType::RoofXML |
+                                KnownDBPFFileType::PetBodyOptions |
+                                KnownDBPFFileType::WallXML |
+                                KnownDBPFFileType::SimDNA |
+                                KnownDBPFFileType::VersionInformation) => {
+                Some(CPF::read(&mut cursor).map(|r| DecodedFile::GenericCPF(r)))
             }
             DBPFFileType::Known(KnownDBPFFileType::SimOutfits) => {
                 Some(SimOutfits::read(&mut cursor).map(|r| DecodedFile::SimOutfits(r)))
@@ -291,6 +316,7 @@ impl DecodedFile {
         match self {
             DecodedFile::PropertySet(x) => x.write(&mut data)?,
             DecodedFile::BinaryIndex(x) => x.write(&mut data)?,
+            DecodedFile::GenericCPF(x) => x.write(&mut data)?,
             DecodedFile::SimOutfits(x) => x.write(&mut data)?,
             DecodedFile::ResourceCollection(x) => x.write(&mut data)?,
             DecodedFile::TextList(x) => x.write(&mut data)?,
