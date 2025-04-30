@@ -1,19 +1,34 @@
+use binrw::{BinRead, Error};
+use dbpf::DBPFFile;
 use std::env;
 use std::ffi::OsStr;
 use std::io::{Cursor, Read, Seek};
-use dbpf::DBPFFile;
-use binrw::{BinRead, Error};
+use std::path::PathBuf;
 use walkdir::WalkDir;
 
-fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R) {
+fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf) {
+    let num_idx = header.index.len();
     for (i, entry) in header.index.iter_mut().enumerate() {
-        println!("{i} {:?} {:X} {:X}", entry.type_id, entry.group_id, entry.instance_id);
-        match entry.data(reader) {
-            Err(err) => println!("{err}"),
-            Ok(data) => {
-                match data.decompressed() {
+        match entry.type_id {
+            _ => {
+                match entry.data(reader) {
                     Err(err) => println!("{err}"),
-                    _ => {}
+                    Ok(data) => {
+                        match data.decoded() {
+                            Err(err) => {
+                                println!("{}/{} {:?} {:X} {:X} {:X}: {:?}",
+                                         i + 1,
+                                         num_idx,
+                                         entry.type_id,
+                                         entry.type_id.code(),
+                                         entry.group_id,
+                                         entry.instance_id,
+                                         path);
+                                println!("{err}")
+                            }
+                            _ => {}
+                        }
+                    }
                 }
             }
         }
@@ -35,10 +50,9 @@ fn main() -> Result<(), Error> {
         }).for_each(|path| {
             let mut input = Cursor::new(std::fs::read(path.clone()).unwrap());
 
-            println!("{path:?}");
-            let mut file = DBPFFile::read(&mut input).unwrap();
-            read_all(&mut file, &mut input);
-            // println!("{:#X?}", file);
+            if let Ok(mut file) = DBPFFile::read(&mut input) {
+                read_all(&mut file, &mut input, path);
+            }
         });
     }
     Ok(())
