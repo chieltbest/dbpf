@@ -1,14 +1,38 @@
 # Changelog
 
+## [0.3.0] - 2025-04-30
+
+### 🚀 Features
+
+- *(dbpf)* Add all known XML file types
+- *(dbpf)* Add XML reader support for CPF resources
+- *(dbpf)* Add generic decode support for all known CPF types
+- Enable generic editor for CPF files
+
+### 🐛 Bug Fixes
+
+- *(dbpf)* Fix reading of Sims 3/4 package files
+
+### 🚜 Refactor
+
+- Rework language code support
+
+### 📚 Documentation
+
+- Update readme with supported editor types
+
 ## [0.2.0] - 2025-04-26
 
 ### 🚀 Features
 
 - *(dbpf)* Add function to replace all textures with a new texture
 - Add ability to replace texture resource texture by dragging an image into the editor
+- Allow editing creator ID
 - *(dbpf)* Add texture format recompression function
 - Add ability to edit texture format/compression type
+- Allow editing texture resource purpose value
 - *(dbpf)* Add support for BINX (Binary Index) resource type
+- Add editor support for BINX (Binary Index) resources
 
 ### 🐛 Bug Fixes
 
