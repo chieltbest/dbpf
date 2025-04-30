@@ -1,7 +1,8 @@
 use std::fmt::{Debug, Formatter};
-use std::io::{Read, Seek, Write};
+use std::io::{Cursor, Read, Seek, Write};
 use std::string::FromUtf8Error;
 use binrw::{binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian, NullString};
+use enum_iterator::Sequence;
 
 #[binrw]
 #[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -124,50 +125,72 @@ pub struct FileName {
 
 #[binrw]
 #[brw(repr = u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Debug, Default)]
-pub enum LanguageCode {
+#[repr(u8)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug, Default, Sequence)]
+#[non_exhaustive]
+pub enum KnownLanguageCode {
     #[default]
-    English = 1,
-    Abo = 2,
-    Abn = 3,
-    Abm = 4,
-    Abl = 5,
-    Abk = 6,
-    Abj = 7,
-    Abi = 8,
-    Abh = 9,
-    Abg = 10,
-    Abf = 11,
-    Abe = 12,
-    Abd = 13,
-    Abc = 14,
-    Abb = 15,
-    Aba = 16,
-    Aaz = 17,
-    Aay = 18,
-    Aax = 19,
-    Aaw = 20,
-    Aav = 21,
-    Aau = 22,
-    Aat = 23,
-    Aas = 24,
-    Aar = 25,
-    Aaq = 26,
-    Aap = 27,
-    Aao = 28,
-    Aan = 29,
-    Aam = 30,
-    Aal = 31,
-    Aak = 32,
-    Aaj = 33,
-    Aai = 34,
-    Aah = 35,
-    Aag = 36,
-    Aaf = 37,
-    Aae = 38,
-    Aad = 39,
-    Aac = 40,
-    Aab = 41,
-    Aaa = 42,
-    Dutch = 43,
+    USEnglish = 1,
+    UKEnglish = 2,
+    French = 3,
+    German = 4,
+    Italian = 5,
+    Spanish = 6,
+    Dutch = 7,
+    Danish = 8,
+    Swedish = 9,
+    Norwegian = 10,
+    Finnish = 11,
+    Hebrew = 12,
+    Russian = 13,
+    Portuguese = 14,
+    Japanese = 15,
+    Polish = 16,
+    TraditionalChinese = 17,
+    SimplifiedChinese = 18,
+    Thai = 19,
+    Korean = 20,
+    Hindi = 21,
+    Arabic = 22,
+    Bulgarian = 23,
+    Belarusian = 24,
+    Ukrainian = 25,
+    Czech = 26,
+    Greek = 27,
+    Hungarian = 28,
+    Icelandic = 29,
+    Romanian = 30,
+    Latin = 31,
+    Slovak = 32,
+    Albanian = 33,
+    Turkish = 34,
+    BrazilianPortuguese = 35,
+    SwissFrench = 36,
+    CanadianFrench = 37,
+    BelgianFrench = 38,
+    SwissGerman = 39,
+    SwissItalian = 40,
+    Flemish = 41,
+    MexicanSpanish = 42,
+    Tagalog = 43,
+}
+
+#[binrw]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug)]
+pub enum LanguageCode {
+    Known(KnownLanguageCode),
+    Unknown(u8),
+}
+
+impl Default for LanguageCode {
+    fn default() -> Self {
+        LanguageCode::Known(KnownLanguageCode::default())
+    }
+}
+
+impl From<u8> for LanguageCode {
+    fn from(value: u8) -> Self {
+        let mut bytes = Cursor::new(vec![value]);
+        <Self as BinRead>::read_le(&mut bytes).unwrap()
+    }
 }

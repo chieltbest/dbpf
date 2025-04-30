@@ -1,6 +1,6 @@
 use eframe::egui::{ComboBox, Context, DragValue, Response, Ui};
 use dbpf::internal_file::cpf::{CPF, Data, CPFVersion, DataType, Item};
-use crate::editor::{Editor, VecEditorState};
+use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 
 impl Editor for Item {
     type EditorState = ();
@@ -84,7 +84,7 @@ impl Editor for CPF {
 
         res |= self.entries.show_editor(&mut VecEditorState {
             columns: 3,
-            elem_states: vec![(); self.entries.len()],
+            storage: VecEditorStateStorage::Shared(()),
         }, ui);
 
         res

@@ -1,44 +1,40 @@
-use eframe::egui;
-use eframe::egui::{Response, Ui};
+use crate::editor::r#enum::EnumEditorState;
+use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use dbpf::common::LanguageCode;
 use dbpf::internal_file::text_list::{String, TextList};
-use crate::editor::{Editor, VecEditorState};
+use eframe::egui;
+use eframe::egui::{Response, Ui};
 
 impl Editor for String {
-    type EditorState = ();
+    type EditorState = <LanguageCode as Editor>::EditorState;
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {}
+    fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
+        LanguageCode::new_editor(&self.language_code, context)
+    }
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-        let res = egui::ComboBox::new("language code", "")
-            .selected_text(format!("{:?}", self.language_code))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.language_code, LanguageCode::English, "English")
-            });
-        let mut res = if let Some(inner) = res.inner {
-            res.response | inner
-        } else {
-            res.response
-        };
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        let mut res = self.language_code.show_editor(state, ui);
         res |= self.value.show_editor(&mut (), ui);
         res | self.description.show_editor(&mut (), ui)
     }
 }
 
 impl Editor for TextList {
-    type EditorState = ();
+    type EditorState = VecEditorState<String>;
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {}
+    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
+        VecEditorState {
+            columns: 3,
+            storage: VecEditorStateStorage::Shared(EnumEditorState::default()),
+        }
+    }
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let res = ui.horizontal_wrapped(|ui| {
             ui.label("file name") |
             self.file_name.name.show_editor(&mut (), ui)
         });
 
-        res.response | res.inner | self.sets.show_editor(&mut VecEditorState {
-            columns: 3,
-            elem_states: vec![(); self.sets.len()],
-        }, ui)
+        res.response | res.inner | self.sets.show_editor(state, ui)
     }
 }

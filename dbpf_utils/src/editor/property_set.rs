@@ -2,7 +2,7 @@ use eframe::egui;
 use eframe::egui::{Align, DragValue, Grid, Response, Ui};
 use eframe::emath::Numeric;
 use dbpf::internal_file::cpf::property_set::{Override, PropertySet};
-use crate::editor::{Editor, VecEditorState};
+use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 
 impl Editor for Override {
     type EditorState = ();
@@ -121,7 +121,7 @@ impl Editor for PropertySet {
 
         ires.response | ires.inner | self.overrides.show_editor(&mut VecEditorState {
             columns: 3,
-            elem_states: vec![(); self.overrides.len()],
+            storage: VecEditorStateStorage::Shared(()),
         }, ui)
     }
 }

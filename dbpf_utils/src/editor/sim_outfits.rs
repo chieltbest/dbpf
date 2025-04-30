@@ -1,22 +1,20 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::default::Default;
 use eframe::egui;
 use eframe::egui::{DragValue, Response, Ui};
 use dbpf::IndexMinorVersion;
 use dbpf::internal_file::sim_outfits::{Entry, SimOutfits};
-use crate::editor::{Editor, VecEditorState};
-use crate::editor::file_type::DBPFFileTypeEditorState;
+use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
+use crate::editor::r#enum::file_type::DBPFFileTypeEditorState;
 
 impl Editor for Entry {
-    type EditorState = Rc<RefCell<DBPFFileTypeEditorState>>;
+    type EditorState = DBPFFileTypeEditorState;
 
     fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
-        // TODO check Rc::new(RefCell::new(self.type_id.new_editor()))
         Default::default()
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-        let mut res = self.type_id.show_editor(&mut state.borrow_mut(), ui);
+        let mut res = self.type_id.show_editor(state, ui);
         res |= ui.add(DragValue::new(&mut self.group_id)
             .hexadecimal(8, false, true));
         res |= ui.add(DragValue::new(&mut self.instance_id.id)
@@ -25,16 +23,14 @@ impl Editor for Entry {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct SimOutfitsEditorState {
-    file_type_chooser_state: Rc<RefCell<DBPFFileTypeEditorState>>,
-}
-
 impl Editor for SimOutfits {
-    type EditorState = SimOutfitsEditorState;
+    type EditorState = VecEditorState<Entry>;
 
     fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
-        Default::default()
+        VecEditorState {
+            columns: 3,
+            storage: VecEditorStateStorage::Shared(Default::default()),
+        }
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
@@ -48,15 +44,7 @@ impl Editor for SimOutfits {
 
         ui.separator();
 
-        let states_vec = vec![state.file_type_chooser_state.clone(); self.entries.len()];
-        let mut vec_state = VecEditorState {
-            columns: 3,
-            elem_states: states_vec,
-        };
-
-        res |= self.entries.show_editor(
-            &mut vec_state,
-            ui);
+        res |= self.entries.show_editor(state, ui);
         
         res
     }

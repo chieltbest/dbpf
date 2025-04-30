@@ -1,18 +1,21 @@
+use std::fmt::Debug;
+use std::hash::Hash;
 use eframe::egui;
 use eframe::egui::{Grid, Response, Ui};
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::DecodedFile;
+use dbpf::internal_file::sim_outfits::SimOutfits;
+use dbpf::internal_file::text_list::TextList;
 use crate::editor::resource_collection::ResourceCollectionEditorState;
-use crate::editor::sim_outfits::SimOutfitsEditorState;
 
 mod property_set;
 mod resource_collection;
 mod sim_outfits;
-mod file_type;
 mod cpf;
 mod common;
 mod text_list;
 mod binary_index;
+mod r#enum;
 
 pub trait Editor {
     type EditorState;
@@ -25,7 +28,8 @@ pub trait Editor {
 #[derive(Debug, Default)]
 pub enum DecodedFileEditorState {
     ResourceCollection(ResourceCollectionEditorState),
-    SimOutfits(SimOutfitsEditorState),
+    SimOutfits(<SimOutfits as Editor>::EditorState),
+    TextList(<TextList as Editor>::EditorState),
     #[default]
     None,
 }
@@ -40,6 +44,9 @@ impl Editor for DecodedFile {
             }
             DecodedFile::ResourceCollection(rcol) => {
                 DecodedFileEditorState::ResourceCollection(rcol.new_editor(context))
+            }
+            DecodedFile::TextList(str) => {
+                DecodedFileEditorState::TextList(str.new_editor(context))
             }
             _ => DecodedFileEditorState::None,
         }
@@ -58,7 +65,8 @@ impl Editor for DecodedFile {
                 DecodedFileEditorState::ResourceCollection(state)) => {
                 rcol.show_editor(state, ui)
             }
-            (DecodedFile::TextList(str), _) => str.show_editor(&mut (), ui),
+            (DecodedFile::TextList(str),
+                DecodedFileEditorState::TextList(state)) => str.show_editor(state, ui),
             _ => panic!(),
         }
     }
@@ -108,28 +116,46 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub struct VecEditorState<T: Editor> {
-    /// number of columns (besides the delete button) that the editor for a single element will create
-    columns: usize,
-    elem_states: Vec<T::EditorState>,
+pub enum VecEditorStateStorage<T: Editor>
+where
+    T::EditorState: Clone + Debug,
+{
+    Vec(Vec<T::EditorState>),
+    Shared(T::EditorState),
 }
 
-impl<T: Editor> Default for VecEditorState<T> {
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub struct VecEditorState<T: Editor>
+where
+    T::EditorState: Clone + Debug + Hash + Eq + PartialEq,
+{
+    /// number of columns (besides the delete button) that the editor for a single element will create
+    columns: usize,
+    storage: VecEditorStateStorage<T>,
+}
+
+impl<T: Editor> Default for VecEditorState<T>
+where
+    T::EditorState: Clone + Debug + Hash + Eq + PartialEq,
+{
     fn default() -> Self {
         Self {
             columns: 1,
-            elem_states: vec![],
+            storage: VecEditorStateStorage::Vec(vec![]),
         }
     }
 }
 
-impl<T: Editor + Default> Editor for Vec<T> {
+impl<T: Editor + Default> Editor for Vec<T>
+where
+    T::EditorState: Clone + Debug + Hash + Eq + PartialEq,
+{
     type EditorState = VecEditorState<T>;
 
     fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
         Self::EditorState {
             columns: 1,
-            elem_states: self.iter().map(|elem| elem.new_editor(context)).collect(),
+            storage: VecEditorStateStorage::Vec(self.iter().map(|elem| elem.new_editor(context)).collect()),
         }
     }
 
@@ -140,9 +166,13 @@ impl<T: Editor + Default> Editor for Vec<T> {
             .num_columns(state.columns + 1)
             .show(ui, |ui| {
                 let (del, res): (Vec<_>, Vec<_>) = self.iter_mut()
-                    .zip(state.elem_states.iter_mut())
                     .enumerate()
-                    .map(|(i, (elem, state))| {
+                    .map(|(i, elem)| {
+                        let state = match &mut state.storage {
+                            VecEditorStateStorage::Vec(v) => &mut v[i],
+                            VecEditorStateStorage::Shared(s) => s,
+                        };
+
                         let del = ui.button("🗑").clicked();
 
                         let ires = ui.push_id(i, |ui| {
@@ -161,13 +191,17 @@ impl<T: Editor + Default> Editor for Vec<T> {
                 let mut it = del.iter();
                 self.retain(|_| !*it.next().unwrap());
                 it = del.iter();
-                state.elem_states.retain(|_| !*it.next().unwrap());
+                if let VecEditorStateStorage::Vec(v) = &mut state.storage {
+                    v.retain(|_| !*it.next().unwrap());
+                }
 
                 // add new element
                 let mut bres = ui.button("➕");
                 if bres.clicked() {
                     let new = T::default();
-                    state.elem_states.push(new.new_editor(ui.ctx()));
+                    if let VecEditorStateStorage::Vec(v) = &mut state.storage {
+                        v.push(new.new_editor(ui.ctx()));
+                    }
                     self.push(new);
                     bres.mark_changed();
                 }

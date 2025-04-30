@@ -1,6 +1,6 @@
 use eframe::egui::{Context, Response, Ui};
 use dbpf::internal_file::resource_collection::material_definition::{MaterialDefinition, Property};
-use crate::editor::{Editor, VecEditorState};
+use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 
 impl Editor for Property {
     type EditorState = ();
@@ -35,14 +35,14 @@ impl Editor for MaterialDefinition {
         res |= ui.label("Properties");
         res |= self.properties.show_editor(&mut VecEditorState {
             columns: 3,
-            elem_states: vec![(); self.properties.len()],
+            storage: VecEditorStateStorage::Shared(()),
         }, ui);
         
         ui.push_id("Names", |ui| {
             ui.label("Names");
             res |= self.names.show_editor(&mut VecEditorState {
                 columns: 1,
-                elem_states: vec![(); self.names.len()],
+                storage: VecEditorStateStorage::Shared(()),
             }, ui);
         });
 
