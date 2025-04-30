@@ -25,6 +25,14 @@ jobs:
           export REF_NAME=${{ github.ref_name }}
           echo "release_program=${REF_NAME%%/*}" >> $GITHUB_OUTPUT
           echo "release_version=${REF_NAME#*/}" >> $GITHUB_OUTPUT
+          case "${REF_NAME%%/*}" in
+            "batl" | "yact")
+              echo 'git_cliff_include="--include-path=dbpf/"' >> $GITHUB_OUTPUT
+              ;;
+            "yape")
+              echo 'git_cliff_include="--include-path=dbpf/ --include-path=dbpf_utils/src/editor/"' >> $GITHUB_OUTPUT
+              ;;
+          esac
       - name: Generate a changelog
         uses: orhun/git-cliff-action@main
         id: git-cliff
@@ -33,7 +41,8 @@ jobs:
           args: --latest \
             --tag ${{ steps.get-tag.outputs.release_version }} \
             --tag-pattern "${{ steps.get-tag.outputs.release_program }}/v*" \
-            --include-path ${{ steps.get-tag.outputs.release_program }}/
+            --include-path ${{ steps.get-tag.outputs.release_program }}/ \
+            ${{ steps.get-tag.outputs.git_cliff_include }}
 
   build-and-upload:
     needs: generate-changelog
