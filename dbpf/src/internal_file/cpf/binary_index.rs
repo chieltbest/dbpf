@@ -60,7 +60,7 @@ impl BinWrite for BinaryIndex {
             version: CPFVersion::CPF(2),
             entries: vec![
                 get!(iconidx),
-                get!(stringindex),
+                get!(stringsetidx),
                 get!(binidx),
                 get!(objectidx),
                 get!(creatorid),
