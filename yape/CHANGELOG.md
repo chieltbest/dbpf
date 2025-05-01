@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2025-05-01
+
+### 🐛 Bug Fixes
+
+- Properly write CPF file header
+- Fix typo in Binary Index file write: stringindex -> stringsetidx
+
 ## [0.3.0] - 2025-04-30
 
 ### 🚀 Features
