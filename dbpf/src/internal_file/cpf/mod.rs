@@ -156,6 +156,7 @@ impl BinWrite for CPF {
     fn write_options<W: Write + Seek>(&self, writer: &mut W, _endian: Endian, _args: Self::Args<'_>) -> BinResult<()> {
         match self.version {
             CPFVersion::CPF(version) => {
+                0xCBE750E0u32.write_le(writer)?;
                 version.write_le(writer)?;
                 (self.entries.len() as u32).write_le(writer)?;
                 self.entries.write_le(writer)
