@@ -327,7 +327,7 @@ impl CPF {
                 DataType::String => "AnyString",
                 DataType::Float => "AnyFloat32",
                 DataType::Bool => "AnyBoolean",
-                DataType::Int => "AnyInt",
+                DataType::Int => "AnySint32",
             });
 
             element.attributes.insert("type".to_string(), format!("0x{:x}", data_type as u32));
