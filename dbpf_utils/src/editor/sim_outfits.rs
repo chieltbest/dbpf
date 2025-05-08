@@ -1,13 +1,13 @@
 use std::default::Default;
 use eframe::egui;
 use eframe::egui::{DragValue, Response, Ui};
+use dbpf::filetypes::DBPFFileType;
 use dbpf::IndexMinorVersion;
 use dbpf::internal_file::sim_outfits::{Entry, SimOutfits};
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
-use crate::editor::r#enum::file_type::DBPFFileTypeEditorState;
 
 impl Editor for Entry {
-    type EditorState = DBPFFileTypeEditorState;
+    type EditorState = <DBPFFileType as Editor>::EditorState;
 
     fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
         Default::default()

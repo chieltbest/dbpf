@@ -1,122 +1,75 @@
-use std::fmt::Write;
-use eframe::egui;
-use eframe::egui::{Key, Response, ScrollArea, TextEdit, Ui};
-use eframe::egui::text::{CCursor, CCursorRange};
-use fuzzy_matcher::FuzzyMatcher;
-use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
+use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 use crate::editor::Editor;
+use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
+use eframe::egui;
+use eframe::egui::{Response, Ui};
+use std::fmt::Write;
 
-#[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
-pub struct DBPFFileTypeEditorState {
-    search_string: String,
-}
+impl EnumEditor for DBPFFileType {
+    type KnownEnum = KnownDBPFFileType;
 
-fn known_dbpf_file_type_hover_string(file_type: KnownDBPFFileType) -> String {
-    let mut str = String::new();
-    writeln!(str, "{}", file_type.properties().name.to_string()).unwrap();
-    writeln!(str, "Abbreviation: {}", file_type.properties().abbreviation).unwrap();
-    if let Some(extension) = file_type.properties().extension {
-        writeln!(str, "Extension: {}", extension).unwrap();
+    fn from_known(known_enum: &Self::KnownEnum) -> Self {
+        Self::Known(*known_enum)
     }
-    write!(str, "Id: {:08X}", file_type as u32).unwrap();
-    str
-}
 
-fn dbpf_file_type_hover_string(file_type: DBPFFileType) -> Option<String> {
-    match file_type {
-        DBPFFileType::Known(known) => {
-            Some(known_dbpf_file_type_hover_string(known))
+    fn from_int_string(string: &String) -> Option<Self> {
+        u32::from_str_radix(string.trim_start_matches("0x"), 16)
+            .map(|i| DBPFFileType::from(i))
+            .ok()
+    }
+
+    fn known_name(known_enum: &Self::KnownEnum) -> String {
+        format!("{known_enum:?}")
+    }
+
+    fn full_name(&self) -> String {
+        match self {
+            DBPFFileType::Known(known) => Self::known_name(known),
+            DBPFFileType::Unknown(i) => format!("{i}"),
         }
-        DBPFFileType::Unknown(_) => None,
     }
-}
 
-fn dbpf_file_type_search_strings(file_type: KnownDBPFFileType) -> Vec<String> {
-    let prop = file_type.properties();
-    let mut res = vec![
-        prop.name.to_string(),
-        prop.abbreviation.to_string(),
-        format!("{:08X}", file_type as u32)];
-    if let Some(ext) = prop.extension {
-        res.push(ext.to_string());
+    fn known_hover_string(file_type: &Self::KnownEnum) -> String {
+        let mut str = String::new();
+        writeln!(str, "{}", file_type.properties().name.to_string()).unwrap();
+        writeln!(str, "Abbreviation: {}", file_type.properties().abbreviation).unwrap();
+        if let Some(extension) = file_type.properties().extension {
+            writeln!(str, "Extension: {}", extension).unwrap();
+        }
+        write!(str, "Id: {:08X}", *file_type as u32).unwrap();
+        str
     }
-    res
+
+    fn hover_string(&self) -> Option<String> {
+        match self {
+            DBPFFileType::Known(known) => {
+                Some(Self::known_hover_string(known))
+            }
+            DBPFFileType::Unknown(_) => None,
+        }
+    }
+
+    fn search_strings(file_type: &Self::KnownEnum) -> Vec<String> {
+        let prop = file_type.properties();
+        let mut res = vec![
+            prop.name.to_string(),
+            prop.abbreviation.to_string(),
+            format!("{:08X}", *file_type as u32)];
+        if let Some(ext) = prop.extension {
+            res.push(ext.to_string());
+        }
+        res
+    }
 }
 
 impl Editor for DBPFFileType {
-    type EditorState = DBPFFileTypeEditorState;
+    type EditorState = EnumEditorState;
 
     fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
-        Self::EditorState {
-            search_string: "".to_string(),
-        }
+        Self::new_enum_editor()
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-        // TODO use the innerresponse properly
-        let mut text_edit_response = None;
-        let inner_res = ui.menu_button(self.full_name(), |ui| {
-            text_edit_response = Some(TextEdit::singleline(&mut state.search_string).show(ui));
-
-            let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
-            let mut scored_types = enum_iterator::all::<KnownDBPFFileType>()
-                .filter_map(|t| {
-                    dbpf_file_type_search_strings(t)
-                        .into_iter()
-                        .map(|str| {
-                            matcher.fuzzy_match(str.as_str(), state.search_string.as_str())
-                        })
-                        .max().unwrap()
-                        .map(|score| (t, score))
-                }).collect::<Vec<_>>();
-            scored_types.sort_unstable_by_key(|(_, score)| -score);
-
-            ScrollArea::vertical().show(ui, |ui| {
-                scored_types.iter().for_each(|(t, _)| {
-                    if ui.selectable_label(
-                        *self == DBPFFileType::Known(*t),
-                        t.properties().name)
-                        .on_hover_text(known_dbpf_file_type_hover_string(*t))
-                        .clicked() {
-                        *self = DBPFFileType::Known(*t);
-                        ui.close_menu();
-                    }
-                });
-            });
-
-            if text_edit_response.as_ref().unwrap().response.lost_focus() &&
-                ui.input(|i| i.key_pressed(Key::Enter)) {
-                if let Some((t, _score)) = scored_types.first() {
-                    *self = DBPFFileType::Known(*t);
-                } else {
-                    let stripped = state.search_string.trim_start_matches("0x");
-                    if let Ok(i) = u32::from_str_radix(stripped, 16) {
-                        *self = DBPFFileType::from(i);
-                    }
-                }
-                ui.close_menu();
-                text_edit_response.as_mut().unwrap().response.mark_changed();
-            }
-        });
-        if inner_res.response.clicked() {
-            if let Some(ref mut text_res) = text_edit_response {
-                text_res.state.cursor.set_char_range(Some(CCursorRange {
-                    secondary: CCursor::new(0),
-                    primary: CCursor::new(state.search_string.len()),
-                }));
-                text_res.state.clone().store(ui.ctx(), text_res.response.id);
-                text_res.response.request_focus();
-            }
-        }
-
-        if let Some(str) = dbpf_file_type_hover_string(*self) {
-            inner_res.response.clone().on_hover_text(str);
-        }
-
-        if let Some(inner) = text_edit_response {
-            inner_res.response | inner.response
-        } else {
-            inner_res.response
-        }
+        Self::show_enum_editor(self, state, ui)
     }
 }
