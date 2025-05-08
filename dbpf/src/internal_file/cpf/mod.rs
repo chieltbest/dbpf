@@ -223,11 +223,19 @@ enum XMLParseError {
 }
 
 #[derive(Debug, Error)]
+enum XMLKeyUtf8Error {
+    #[error(transparent)]
+    Utf8(#[from] FromUtf8Error),
+    #[error("Cannot have control character {1:?} at position {2} in xml key {0}")]
+    Control(std::string::String, char, usize),
+}
+
+#[derive(Debug, Error)]
 enum XMLWriteError {
     #[error(transparent)]
     XMLWriteError(#[from] xmltree::Error),
     #[error("{0} while writing key with datatype {1:?}")]
-    KeyUtf8Error(FromUtf8Error, DataType),
+    KeyUtf8Error(XMLKeyUtf8Error, DataType),
     #[error("{0} while writing data of key {1:?}")]
     DataUtf8Error(FromUtf8Error, String),
 }
@@ -368,7 +376,15 @@ impl CPF {
 
             element.attributes.insert("type".to_string(), format!("0x{:x}", data_type as u32));
             element.attributes.insert("key".to_string(), entry.name.clone().try_into()
-                .map_err(|err| XMLWriteError::KeyUtf8Error(err, data_type))?);
+                .map_err(|err: FromUtf8Error| XMLWriteError::KeyUtf8Error(err.into(), data_type))
+                .and_then(|str: std::string::String| {
+                    if let Some((i, c)) = str.chars().enumerate()
+                        .find(|(i, c)| *c <= '\x1F') {
+                        Err(XMLWriteError::KeyUtf8Error(XMLKeyUtf8Error::Control(str, c, i), data_type))
+                    } else {
+                        Ok(str)
+                    }
+                })?);
 
             element.children.push(XMLNode::Text(match &entry.data {
                 Data::UInt(x) => x.to_string(),
