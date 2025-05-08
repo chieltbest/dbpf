@@ -46,7 +46,7 @@ impl TryFrom<String> for std::string::String {
 #[deref(forward)]
 #[deref_mut(forward)]
 pub struct NullString(
-    #[cfg_attr(test, map(|x: std::string::String| x.into()))]
+    #[cfg_attr(test, map(|x: Vec<u8>| binrw::NullString(x)))]
     binrw::NullString
 );
 
@@ -250,4 +250,6 @@ mod test {
     fn string_sometimes_invalid_utf8(string: common::String) {
         std::string::String::try_from(string)?;
     }
+
+
 }

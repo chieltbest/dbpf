@@ -513,14 +513,19 @@ mod test {
         prop_assert_eq!(cpf, read);
     }
 
+    /// writing of a XML CPF object that has no invalid strings must not fail
     #[proptest]
-    fn xml_write_read_same(data_type: XMLDataType, version: Option<u16>, entries: Vec<Item>) {
+    fn xml_write_restricted_no_error(data_type: XMLDataType, version: Option<u16>, entries: Vec<Item>) {
+        fn str_is_ok(str: crate::common::String) -> bool {
+            std::string::String::try_from(str)
+                .is_ok_and(|str| str.chars().all(|c| !c.is_control()))
+        }
         for e in &entries {
-            if std::string::String::try_from(e.name.clone()).is_err() {
+            if !str_is_ok(e.name.clone()) {
                 return Ok(());
             }
             if let Data::String(str) = e.data.clone() {
-                if std::string::String::try_from(str).is_err() {
+                if !str_is_ok(str) {
                     return Ok(());
                 }
             }
@@ -530,9 +535,21 @@ mod test {
             entries,
         };
         let mut out = Cursor::new(vec![]);
-        cpf.write(&mut out)?;
-        out.rewind()?;
-        let read = CPF::read(&mut out)?;
-        prop_assert_eq!(cpf, read);
+        cpf.write(&mut out)?
+    }
+
+    /// a succesful write of a XML CPF object must also be able to be read correctly
+    #[proptest]
+    fn xml_write_no_error_read_same(data_type: XMLDataType, version: Option<u16>, entries: Vec<Item>) {
+        let cpf = CPF {
+            version: CPFVersion::XML(data_type, version),
+            entries,
+        };
+        let mut out = Cursor::new(vec![]);
+        if cpf.write(&mut out).is_ok() {
+            out.rewind()?;
+            let read = CPF::read(&mut out)?;
+            prop_assert_eq!(cpf, read);
+        }
     }
 }
