@@ -2,7 +2,7 @@ use binrw::{BinRead, Error};
 use dbpf::DBPFFile;
 use std::env;
 use std::ffi::OsStr;
-use std::io::{Cursor, Read, Seek};
+use std::io::{Cursor, Read, Seek, Write};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
@@ -24,7 +24,8 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
                         match data.decoded() {
                             Err(err) => {
                                 if let Ok(data) = data.decompressed() {
-                                    println!("{}", String::from_utf8_lossy(&data.data));
+                                    std::io::stdout().write(&data.data).unwrap();
+                                    println!();
                                 }
                                 println!("{}/{} {:?} {:X} {:X} {:X}: {:?}",
                                          i + 1,
