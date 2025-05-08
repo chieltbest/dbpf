@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::{Align, ComboBox, Context, DragValue, Response, Ui};
 use eframe::emath::Numeric;
-use dbpf::internal_file::cpf::{CPFVersion, Data, DataType, Item, Reference, CPF};
+use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 
 mod property_set;
@@ -49,7 +49,7 @@ impl Editor for CPF {
                 })
                 .show_ui(ui, |ui| {
                     if ui.button("XML").clicked() {
-                        self.version = CPFVersion::XML(DataType::String, None);
+                        self.version = CPFVersion::XML(XMLDataType::String, None);
                     }
                     if ui.button("CPF").clicked() {
                         self.version = CPFVersion::CPF(2);
@@ -63,8 +63,8 @@ impl Editor for CPF {
                     ComboBox::new("data_type", "XML data type")
                         .selected_text(format!("{data_type:?}"))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(data_type, DataType::String, "String");
-                            ui.selectable_value(data_type, DataType::UInt, "UInt");
+                            ui.selectable_value(data_type, XMLDataType::String, "String");
+                            ui.selectable_value(data_type, XMLDataType::UInt, "UInt");
                         });
                     let mut has_version = version.is_some();
                     ui.checkbox(&mut has_version, "Has version attribute");

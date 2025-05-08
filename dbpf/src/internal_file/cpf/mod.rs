@@ -100,12 +100,18 @@ impl Item {
     }
 }
 
-#[binrw]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
+pub enum XMLDataType {
+    UInt,
+    String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub enum CPFVersion {
     CPF(u16),
-    XML(DataType, Option<u16>),
+    XML(XMLDataType, Option<u16>),
 }
 
 impl Default for CPFVersion {
@@ -133,13 +139,13 @@ impl BinRead for CPF {
 
         if u32::read_le(reader)? == 0xCBE750E0u32 {
             // CPF
-            let version = CPFVersion::read_le(reader)?;
+            let version = u16::read_le(reader)?;
             let count = u32::read_le(reader)? as usize;
             let entries = Vec::<Item>::read_le_args(reader, args! {
                 count
             })?;
             Ok(CPF {
-                version,
+                version: CPFVersion::CPF(version),
                 entries,
             })
         } else {
@@ -224,8 +230,6 @@ enum XMLWriteError {
     KeyUtf8Error(FromUtf8Error, DataType),
     #[error("{0} while writing data of key {1:?}")]
     DataUtf8Error(FromUtf8Error, String),
-    #[error("Bad header data type: {0:?}")]
-    HeaderDataType(DataType),
 }
 
 impl CPF {
@@ -239,10 +243,10 @@ impl CPF {
 
         let data_type = match xml.name.as_str() {
             "cGZPropertySetString" => {
-                DataType::String
+                XMLDataType::String
             }
             "cGZPropertySetUint32" => {
-                DataType::UInt
+                XMLDataType::UInt
             }
             _ => return Err(XMLParseError::BadStartTag),
         };
@@ -341,11 +345,10 @@ impl CPF {
         })
     }
 
-    fn write_xml<W: Write + Seek>(&self, writer: &mut W, data_type: DataType, version: Option<u16>) -> Result<(), XMLWriteError> {
+    fn write_xml<W: Write + Seek>(&self, writer: &mut W, data_type: XMLDataType, version: Option<u16>) -> Result<(), XMLWriteError> {
         let mut root_element = Element::new(match data_type {
-            DataType::UInt => "cGZPropertySetUint32",
-            DataType::String => "cGZPropertySetString",
-            t => return Err(XMLWriteError::HeaderDataType(t)),
+            XMLDataType::UInt => "cGZPropertySetUint32",
+            XMLDataType::String => "cGZPropertySetString",
         });
 
         if let Some(v) = version {
@@ -495,7 +498,7 @@ mod test {
     use binrw::{BinRead, BinWrite};
     use proptest::prop_assert_eq;
     use test_strategy::proptest;
-    use crate::internal_file::cpf::{CPFVersion, Data, DataType, Item, CPF};
+    use crate::internal_file::cpf::{CPFVersion, Data, Item, XMLDataType, CPF};
 
     #[proptest]
     fn binary_write_read_same(version: u16, entries: Vec<Item>) {
@@ -511,7 +514,7 @@ mod test {
     }
 
     #[proptest]
-    fn xml_write_read_same(data_type: DataType, version: Option<u16>, entries: Vec<Item>) {
+    fn xml_write_read_same(data_type: XMLDataType, version: Option<u16>, entries: Vec<Item>) {
         for e in &entries {
             if std::string::String::try_from(e.name.clone()).is_err() {
                 return Ok(());
