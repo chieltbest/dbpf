@@ -495,10 +495,37 @@ mod test {
     use binrw::{BinRead, BinWrite};
     use proptest::prop_assert_eq;
     use test_strategy::proptest;
-    use crate::internal_file::cpf::CPF;
+    use crate::internal_file::cpf::{CPFVersion, Data, DataType, Item, CPF};
 
     #[proptest]
-    fn write_read_same(cpf: CPF) {
+    fn binary_write_read_same(version: u16, entries: Vec<Item>) {
+        let cpf = CPF {
+            version: CPFVersion::CPF(version),
+            entries,
+        };
+        let mut out = Cursor::new(vec![]);
+        cpf.write(&mut out)?;
+        out.rewind()?;
+        let read = CPF::read(&mut out)?;
+        prop_assert_eq!(cpf, read);
+    }
+
+    #[proptest]
+    fn xml_write_read_same(data_type: DataType, version: Option<u16>, entries: Vec<Item>) {
+        for e in &entries {
+            if std::string::String::try_from(e.name.clone()).is_err() {
+                return Ok(());
+            }
+            if let Data::String(str) = e.data.clone() {
+                if std::string::String::try_from(str).is_err() {
+                    return Ok(());
+                }
+            }
+        }
+        let cpf = CPF {
+            version: CPFVersion::XML(data_type, version),
+            entries,
+        };
         let mut out = Cursor::new(vec![]);
         cpf.write(&mut out)?;
         out.rewind()?;

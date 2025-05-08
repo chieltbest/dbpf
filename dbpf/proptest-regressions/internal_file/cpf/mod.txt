@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 31bce26e7d11f461ee6c252a5c21b4168ab8165c9da37cdbf82be06e4a556e0a # shrinks to input = _WriteReadSameArgs { cpf: CPF { version: XML(UInt, None), entries: [Item { name: "", data: String("�") }] } }
+cc 02d4e928c66f064ce3f3f0a1b58e6c8fa1e97a3eac82faaebe7f74d0c9ff614d # shrinks to input = _XmlWriteReadSameArgs { data_type: Float, version: None, entries: [] }
