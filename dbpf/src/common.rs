@@ -239,3 +239,15 @@ impl From<u8> for LanguageCode {
         <Self as BinRead>::read_le(&mut bytes).unwrap()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use test_strategy::proptest;
+    use crate::common;
+
+    #[proptest]
+    #[should_panic]
+    fn string_sometimes_invalid_utf8(string: common::String) {
+        std::string::String::try_from(string)?;
+    }
+}
