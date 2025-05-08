@@ -5,8 +5,8 @@ use binrw::{args, binrw, parser, writer, BinRead, BinResult, BinWrite, Endian, E
 use derive_more::{From, TryFrom, TryInto};
 use std::fmt::Display;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::num::ParseIntError;
-use std::str::FromStr;
+use std::num::{ParseFloatError, ParseIntError};
+use std::str::{FromStr, ParseBoolError};
 use std::string::FromUtf8Error;
 use thiserror::Error;
 use xmltree::{Element, ParseError, ParserConfig, XMLNode};
@@ -174,10 +174,20 @@ impl BinWrite for CPF {
 }
 
 #[derive(Debug, Error)]
+enum ParsePrimitiveError {
+    #[error(transparent)]
+    ParseIntError(#[from] ParseIntError),
+    #[error(transparent)]
+    ParseFloatError(#[from] ParseFloatError),
+    #[error(transparent)]
+    ParseBoolError(#[from] ParseBoolError),
+}
+
+#[derive(Debug, Error)]
 enum XMLParseError {
     #[error(transparent)]
     XML(#[from] ParseError),
-    #[error("Could not parse version number: {0}")]
+    #[error("Could not parse version tag: {0:?}")]
     VersionParseError(#[from] ParseIntError),
     #[error("Type {name_type:?} does not match type {attribute_type:?}")]
     TypeMismatch {
@@ -190,11 +200,12 @@ enum XMLParseError {
     NoKey {
         data_type: DataType,
     },
-    #[error("Data of item {data_type:?} with type {name:?} could not be parsed: {parse_error}")]
+    #[error("Data of item {name:?} with type {data_type:?} could not be parsed: {parse_error}")]
     BadText {
         data_type: DataType,
         name: String,
-        parse_error: std::string::String,
+        #[source]
+        parse_error: ParsePrimitiveError,
     },
 }
 
@@ -237,8 +248,9 @@ impl CPF {
                     macro_rules! parse_int {
                         ($T:ident, $str:expr) => {
                             $str.strip_prefix("0x")
-                                .and_then(|hex| $T::from_str_radix(hex, 16).ok())
-                                .or_else(|| $T::from_str($str).ok())
+                                .map(|hex| $T::from_str_radix(hex, 16))
+                                .unwrap_or($T::from_str($str))
+                                .or(i32::from_str($str).map(|i| i as $T))
                         };
                     }
 
@@ -250,11 +262,16 @@ impl CPF {
                         "AnyBoolean" => Some(DataType::Bool),
                         _ => None
                     };
-                    let attribute_type = e.attributes.get("type")
-                        .and_then(|t| {
+                    let attribute_type = match e.attributes.get("type")
+                        .map(|t| {
                             parse_int!(u32, t)
-                                .and_then(|type_int| DataType::try_from(type_int).ok())
-                        });
+                                .map(|type_int|
+                                    DataType::try_from(type_int)
+                                        .expect("u32 datatype can always be created from u32"))
+                        }).transpose() {
+                        Err(e) => return Some(Err(e.into())),
+                        Ok(v) => v,
+                    };
 
                     let data_type = match (name_type, attribute_type) {
                         (Some(t1), Some(t2))
@@ -268,35 +285,42 @@ impl CPF {
                         (None, None) => None,
                     }?;
 
-                    let Some(key) = e.attributes.get("key")
-                    else {
+                    let Some(key) = e.attributes.get("key") else {
                         return Some(Err(XMLParseError::NoKey {
                             data_type
                         }))
                     };
 
                     let data = match data_type {
-                        DataType::UInt => e.get_text()
-                            .and_then(|str| parse_int!(u32, &str))
-                            .map(|i| Data::UInt(i)),
-                        DataType::String => Some(Data::String(e.get_text().unwrap_or("".into()).into())),
-                        DataType::Float => e.get_text()
-                            .and_then(|str| f32::from_str(&str).ok())
-                            .map(|i| Data::Float(i)),
-                        DataType::Bool => e.get_text()
-                            .and_then(|str| bool::from_str(&str.to_lowercase()).ok())
-                            .map(|i| Data::Bool(i)),
-                        DataType::Int => e.get_text()
-                            .and_then(|str| parse_int!(i32, &str))
-                            .map(|i| Data::Int(i)),
-                    };
+                        DataType::UInt =>
+                            parse_int!(u32, &e.get_text().unwrap_or("".into()))
+                                .map(|i| Data::UInt(i))
+                                .map_err(|err| err.into()),
+                        DataType::Int =>
+                            parse_int!(i32, &e.get_text().unwrap_or("".into()))
+                                .map(|i| Data::Int(i))
+                                .map_err(|err| err.into()),
+                        DataType::String => Ok(Data::String(e.get_text().unwrap_or("".into()).into())),
+                        DataType::Float =>
+                            f32::from_str(&e.get_text().unwrap_or("".into()))
+                                .map(|i| Data::Float(i))
+                                .map_err(|err| err.into()),
+                        DataType::Bool =>
+                            bool::from_str(&e.get_text().unwrap_or("".into()).to_lowercase())
+                                .map(|i| Data::Bool(i))
+                                .map_err(|err| err.into()),
+                    }.map_err(|err| XMLParseError::BadText {
+                        data_type,
+                        name: key.into(),
+                        parse_error: err,
+                    });
 
-                    data.map(|data| {
-                        Ok(Item {
+                    Some(data.map(|data| {
+                        Item {
                             name: key.into(),
                             data,
-                        })
-                    })
+                        }
+                    }))
                 }
                 _ => None
             }
@@ -347,47 +371,109 @@ impl CPF {
         root_element.write(writer).map_err(|err| err.into())
     }
 
-    pub fn get_item(&self, key: &str) -> Option<&Data> {
-        self.entries.iter().find_map(|item| {
-            (item.name == key.into()).then_some(&item.data)
-        })
+    pub fn take_item(&mut self, key: &str) -> Option<Data> {
+        let ret = self.entries.iter().find_map(|item| {
+            (item.name == key.into()).then_some(item.data.clone())
+        });
+        self.entries.retain(|item| item.name != key.into());
+        ret
     }
 
-    pub fn get_item_verify<T>(&self, stream_position: u64, key: &str) -> BinResult<T>
+    pub fn take_item_verify<T>(&mut self, stream_position: u64, key: &str) -> BinResult<T>
     where
         T: TryFrom<Data>,
         <T as TryFrom<Data>>::Error: Display,
     {
-        self.get_item(key).ok_or(Error::AssertFail {
+        self.take_item(key).ok_or(Error::AssertFail {
             pos: stream_position,
             message: format!("Could not find property by key {key}"),
         }).and_then(|data| {
-            data.clone().try_into()
+            data.try_into()
                 .map_err(|err| Error::AssertFail {
                     pos: stream_position,
                     message: format!("Data of key {key} has wrong type ({})", err),
                 })
         })
     }
+
+    fn check_empty(&self, pos: u64) -> BinResult<()> {
+        if !self.entries.is_empty() {
+            Err(Error::AssertFail {
+                pos,
+                message: format!("CPF still has remaining entries: {:?}", self.entries),
+            })
+        } else {
+            Ok(())
+        }
+    }
 }
 
 macro_rules! cpf_get_all {
     ($t:ident, $cpf:expr, $pos:expr; $($keys:ident),*; $($extras:ident),*) => {
-        $t {
-            $(
-                $keys: $cpf.get_item_verify($pos, stringify!($keys))?,
-            )*
-            $(
-                $extras,
-            )*
+        {
+            let ret = $t {
+                $(
+                    $keys: $cpf.take_item_verify($pos, stringify!($keys))?,
+                )*
+                $(
+                    $extras,
+                )*
+            };
+
+            $cpf.check_empty($pos).map(|_| ret)
         }
     };
     ($t:ident, $cpf:expr, $pos:expr; $($keys:ident),*) => {
-        $t {
-            $(
-                $keys: $cpf.get_item_verify($pos, stringify!($keys))?,
-            )*
+        {
+            let ret = $t {
+                $(
+                    $keys: $cpf.take_item_verify($pos, stringify!($keys))?,
+                )*
+            };
+
+            $cpf.check_empty($pos).map(|_| ret)
         }
     };
 }
 pub(crate) use cpf_get_all;
+
+#[derive(Clone, Debug)]
+pub enum Reference {
+    Idx(u32),
+    TGI(u32, u32, u32),
+}
+
+impl Default for Reference {
+    fn default() -> Self {
+        Self::Idx(0)
+    }
+}
+
+impl Reference {
+    fn read_cpf<S: AsRef<str>>(cpf: &mut CPF, name: S, key: bool, stream_position: u64) -> BinResult<Self> {
+        let idx = if key { "keyidx" } else { "idx" };
+        if let Ok(idx) = cpf.take_item_verify(stream_position, &format!("{}{idx}", name.as_ref())) {
+            Ok(Self::Idx(idx))
+        } else {
+            Ok(Self::TGI(
+                cpf.take_item_verify(stream_position, &format!("{}restypeid", name.as_ref()))?,
+                cpf.take_item_verify(stream_position, &format!("{}groupid", name.as_ref()))?,
+                cpf.take_item_verify(stream_position, &format!("{}id", name.as_ref()))?,
+            ))
+        }
+    }
+
+    fn write_cpf<S: AsRef<str>>(&self, cpf: &mut CPF, name: S, key: bool) {
+        let idx = if key { "keyidx" } else { "idx" };
+        match self {
+            Reference::Idx(idx) => {
+                cpf.entries.push(Item::new(format!("{}{idx}", name.as_ref()), idx.clone()));
+            },
+            Reference::TGI(t, g, i) => {
+                cpf.entries.push(Item::new(format!("{}restypeid", name.as_ref()), t.clone()));
+                cpf.entries.push(Item::new(format!("{}groupid", name.as_ref()), g.clone()));
+                cpf.entries.push(Item::new(format!("{}id", name.as_ref()), i.clone()));
+            },
+        }
+    }
+}

@@ -8,13 +8,11 @@ use dbpf::internal_file::sim_outfits::SimOutfits;
 use dbpf::internal_file::text_list::TextList;
 use crate::editor::resource_collection::ResourceCollectionEditorState;
 
-mod property_set;
 mod resource_collection;
 mod sim_outfits;
 mod cpf;
 mod common;
 mod text_list;
-mod binary_index;
 mod r#enum;
 
 pub trait Editor {

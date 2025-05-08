@@ -1,8 +1,8 @@
+use crate::editor::cpf::{drag_fn, reference_edit_fn};
 use crate::editor::Editor;
 use dbpf::internal_file::cpf::binary_index::BinaryIndex;
 use eframe::egui;
-use eframe::egui::{DragValue, Grid, Response, Ui};
-use eframe::emath::Numeric;
+use eframe::egui::{Grid, Response, Ui};
 
 impl Editor for BinaryIndex {
     type EditorState = ();
@@ -13,36 +13,41 @@ impl Editor for BinaryIndex {
         let ires = Grid::new("BinaryIndex edit grid")
             .num_columns(2)
             .show(ui, |ui| {
-                fn drag_fn<T: Numeric>(name: &str, value: &mut T, ui: &mut Ui) -> Response {
-                    ui.label(name);
-                    let res = ui.add(DragValue::new(value).hexadecimal(1, false, false));
-                    res
-                }
-
                 macro_rules! drag {
                     ($name:ident) => {
-                        {
-                            let res = drag_fn(stringify!($name), &mut self.$name, ui);
-                            ui.end_row();
-                            res
-                        }
+                        drag_fn(stringify!($name), $name, ui)
+                    };
+                }
+                macro_rules! reference {
+                    ($name:ident) => {
+                        reference_edit_fn(stringify!($name), $name, ui)
                     };
                 }
                 macro_rules! string {
                     ($name:ident) => {
                         {
                             ui.label(stringify!($name));
-                            let res = self.$name.show_editor(&mut (), ui);
+                            let res = $name.show_editor(&mut (), ui);
                             ui.end_row();
                             res
                         }
                     };
                 }
 
-                let mut res = drag!(iconidx);
-                res |= drag!(stringindex);
-                res |= drag!(binidx);
-                res |= drag!(objectidx);
+                let BinaryIndex {
+                    icon,
+                    stringset,
+                    bin,
+                    object,
+                    creatorid,
+                    sortindex,
+                    stringindex
+                } = self;
+
+                let mut res = reference!(icon);
+                res |= reference!(stringset);
+                res |= reference!(bin);
+                res |= reference!(object);
                 res |= string!(creatorid);
                 res |= drag!(sortindex);
                 res |= drag!(stringindex);

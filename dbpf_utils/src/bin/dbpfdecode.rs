@@ -5,17 +5,27 @@ use std::ffi::OsStr;
 use std::io::{Cursor, Read, Seek};
 use std::path::PathBuf;
 use walkdir::WalkDir;
+use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 
 fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf) {
     let num_idx = header.index.len();
     for (i, entry) in header.index.iter_mut().enumerate() {
-        match entry.type_id {
+        match (entry.type_id, entry.group_id, entry.instance_id) {
+            // known bad resources
+            (DBPFFileType::Known(KnownDBPFFileType::TrackSettings), 0x0DA1F2CA, 0xDDB5D85EFF99E0DE) |
+            (DBPFFileType::Known(KnownDBPFFileType::TrackSettings), 0xEB8AB356, 0x12D2658DFF8BCEB2) |
+            (DBPFFileType::Known(KnownDBPFFileType::WallXML), 0x4C8CC5C0, 0x0CE4B4DA) |
+            (DBPFFileType::Known(KnownDBPFFileType::WallXML), 0x4C8CC5C0, 0xCCC26AC8) |
+            (DBPFFileType::Known(KnownDBPFFileType::WallXML), 0x4C8CC5C0, 0x2CE48516) => {}
             _ => {
                 match entry.data(reader) {
                     Err(err) => println!("{err}"),
                     Ok(data) => {
                         match data.decoded() {
                             Err(err) => {
+                                if let Ok(data) = data.decompressed() {
+                                    println!("{}", String::from_utf8_lossy(&data.data));
+                                }
                                 println!("{}/{} {:?} {:X} {:X} {:X}: {:?}",
                                          i + 1,
                                          num_idx,
@@ -24,7 +34,8 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
                                          entry.group_id,
                                          entry.instance_id,
                                          path);
-                                println!("{err}")
+                                println!("{err}");
+                                println!();
                             }
                             _ => {}
                         }

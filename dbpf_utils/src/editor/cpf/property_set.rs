@@ -1,8 +1,8 @@
-use eframe::egui;
-use eframe::egui::{Align, DragValue, Grid, Response, Ui};
-use eframe::emath::Numeric;
-use dbpf::internal_file::cpf::property_set::{Override, PropertySet};
+use crate::editor::cpf::{drag_checkbox_fn, drag_fn, drag_option_fn, reference_edit_fn};
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
+use dbpf::internal_file::cpf::property_set::{Override, PropertySet};
+use eframe::egui;
+use eframe::egui::{DragValue, Grid, Response, Ui};
 
 impl Editor for Override {
     type EditorState = ();
@@ -11,7 +11,7 @@ impl Editor for Override {
 
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = ui.add(DragValue::new(&mut self.shape)).on_hover_text("shape");
-        res |= ui.add(DragValue::new(&mut self.resourcekeyidx)).on_hover_text("resource key index");
+        res |= reference_edit_fn("", &mut self.resource, ui);
         res | self.subset.show_editor(&mut (), ui)
     }
 }
@@ -25,48 +25,16 @@ impl Editor for PropertySet {
         let ires = Grid::new("PropertySet edit grid")
             .num_columns(2)
             .show(ui, |ui| {
-                fn drag_fn<T: Numeric>(name: &str, value: &mut T, ui: &mut Ui) -> Response {
-                    ui.label(name);
-                    let res = ui.add(DragValue::new(value).hexadecimal(1, false, false));
-                    res
-                }
-
                 macro_rules! drag {
                     ($name:ident) => {
-                        {
-                            let res = drag_fn(stringify!($name), &mut self.$name, ui);
-                            ui.end_row();
-                            res
-                        }
+                        drag_fn(stringify!($name), &mut self.$name, ui)
                     };
                 }
 
-                fn drag_checkbox_fn<const N: usize>(name: &str, value: &mut u32, bit_names: [&str; N], ui: &mut Ui) -> Response {
-                    ui.label(name);
-                    let res = ui.with_layout(
-                        egui::Layout::left_to_right(Align::TOP).with_main_wrap(true),
-                        |ui| {
-                            let res = ui.add(DragValue::new(value).hexadecimal(1, false, false));
-
-                            bit_names.iter().enumerate().fold(res, |res, (i, c_name)| {
-                                let mask = 1 << i;
-                                let o = (*value & mask) > 0;
-                                let mut c = o;
-                                let res = res | ui.checkbox(&mut c, *c_name);
-                                if c != o {
-                                    *value = (*value & !mask) | (
-                                        if c {
-                                            1
-                                        } else {
-                                            0
-                                        } << i
-                                    );
-                                }
-                                res
-                            })
-                        });
-                    ui.end_row();
-                    res.response | res.inner
+                macro_rules! drag_option {
+                    ($name:ident, $default:expr) => {
+                        drag_option_fn(stringify!($name), &mut self.$name, $default, ui)
+                    };
                 }
 
                 macro_rules! drag_checkbox {
@@ -85,21 +53,25 @@ impl Editor for PropertySet {
                     };
                 }
 
-                let mut res = drag!(version);
-                res |= drag!(product);
+                let mut res = drag_option!(version, 6);
+                res |= drag_option!(product, 0);
+
                 res |= drag_checkbox!(age, "toddler", "child", "teen", "adult", "elder", "baby", "young adult");
                 res |= drag_checkbox!(gender, "female", "male");
                 res |= drag!(species);
+
                 res |= drag!(parts);
                 res |= drag_checkbox!(outfit, "hair", "face", "top", "body", "bottom", "accessory", "long tail",
                     "upright ears", "short tail", "floppy ears", "long brush tail", "short brush tail",
                     "spitz tail", "brush spitz tail");
+
                 res |= drag!(flags);
                 res |= string!(name);
                 res |= string!(creator);
                 res |= string!(family);
-                res |= drag!(genetic);
-                res |= drag!(priority);
+                res |= drag_option!(genetic, 0.0);
+
+                res |= drag_option!(priority, 0);
 
                 // type is a builtin keyword, so use a different name
                 ui.label("type");
@@ -113,8 +85,9 @@ impl Editor for PropertySet {
                     "outerwear");
                 res |= drag!(shoe);
                 res |= drag!(fitness);
-                res |= drag!(resourcekeyidx);
-                res |= drag!(shapekeyidx);
+
+                res |= reference_edit_fn("resource", &mut self.resource, ui);
+                res |= reference_edit_fn("shape", &mut self.shape, ui);
 
                 res
             });
