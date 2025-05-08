@@ -1,11 +1,15 @@
 use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read, Seek, Write};
 use std::string::FromUtf8Error;
-use binrw::{binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian, NullString};
+use binrw::{binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
+use derive_more::with_trait::{Deref, DerefMut, Display};
 use enum_iterator::Sequence;
+#[cfg(test)]
+use test_strategy::Arbitrary;
 
 #[binrw]
 #[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct String {
     #[br(temp)]
     #[bw(calc = data.len() as u32)]
@@ -36,7 +40,44 @@ impl TryFrom<String> for std::string::String {
     }
 }
 
+#[binrw]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Display, Deref, DerefMut)]
+#[cfg_attr(test, derive(Arbitrary))]
+#[deref(forward)]
+#[deref_mut(forward)]
+pub struct NullString(
+    #[cfg_attr(test, map(|x: std::string::String| x.into()))]
+    binrw::NullString
+);
+
+impl From<&str> for NullString {
+    fn from(s: &str) -> Self {
+        Self(binrw::NullString::from(s))
+    }
+}
+
+impl From<std::string::String> for NullString {
+    fn from(s: std::string::String) -> Self {
+        Self(binrw::NullString::from(s))
+    }
+}
+
+impl From<NullString> for Vec<u8> {
+    fn from(s: NullString) -> Self {
+        Vec::<u8>::from(s.0)
+    }
+}
+
+impl TryFrom<NullString> for std::string::String {
+    type Error = FromUtf8Error;
+
+    fn try_from(value: NullString) -> Result<Self, Self::Error> {
+        std::string::String::try_from(value.0)
+    }
+}
+
 #[derive(Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct BigInt {
     pub num: usize,
 }
@@ -74,6 +115,7 @@ impl BinWrite for BigInt {
 /// Also referred to as 7BITSTR, a string that encodes it's length in a variable-length int before the data
 #[binrw]
 #[derive(Clone, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct BigString {
     #[br(temp)]
     #[bw(calc = BigInt{num: data.len()})]
@@ -117,6 +159,7 @@ impl TryFrom<BigString> for std::string::String {
 #[binrw]
 #[brw(little)]
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct FileName {
     #[brw(pad_size_to = 0x40)]
     #[bw(assert(name.0.len() < 0x40))]
@@ -127,6 +170,7 @@ pub struct FileName {
 #[brw(repr = u8)]
 #[repr(u8)]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug, Default, Sequence)]
+#[cfg_attr(test, derive(Arbitrary))]
 #[non_exhaustive]
 pub enum KnownLanguageCode {
     #[default]
@@ -177,6 +221,7 @@ pub enum KnownLanguageCode {
 
 #[binrw]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum LanguageCode {
     Known(KnownLanguageCode),
     Unknown(u8),

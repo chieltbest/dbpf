@@ -1,13 +1,13 @@
-use binrw::{NullString, NullWideString};
+use crate::editor::Editor;
+use binrw::NullWideString;
+use dbpf::common;
+use dbpf::common::{BigString, NullString};
 use eframe::egui;
 use eframe::egui::{Response, TextEdit, Ui, Vec2};
-use dbpf::common;
-use dbpf::common::BigString;
-use crate::editor::Editor;
 
-trait StringEditor {}
+trait StringEditor: TryInto<String> + From<String> + Clone {}
 
-impl<T: StringEditor + TryInto<String> + From<String> + Clone> Editor for T {
+impl<T: StringEditor> Editor for T {
     type EditorState = ();
 
     fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {}

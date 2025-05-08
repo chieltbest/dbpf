@@ -8,6 +8,8 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
 use std::string::FromUtf8Error;
+#[cfg(test)]
+use test_strategy::Arbitrary;
 use thiserror::Error;
 use xmltree::{Element, ParseError, ParserConfig, XMLNode};
 
@@ -30,6 +32,7 @@ fn binrw_bool_writer(b: &bool) -> BinResult<()> {
 #[brw(repr = u32)]
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, TryFrom)]
+#[cfg_attr(test, derive(Arbitrary))]
 #[try_from(repr)]
 pub enum DataType {
     UInt = 0xEB61E4F7,
@@ -42,6 +45,7 @@ pub enum DataType {
 #[binrw]
 #[br(import{data_type: DataType})]
 #[derive(Clone, Debug, PartialEq, From, TryInto)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum Data {
     #[br(pre_assert(matches ! (data_type, DataType::UInt)))]
     UInt(u32),
@@ -77,6 +81,7 @@ impl Default for Data {
 
 #[binrw]
 #[derive(Clone, Debug, PartialEq, Default)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct Item {
     #[br(temp)]
     #[bw(calc = data.get_type())]
@@ -97,6 +102,7 @@ impl Item {
 
 #[binrw]
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum CPFVersion {
     CPF(u16),
     XML(DataType, Option<u16>),
@@ -108,7 +114,8 @@ impl Default for CPFVersion {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct CPF {
     pub version: CPFVersion,
     pub entries: Vec<Item>,
@@ -164,9 +171,9 @@ impl BinWrite for CPF {
             CPFVersion::XML(data_type, version) => {
                 let stream_pos = writer.stream_position()?;
                 self.write_xml(writer, data_type, version).map_err(|err|
-                    AssertFail {
+                    Error::Custom {
                         pos: stream_pos,
-                        message: err.to_string(),
+                        err: Box::new(err),
                     })
             }
         }
@@ -213,8 +220,10 @@ enum XMLParseError {
 enum XMLWriteError {
     #[error(transparent)]
     XMLWriteError(#[from] xmltree::Error),
-    #[error(transparent)]
-    Utf8Error(#[from] FromUtf8Error),
+    #[error("{0} while writing key with datatype {1:?}")]
+    KeyUtf8Error(FromUtf8Error, DataType),
+    #[error("{0} while writing data of key {1:?}")]
+    DataUtf8Error(FromUtf8Error, String),
     #[error("Bad header data type: {0:?}")]
     HeaderDataType(DataType),
 }
@@ -355,13 +364,15 @@ impl CPF {
             });
 
             element.attributes.insert("type".to_string(), format!("0x{:x}", data_type as u32));
-            element.attributes.insert("key".to_string(), entry.name.clone().try_into()?);
+            element.attributes.insert("key".to_string(), entry.name.clone().try_into()
+                .map_err(|err| XMLWriteError::KeyUtf8Error(err, data_type))?);
 
             element.children.push(XMLNode::Text(match &entry.data {
                 Data::UInt(x) => x.to_string(),
                 Data::Int(x) => x.to_string(),
                 Data::Float(x) => x.to_string(),
-                Data::String(str) => str.clone().try_into()?,
+                Data::String(str) => str.clone().try_into()
+                    .map_err(|err| XMLWriteError::DataUtf8Error(err, entry.name.clone()))?,
                 Data::Bool(b) => if *b { "True" } else { "False" }.to_string(),
             }));
 
@@ -468,12 +479,30 @@ impl Reference {
         match self {
             Reference::Idx(idx) => {
                 cpf.entries.push(Item::new(format!("{}{idx}", name.as_ref()), idx.clone()));
-            },
+            }
             Reference::TGI(t, g, i) => {
                 cpf.entries.push(Item::new(format!("{}restypeid", name.as_ref()), t.clone()));
                 cpf.entries.push(Item::new(format!("{}groupid", name.as_ref()), g.clone()));
                 cpf.entries.push(Item::new(format!("{}id", name.as_ref()), i.clone()));
-            },
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::io::{Cursor, Seek};
+    use binrw::{BinRead, BinWrite};
+    use proptest::prop_assert_eq;
+    use test_strategy::proptest;
+    use crate::internal_file::cpf::CPF;
+
+    #[proptest]
+    fn write_read_same(cpf: CPF) {
+        let mut out = Cursor::new(vec![]);
+        cpf.write(&mut out)?;
+        out.rewind()?;
+        let read = CPF::read(&mut out)?;
+        prop_assert_eq!(cpf, read);
     }
 }

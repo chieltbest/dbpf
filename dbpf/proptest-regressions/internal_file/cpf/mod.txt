@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 31bce26e7d11f461ee6c252a5c21b4168ab8165c9da37cdbf82be06e4a556e0a # shrinks to input = _WriteReadSameArgs { cpf: CPF { version: XML(UInt, None), entries: [Item { name: "", data: String("�") }] } }

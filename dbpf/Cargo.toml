@@ -13,7 +13,11 @@ refpack = {git = "https://github.com/chieltbest/refpack-rs.git"}
 modular-bitfield = "0.11.2"
 thiserror = "1.0"
 enum-iterator = "2.1"
-derive_more = { version = "2.0", features = ["try_from", "from", "try_into"] }
+derive_more = { version = "2.0", features = ["try_from", "from", "try_into", "display", "deref", "deref_mut"] }
 texpresso = "2.0"
 miniz_oxide = { version = "0.7.4", features = ["simd"] }
 xmltree = "0.11"
+
+[dev-dependencies]
+proptest = "1"
+test-strategy = "0.4"
