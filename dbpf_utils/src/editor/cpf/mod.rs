@@ -13,7 +13,8 @@ impl Editor for Item {
     fn new_editor(&self, _context: &Context) -> Self::EditorState {}
 
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-        let mut res = ComboBox::new("data_type", "")
+        let mut res = ComboBox::from_id_salt("data_type")
+            .width(60.0)
             .selected_text(format!("{:?}", self.data.get_type()))
             .show_ui(ui, |ui| {
                 if ui.button("UInt").clicked() { self.data = Data::UInt(0); }
