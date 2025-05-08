@@ -25,11 +25,13 @@ jobs:
         with:
           cache-on-failure: true
       - run: cargo test
-      - run: cargo build --profile dist --target x86_64-pc-windows-gnu
+      - run: cargo build --target x86_64-pc-windows-gnu
       - name: Install cargo packager
         run: cargo install --locked cargo-packager
       - name: Build AppImages
-        run: cargo packager --profile dist -f appimage
+        run: |
+          cargo build
+          cargo packager -f appimage
       - name: Update latest release
         uses: mini-bomba/create-github-release@v1.2.0
         with:

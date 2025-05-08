@@ -15,7 +15,6 @@ pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md",
     "--include-path", "dbpf_utils/src/editor/"]
 
 [package.metadata.packager]
-before-packaging-command = "cargo build --profile dist"
 product-name = "Yet Another Package Editor"
 identifier = "nl.chieldouwes.yape"
 icons = ["icon.png"]
