@@ -53,9 +53,9 @@ jobs:
             For Linux users:
             Download the .AppImage files, then click on the file to run it.
           files: |
-            target/dist/*.AppImage
-            target/x86_64-pc-windows-gnu/dist/batl.exe
-            target/x86_64-pc-windows-gnu/dist/yact.exe
-            target/x86_64-pc-windows-gnu/dist/yape.exe
-            target/x86_64-pc-windows-gnu/dist/dbpfrecompress.exe
+            target/debug/*.AppImage
+            target/x86_64-pc-windows-gnu/debug/batl.exe
+            target/x86_64-pc-windows-gnu/debug/yact.exe
+            target/x86_64-pc-windows-gnu/debug/yape.exe
+            target/x86_64-pc-windows-gnu/debug/dbpfrecompress.exe
           clear_attachments: true
