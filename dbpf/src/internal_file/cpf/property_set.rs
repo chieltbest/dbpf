@@ -4,13 +4,14 @@ use binrw::Endian::Little;
 use binrw::Error::AssertFail;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
 use crate::common;
+use crate::common::PascalString;
 use crate::internal_file::cpf::{cpf_get_all, CPFVersion, Data, Item, Reference, CPF};
 use crate::internal_file::cpf::Id;
 
 #[derive(Clone, Debug, Default)]
 pub struct Override {
     pub shape: u32,
-    pub subset: common::String,
+    pub subset: PascalString,
 
     pub resource: Reference,
 }
@@ -32,11 +33,11 @@ pub struct PropertySet {
     pub gender: u32,
     pub species: u32,
     pub flags: u32,
-    pub name: common::String,
+    pub name: PascalString,
     pub creator: Id,
     pub family: Id,
     pub genetic: Option<f32>,
-    pub type_: common::String,
+    pub type_: PascalString,
     pub skintone: Id,
     pub hairtone: Id,
     pub category: u32,

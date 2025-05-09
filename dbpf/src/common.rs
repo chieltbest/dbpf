@@ -10,7 +10,7 @@ use test_strategy::Arbitrary;
 #[binrw]
 #[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
-pub struct String {
+pub struct PascalString {
     #[br(temp)]
     #[bw(calc = data.len() as u32)]
     count: u32,
@@ -18,13 +18,13 @@ pub struct String {
     pub data: Vec<u8>,
 }
 
-impl Debug for String {
+impl Debug for PascalString {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\"{}\"", std::string::String::from_utf8_lossy(&self.data))
+        write!(f, "\"{}\"", String::from_utf8_lossy(&self.data))
     }
 }
 
-impl<T: AsRef<str>> From<T> for String {
+impl<T: AsRef<str>> From<T> for PascalString {
     fn from(value: T) -> Self {
         Self {
             data: Vec::from(value.as_ref()),
@@ -32,11 +32,11 @@ impl<T: AsRef<str>> From<T> for String {
     }
 }
 
-impl TryFrom<String> for std::string::String {
+impl TryFrom<PascalString> for String {
     type Error = FromUtf8Error;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        std::string::String::from_utf8(value.data)
+    fn try_from(value: PascalString) -> Result<Self, Self::Error> {
+        String::from_utf8(value.data)
     }
 }
 
@@ -56,8 +56,8 @@ impl From<&str> for NullString {
     }
 }
 
-impl From<std::string::String> for NullString {
-    fn from(s: std::string::String) -> Self {
+impl From<String> for NullString {
+    fn from(s: String) -> Self {
         Self(binrw::NullString::from(s))
     }
 }
@@ -68,7 +68,7 @@ impl From<NullString> for Vec<u8> {
     }
 }
 
-impl TryFrom<NullString> for std::string::String {
+impl TryFrom<NullString> for String {
     type Error = FromUtf8Error;
 
     fn try_from(value: NullString) -> Result<Self, Self::Error> {
@@ -129,7 +129,7 @@ pub struct BigString {
 impl Debug for BigString {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BigString")
-            .field("data", &std::string::String::from_utf8(self.data.clone()))
+            .field("data", &String::from_utf8(self.data.clone()))
             .finish()
     }
 }
@@ -142,19 +142,19 @@ impl From<&str> for BigString {
     }
 }
 
-impl From<std::string::String> for BigString {
-    fn from(value: std::string::String) -> Self {
+impl From<String> for BigString {
+    fn from(value: String) -> Self {
         Self {
             data: value.into_bytes()
         }
     }
 }
 
-impl TryFrom<BigString> for std::string::String {
+impl TryFrom<BigString> for String {
     type Error = FromUtf8Error;
 
     fn try_from(value: BigString) -> Result<Self, Self::Error> {
-        std::string::String::from_utf8(value.data)
+        String::from_utf8(value.data)
     }
 }
 
@@ -245,13 +245,11 @@ impl From<u8> for LanguageCode {
 #[cfg(test)]
 mod test {
     use test_strategy::proptest;
-    use crate::common;
+    use crate::common::PascalString;
 
     #[proptest]
     #[should_panic]
-    fn string_sometimes_invalid_utf8(string: common::String) {
+    fn string_sometimes_invalid_utf8(string: PascalString) {
         std::string::String::try_from(string)?;
     }
-
-
 }

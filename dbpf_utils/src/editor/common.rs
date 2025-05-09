@@ -1,7 +1,6 @@
 use crate::editor::Editor;
 use binrw::NullWideString;
-use dbpf::common;
-use dbpf::common::{BigString, NullString};
+use dbpf::common::{BigString, NullString, PascalString};
 use eframe::egui;
 use eframe::egui::{Response, TextEdit, Ui, Vec2};
 
@@ -35,7 +34,7 @@ impl<T: StringEditor> Editor for T {
     }
 }
 
-impl StringEditor for common::String {}
+impl StringEditor for PascalString {}
 
 impl StringEditor for BigString {}
 

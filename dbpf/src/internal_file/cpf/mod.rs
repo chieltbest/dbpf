@@ -1,4 +1,4 @@
-use crate::common::String;
+use crate::common::PascalString;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
 use binrw::Error::AssertFail;
 use binrw::{args, binrw, parser, writer, BinRead, BinResult, BinWrite, Endian, Error};
@@ -13,7 +13,7 @@ use test_strategy::Arbitrary;
 use thiserror::Error;
 use xmltree::{Element, ParseError, ParserConfig, XMLNode};
 
-pub type Id = String;
+pub type Id = PascalString;
 
 pub mod binary_index;
 pub mod property_set;
@@ -52,7 +52,7 @@ pub enum Data {
     #[br(pre_assert(matches ! (data_type, DataType::Int)))]
     Int(i32),
     #[br(pre_assert(matches ! (data_type, DataType::String)))]
-    String(String),
+    String(PascalString),
     #[br(pre_assert(matches ! (data_type, DataType::Float)))]
     Float(f32),
     #[br(pre_assert(matches ! (data_type, DataType::Bool)))]
@@ -86,13 +86,13 @@ pub struct Item {
     #[br(temp)]
     #[bw(calc = data.get_type())]
     data_type: DataType,
-    pub name: String,
+    pub name: PascalString,
     #[br(args{data_type})]
     pub data: Data,
 }
 
 impl Item {
-    pub fn new(name: impl Into<String>, data: impl Into<Data>) -> Self {
+    pub fn new(name: impl Into<PascalString>, data: impl Into<Data>) -> Self {
         Self {
             name: name.into(),
             data: data.into(),
@@ -216,7 +216,7 @@ enum XMLParseError {
     #[error("Data of item {name:?} with type {data_type:?} could not be parsed: {parse_error}")]
     BadText {
         data_type: DataType,
-        name: String,
+        name: PascalString,
         #[source]
         parse_error: ParsePrimitiveError,
     },
@@ -237,7 +237,7 @@ enum XMLWriteError {
     #[error("{0} while writing key with datatype {1:?}")]
     KeyUtf8Error(XMLKeyUtf8Error, DataType),
     #[error("{0} while writing data of key {1:?}")]
-    DataUtf8Error(FromUtf8Error, String),
+    DataUtf8Error(FromUtf8Error, PascalString),
 }
 
 impl CPF {
@@ -514,6 +514,7 @@ mod test {
     use binrw::{BinRead, BinWrite};
     use proptest::prop_assert_eq;
     use test_strategy::proptest;
+    use crate::common::PascalString;
     use crate::internal_file::cpf::{CPFVersion, Data, Item, XMLDataType, CPF};
 
     #[proptest]
@@ -532,7 +533,7 @@ mod test {
     /// writing of a XML CPF object that has no invalid strings must not fail
     #[proptest]
     fn xml_write_restricted_no_error(data_type: XMLDataType, version: Option<u16>, entries: Vec<Item>) {
-        fn str_is_ok(str: crate::common::String) -> bool {
+        fn str_is_ok(str: PascalString) -> bool {
             std::string::String::try_from(str)
                 .is_ok_and(|str| str.chars().all(|c| !c.is_control()))
         }
