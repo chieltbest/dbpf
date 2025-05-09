@@ -3,7 +3,6 @@ use binrw::{BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
 use binrw::Endian::Little;
 use binrw::Error::AssertFail;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
-use crate::common;
 use crate::common::PascalString;
 use crate::internal_file::cpf::{cpf_get_all, CPFVersion, Data, Item, Reference, CPF};
 use crate::internal_file::cpf::Id;
@@ -11,7 +10,7 @@ use crate::internal_file::cpf::Id;
 #[derive(Clone, Debug, Default)]
 pub struct Override {
     pub shape: u32,
-    pub subset: PascalString,
+    pub subset: PascalString<u32>,
 
     pub resource: Reference,
 }
@@ -33,11 +32,11 @@ pub struct PropertySet {
     pub gender: u32,
     pub species: u32,
     pub flags: u32,
-    pub name: PascalString,
+    pub name: PascalString<u32>,
     pub creator: Id,
     pub family: Id,
     pub genetic: Option<f32>,
-    pub type_: PascalString,
+    pub type_: PascalString<u32>,
     pub skintone: Id,
     pub hairtone: Id,
     pub category: u32,

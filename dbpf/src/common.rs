@@ -1,42 +1,134 @@
 use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read, Seek, Write};
+use std::marker::PhantomData;
 use std::string::FromUtf8Error;
-use binrw::{binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
+use binrw::{args, binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
+use binrw::error::CustomError;
+use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
 use derive_more::with_trait::{Deref, DerefMut, Display};
 use enum_iterator::Sequence;
 #[cfg(test)]
 use test_strategy::Arbitrary;
 
-#[binrw]
+/// common string type without binread/binwrite implementation
+#[derive(Clone, Default, Hash, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
+pub struct ByteString(Vec<u8>);
+
+impl<T> From<PascalString<T>> for ByteString {
+    fn from(value: PascalString<T>) -> Self {
+        Self(value.data)
+    }
+}
+
+impl From<NullString> for ByteString {
+    fn from(value: NullString) -> Self {
+        Self(value.0.0)
+    }
+}
+
+impl TryInto<String> for ByteString {
+    type Error = FromUtf8Error;
+
+    fn try_into(self) -> Result<String, Self::Error> {
+        String::from_utf8(self.0)
+    }
+}
+
+impl From<String> for ByteString {
+    fn from(value: String) -> Self {
+        Self(value.into_bytes())
+    }
+}
+
+impl Debug for ByteString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", String::from_utf8_lossy(&self.0))
+    }
+}
+
 #[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
-pub struct PascalString {
-    #[br(temp)]
-    #[bw(calc = data.len() as u32)]
-    count: u32,
-    #[br(count = count)]
+pub struct PascalString<T> {
+    _t: PhantomData<T>,
     pub data: Vec<u8>,
 }
 
-impl Debug for PascalString {
+impl<T> ReadEndian for PascalString<T> {
+    const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
+}
+
+impl<T: TryInto<usize> + BinRead> BinRead for PascalString<T>
+where
+    <T as TryInto<usize>>::Error: CustomError + 'static,
+{
+    type Args<'a> = <T as BinRead>::Args<'a>;
+
+    fn read_options<R: Read + Seek>(reader: &mut R, _endian: Endian, args: Self::Args<'_>) -> BinResult<Self> {
+        let pos = reader.stream_position()?;
+        let count = T::read_le_args(reader, args)?.try_into()
+            .map_err(|err| binrw::Error::Custom {
+                pos,
+                err: Box::new(err),
+            })?;
+        Ok(Self {
+            _t: PhantomData,
+            data: Vec::<u8>::read_le_args(reader, args! { count })?,
+        })
+    }
+}
+
+impl<T> WriteEndian for PascalString<T> {
+    const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
+}
+
+impl<T: TryFrom<usize> + BinWrite> BinWrite for PascalString<T>
+where
+    <T as TryFrom<usize>>::Error: CustomError + 'static,
+{
+    type Args<'a> = <T as BinWrite>::Args<'a>;
+
+    fn write_options<W: Write + Seek>(&self, writer: &mut W, _endian: Endian, args: Self::Args<'_>) -> BinResult<()> {
+        let pos = writer.stream_position()?;
+        let count: T = self.data.len().try_into()
+            .map_err(|err| binrw::Error::Custom {
+                pos,
+                err: Box::new(err),
+            })?;
+        count.write_le_args(writer, args)?;
+        self.data.write(writer)
+    }
+}
+
+impl<T> Debug for PascalString<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"{}\"", String::from_utf8_lossy(&self.data))
     }
 }
 
-impl<T: AsRef<str>> From<T> for PascalString {
+impl<T: AsRef<str>, N> From<T> for PascalString<N> {
     fn from(value: T) -> Self {
         Self {
+            _t: PhantomData,
             data: Vec::from(value.as_ref()),
         }
     }
 }
 
-impl TryFrom<PascalString> for String {
+impl<T> TryFrom<PascalString<T>> for String {
     type Error = FromUtf8Error;
 
-    fn try_from(value: PascalString) -> Result<Self, Self::Error> {
+    fn try_from(value: PascalString<T>) -> Result<Self, Self::Error> {
         String::from_utf8(value.data)
+    }
+}
+
+impl<T> From<ByteString> for PascalString<T> {
+    fn from(value: ByteString) -> Self {
+        Self {
+            _t: PhantomData,
+            data: value.0,
+        }
     }
 }
 
@@ -49,6 +141,12 @@ pub struct NullString(
     #[cfg_attr(test, map(|x: Vec<u8>| binrw::NullString(x)))]
     binrw::NullString
 );
+
+impl From<Vec<u8>> for NullString {
+    fn from(value: Vec<u8>) -> Self {
+        Self(binrw::NullString(value))
+    }
+}
 
 impl From<&str> for NullString {
     fn from(s: &str) -> Self {
@@ -73,6 +171,12 @@ impl TryFrom<NullString> for String {
 
     fn try_from(value: NullString) -> Result<Self, Self::Error> {
         std::string::String::try_from(value.0)
+    }
+}
+
+impl From<ByteString> for NullString {
+    fn from(value: ByteString) -> Self {
+        Self::from(value.0)
     }
 }
 
@@ -249,7 +353,7 @@ mod test {
 
     #[proptest]
     #[should_panic]
-    fn string_sometimes_invalid_utf8(string: PascalString) {
+    fn string_sometimes_invalid_utf8(string: PascalString<u32>) {
         std::string::String::try_from(string)?;
     }
 }
