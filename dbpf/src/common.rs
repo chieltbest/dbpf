@@ -2,10 +2,10 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read, Seek, Write};
 use std::marker::PhantomData;
 use std::string::FromUtf8Error;
-use binrw::{args, binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
+use binrw::{args, binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian, NamedArgs};
 use binrw::error::CustomError;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
-use derive_more::with_trait::{Deref, DerefMut, Display};
+use derive_more::with_trait::{Deref, DerefMut};
 use enum_iterator::Sequence;
 #[cfg(test)]
 use test_strategy::Arbitrary;
@@ -23,7 +23,7 @@ impl<T> From<PascalString<T>> for ByteString {
 
 impl From<NullString> for ByteString {
     fn from(value: NullString) -> Self {
-        Self(value.0.0)
+        Self(value.0)
     }
 }
 
@@ -132,37 +132,97 @@ impl<T> From<ByteString> for PascalString<T> {
     }
 }
 
-#[binrw]
-#[derive(Clone, Eq, PartialEq, Default, Debug, Display, Deref, DerefMut)]
+#[derive(Clone, Eq, PartialEq, Default, Deref, DerefMut)]
 #[cfg_attr(test, derive(Arbitrary))]
-#[deref(forward)]
-#[deref_mut(forward)]
 pub struct NullString(
-    #[cfg_attr(test, map(|x: Vec<u8>| binrw::NullString(x)))]
-    binrw::NullString
+    Vec<u8>,
 );
+
+#[derive(NamedArgs, Default)]
+pub struct NullStringArgs {
+    count: Option<usize>,
+}
+
+impl ReadEndian for NullString {
+    const ENDIAN: EndianKind = EndianKind::None;
+}
+
+impl BinRead for NullString {
+    type Args<'a> = NullStringArgs;
+
+    fn read_options<R: Read + Seek>(reader: &mut R, _endian: Endian, args: Self::Args<'_>) -> BinResult<Self> {
+        let mut out = vec![];
+        let mut cur_byte = u8::read_ne(reader)?;
+        let mut count = 1usize;
+        while cur_byte != 0 {
+            out.push(cur_byte);
+            if args.count.is_some_and(|c| count >= c) {
+                break;
+            }
+            cur_byte = u8::read_ne(reader)?;
+            count += 1;
+        }
+        if let Some(c) = args.count {
+            reader.seek_relative((c - count) as i64)?;
+        }
+        Ok(Self(out))
+    }
+}
+
+impl WriteEndian for NullString {
+    const ENDIAN: EndianKind = EndianKind::None;
+}
+
+impl BinWrite for NullString {
+    type Args<'a> = NullStringArgs;
+
+    fn write_options<W: Write + Seek>(&self, writer: &mut W, _endian: Endian, args: Self::Args<'_>) -> BinResult<()> {
+        if let Some(c) = args.count {
+            if self.0.len() > c {
+                return Err(binrw::Error::AssertFail {
+                    pos: writer.stream_position()?,
+                    message: format!("Number of bytes is greater than maximum allowed: {} > {c}", self.0.len()),
+                });
+            }
+        }
+
+        self.0.write(writer)?;
+
+        if let Some(c) = args.count {
+            [0u8].repeat(c - self.0.len()).write(writer)
+        } else {
+            0u8.write(writer)
+        }
+    }
+}
+
+impl Debug for NullString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", String::from_utf8_lossy(&self.0))
+    }
+}
 
 impl From<Vec<u8>> for NullString {
     fn from(value: Vec<u8>) -> Self {
-        Self(binrw::NullString(value))
+        Self(value)
     }
 }
 
 impl From<&str> for NullString {
     fn from(s: &str) -> Self {
-        Self(binrw::NullString::from(s))
+        Self(s.as_bytes().to_vec())
     }
 }
 
 impl From<String> for NullString {
     fn from(s: String) -> Self {
-        Self(binrw::NullString::from(s))
+        Self(s.into_bytes())
     }
 }
 
 impl From<NullString> for Vec<u8> {
     fn from(s: NullString) -> Self {
-        Vec::<u8>::from(s.0)
+        s.0
     }
 }
 
@@ -170,13 +230,13 @@ impl TryFrom<NullString> for String {
     type Error = FromUtf8Error;
 
     fn try_from(value: NullString) -> Result<Self, Self::Error> {
-        std::string::String::try_from(value.0)
+        String::try_from(value.0)
     }
 }
 
 impl From<ByteString> for NullString {
     fn from(value: ByteString) -> Self {
-        Self::from(value.0)
+        Self(value.0)
     }
 }
 
@@ -267,8 +327,7 @@ impl TryFrom<BigString> for String {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct FileName {
-    #[brw(pad_size_to = 0x40)]
-    #[bw(assert(name.0.len() < 0x40))]
+    #[brw(args { count: Some(0x40) })]
     pub name: NullString,
 }
 
