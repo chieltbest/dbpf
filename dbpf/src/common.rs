@@ -104,9 +104,11 @@ impl BinWrite for BigInt {
     fn write_options<W: Write + Seek>(&self, writer: &mut W, _endian: Endian, _args: Self::Args<'_>) -> BinResult<()> {
         let mut num = self.num;
         while {
-            writer.write_ne(&(num as u8 & 0x7F))?;
+            let cur_write_byte = num as u8 & 0x7F;
             num >>= 7;
-            num > 0
+            let has_more = num > 0;
+            writer.write_ne(&(cur_write_byte | if has_more { 0x80 } else { 0 }))?;
+            has_more
         } {}
         Ok(())
     }
@@ -158,7 +160,7 @@ impl TryFrom<BigString> for std::string::String {
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct FileName {
     #[brw(pad_size_to = 0x40)]
