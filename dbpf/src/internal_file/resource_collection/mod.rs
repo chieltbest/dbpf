@@ -33,11 +33,9 @@ pub struct FileName {
 }
 
 #[binrw]
-// #[brw(magic = 0xFFFF0001u32)]
+#[brw(magic = 0xFFFF0001u32)]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ResourceVersion {
-    pub magic: u32,
-}
+pub struct ResourceVersion;
 
 #[binrw]
 #[brw(repr = u32)]
@@ -79,15 +77,18 @@ pub struct ResourceEntry {
 #[brw(little)]
 #[derive(Clone, Debug, Default)]
 pub struct ResourceCollection {
-    #[br(map = | x: Option < ResourceVersion > | x.is_some())]
-    #[bw(map = | x | x.then_some(ResourceVersion { magic: 0xFFFF0001u32 }))]
+    #[br(try, temp)]
+    #[bw(calc(version.then_some(ResourceVersion)))]
+    version_res: Option<ResourceVersion>,
+    #[br(calc(version_res.is_some()))]
+    #[bw(ignore)]
     pub version: bool,
 
     #[br(temp)]
     #[bw(calc = links.len() as u32)]
     link_count: u32,
     #[br(args {count: link_count as usize, inner: args ! {version: version}})]
-    #[bw(args {version: version.is_some()})]
+    #[bw(args {version: *version})]
     pub links: Vec<FileLink>,
 
     #[br(temp)]
