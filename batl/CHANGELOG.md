@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.2.1] - 2025-05-10
+
+### 🚀 Features
+
+- *(dbpf)* Add function to replace all textures with a new texture
+- *(dbpf)* Add texture format recompression function
+- Add ability to edit texture format/compression type
+- *(dbpf)* Add support for BINX (Binary Index) resource type
+- *(dbpf)* Add all known XML file types
+- *(dbpf)* Add XML reader support for CPF resources
+- *(dbpf)* Add generic decode support for all known CPF types
+- Enable generic editor for CPF files
+- *(dbpf)* Add groups cache file type
+
+### 🐛 Bug Fixes
+
+- Correct conversion into raw and grayscale textures
+- *(dbpf)* Fix reading of Sims 3/4 package files
+- Properly write CPF file header
+- Fix typo in Binary Index file write: stringindex -> stringsetidx
+- *(dbpf)* Correct name of XML-encoded cpf writer signed integer type (AnyInt -> AnySint32)
+- *(dbpf)* Fix reading and writing of all CPF files
+- *(dbpf)* Add additional error on XML CPF write to ensure that the key attribute can have no control chararcters
+- Fix writing of BigInt
+- *(dbpf)* Fix reading of textlist resources
+- *(dbpf)* Fix reading of rcol resources
+- *(dbpf)* Fix NullString conversion to String
+
+### 🚜 Refactor
+
+- Move internal_file.rs to module
+- Properly calculate rcol index
+- Calcalate mipmap levels from amount of textures
+- *(dbpf)* Add mip_levels convenience function
+- Rework language code support
+- *(dbpf)* Add separate datatype enum for XML CPF version field
+- *(dbpf)* Rename String -> PascalString
+- *(dbpf)* Make PascalString take an integer type argument
+- *(dbpf)* Add maximum length/padding argument to NullString
+
+### 🧪 Testing
+
+- *(dbpf)* Add test for writing and then reading any CPF object
+- *(dbpf)* Add test asserting that strings may be invalid utf-8
+- *(dbpf)* Split CPF test to assert that XML CPF objects cannot contain invalid UTF-8
+- *(dbpf)* Split xml test to assert writing and reading separately
+
 ## [0.2.0] - 2025-04-22
 
 ### 🚀 Features
