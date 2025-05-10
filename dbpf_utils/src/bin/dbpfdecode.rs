@@ -21,24 +21,21 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
                 match entry.data(reader) {
                     Err(err) => println!("{err}"),
                     Ok(data) => {
-                        match data.decoded() {
-                            Err(err) => {
-                                if let Ok(data) = data.decompressed() {
-                                    std::io::stdout().write(&data.data).unwrap();
-                                    println!();
-                                }
-                                println!("{}/{} {:?} {:X} {:X} {:X}: {:?}",
-                                         i + 1,
-                                         num_idx,
-                                         entry.type_id,
-                                         entry.type_id.code(),
-                                         entry.group_id,
-                                         entry.instance_id,
-                                         path);
-                                println!("{err}");
+                        if let Err(err) = data.decoded() {
+                            if let Ok(data) = data.decompressed() {
+                                std::io::stdout().write_all(&data.data).unwrap();
                                 println!();
                             }
-                            _ => {}
+                            println!("{}/{} {:?} {:X} {:X} {:X}: {:?}",
+                                     i + 1,
+                                     num_idx,
+                                     entry.type_id,
+                                     entry.type_id.code(),
+                                     entry.group_id,
+                                     entry.instance_id,
+                                     path);
+                            println!("{err}");
+                            println!();
                         }
                     }
                 }

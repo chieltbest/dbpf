@@ -27,6 +27,12 @@ impl From<NullString> for ByteString {
     }
 }
 
+impl From<BigString> for ByteString {
+    fn from(value: BigString) -> Self {
+        Self(value.data)
+    }
+}
+
 impl TryInto<String> for ByteString {
     type Error = FromUtf8Error;
 
@@ -310,6 +316,14 @@ impl From<String> for BigString {
     fn from(value: String) -> Self {
         Self {
             data: value.into_bytes()
+        }
+    }
+}
+
+impl From<ByteString> for BigString {
+    fn from(value: ByteString) -> Self {
+        Self {
+            data: value.0,
         }
     }
 }
