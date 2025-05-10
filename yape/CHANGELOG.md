@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.3.2] - 2025-05-10
+
+### 🚀 Features
+
+- *(dbpf)* Add groups cache file type
+
+### 🐛 Bug Fixes
+
+- *(dbpf)* Correct name of XML-encoded cpf writer signed integer type (AnyInt -> AnySint32)
+- *(dbpf)* Fix reading and writing of all CPF files
+- Remove empty label in generic CPF editor
+- *(dbpf)* Add additional error on XML CPF write to ensure that the key attribute can have no control chararcters
+- Fix writing of BigInt
+- *(dbpf)* Fix reading of textlist resources
+- *(dbpf)* Fix reading of rcol resources
+- *(dbpf)* Fix NullString conversion to String
+
+### 🚜 Refactor
+
+- Change file type editor to use shared implementation
+- *(dbpf)* Add separate datatype enum for XML CPF version field
+- *(dbpf)* Rename String -> PascalString
+- *(dbpf)* Make PascalString take an integer type argument
+- *(dbpf)* Add maximum length/padding argument to NullString
+
+### 🧪 Testing
+
+- *(dbpf)* Add test for writing and then reading any CPF object
+- *(dbpf)* Add test asserting that strings may be invalid utf-8
+- *(dbpf)* Split CPF test to assert that XML CPF objects cannot contain invalid UTF-8
+- *(dbpf)* Split xml test to assert writing and reading separately
+
 ## [0.3.1] - 2025-05-01
 
 ### 🐛 Bug Fixes
