@@ -236,7 +236,7 @@ impl TryFrom<NullString> for String {
     type Error = FromUtf8Error;
 
     fn try_from(value: NullString) -> Result<Self, Self::Error> {
-        String::try_from(value.0)
+        String::from_utf8(value.0)
     }
 }
 
