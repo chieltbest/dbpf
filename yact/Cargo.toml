@@ -11,7 +11,8 @@ pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md",
     "--tag", "{{version}}",
     "--tag-pattern", "{{crate_name}}/v*",
     "--include-path", "{{crate_name}}/",
-    "--include-path", "dbpf/"]
+    "--include-path", "dbpf/",
+    "--include-path", "dbpf_utils/src/lib.rs"]
 
 [package.metadata.packager]
 product-name = "Yet Another Conflict Tool"
