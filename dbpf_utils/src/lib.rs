@@ -1,5 +1,6 @@
 use eframe::AppCreator;
 use std::io::Cursor;
+use tracing_panic::panic_hook;
 
 pub mod editor;
 #[cfg(not(target_arch = "wasm32"))]
@@ -39,7 +40,11 @@ pub fn graphical_application_main(
     use eframe::NativeOptions;
     use tracing_subscriber::layer::SubscriberExt;
 
-    if let Ok(_) = std::env::var("DISPLAY") {
+    unsafe {
+        std::env::set_var("RUST_BACKTRACE", "full");
+    }
+
+    if std::env::var("DISPLAY").is_ok() {
         unsafe {
             std::env::remove_var("WAYLAND_DISPLAY");
         }
@@ -57,6 +62,8 @@ pub fn graphical_application_main(
             .with(tracing_subscriber::filter::EnvFilter::from_default_env()),
     )
     .expect("set up the subscriber");
+
+    std::panic::set_hook(Box::new(panic_hook));
 
     let image = image::ImageReader::new(Cursor::new(icon))
         .with_guessed_format()?

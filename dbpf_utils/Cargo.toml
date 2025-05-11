@@ -22,6 +22,7 @@ walkdir = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2.3"
+tracing-panic = "0.1"
 
 tokio = { version = "1.38", features = ["full"] }
 tokio-rayon = "2.1"

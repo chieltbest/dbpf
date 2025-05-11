@@ -625,6 +625,7 @@ dependencies = [
  "embed-resource",
  "futures",
  "lru",
+ "num_cpus",
  "open",
  "rfd",
  "serde",
@@ -1123,6 +1124,7 @@ dependencies = [
  "tokio-rayon",
  "tracing",
  "tracing-appender",
+ "tracing-panic",
  "tracing-subscriber",
  "walkdir",
 ]
@@ -4472,6 +4474,16 @@ dependencies = [
  "log",
  "once_cell",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-panic"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bf1298a179837099f9309243af3b554e840f7f67f65e9f55294913299bd4cc5"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
