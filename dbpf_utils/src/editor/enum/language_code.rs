@@ -47,6 +47,10 @@ impl EnumEditor for LanguageCode {
         vec![format!("{known_enum:?}"),
              format!("{}", *known_enum as u8)]
     }
+
+    fn all_known() -> impl Iterator<Item=Self::KnownEnum> {
+        enum_iterator::all()
+    }
 }
 
 impl Editor for LanguageCode {

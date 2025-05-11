@@ -3,7 +3,6 @@ pub mod language_code;
 
 use eframe::egui::text::{CCursor, CCursorRange};
 use eframe::egui::{Key, Response, ScrollArea, TextEdit, Ui};
-use enum_iterator::Sequence;
 use fuzzy_matcher::FuzzyMatcher;
 
 #[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
@@ -11,7 +10,7 @@ pub struct EnumEditorState {
     search_string: String,
 }
 
-trait EnumEditor {
+pub trait EnumEditor {
     type KnownEnum;
 
     fn from_known(known_enum: &Self::KnownEnum) -> Self;
@@ -30,16 +29,17 @@ trait EnumEditor {
 
     fn search_strings(known_enum: &Self::KnownEnum) -> Vec<String>;
 
+    fn all_known() -> impl Iterator<Item=Self::KnownEnum>;
+
     fn show_enum_editor(&mut self, state: &mut EnumEditorState, ui: &mut Ui) -> Response
     where
-        <Self as EnumEditor>::KnownEnum: Sequence,
         Self: PartialEq, Self: Sized
     {
         let mut inner_res = ui.menu_button(self.full_name(), |ui| {
             let mut text_edit_response = TextEdit::singleline(&mut state.search_string).show(ui);
 
             let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
-            let mut scored_types = enum_iterator::all::<Self::KnownEnum>()
+            let mut scored_types = Self::all_known()
                 .filter_map(|t| {
                     Self::search_strings(&t)
                         .into_iter()
@@ -68,10 +68,8 @@ trait EnumEditor {
                 ui.input(|i| i.key_pressed(Key::Enter)) {
                 if let Some((t, _score)) = scored_types.first() {
                     *self = Self::from_known(t);
-                } else {
-                    if let Some(new) = Self::from_int_string(&state.search_string) {
-                        *self = new;
-                    }
+                } else if let Some(new) = Self::from_int_string(&state.search_string) {
+                    *self = new;
                 }
                 ui.close_menu();
                 text_edit_response.response.mark_changed();

@@ -3,6 +3,7 @@ use std::hash::Hash;
 use eframe::egui;
 use eframe::egui::{Grid, Response, Ui};
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
+use dbpf::internal_file::behaviour_function::BehaviourFunction;
 use dbpf::internal_file::DecodedFile;
 use dbpf::internal_file::sim_outfits::SimOutfits;
 use dbpf::internal_file::text_list::TextList;
@@ -31,6 +32,7 @@ pub enum DecodedFileEditorState {
     ResourceCollection(ResourceCollectionEditorState),
     SimOutfits(<SimOutfits as Editor>::EditorState),
     TextList(<TextList as Editor>::EditorState),
+    BehaviourFunction(<BehaviourFunction as Editor>::EditorState),
     #[default]
     None,
 }
@@ -48,6 +50,9 @@ impl Editor for DecodedFile {
             }
             DecodedFile::TextList(str) => {
                 DecodedFileEditorState::TextList(str.new_editor(context))
+            }
+            DecodedFile::BehaviourFunction(bhav) => {
+                DecodedFileEditorState::BehaviourFunction(bhav.new_editor(context))
             }
             _ => DecodedFileEditorState::None,
         }
@@ -67,7 +72,13 @@ impl Editor for DecodedFile {
                 rcol.show_editor(state, ui)
             }
             (DecodedFile::TextList(str),
-                DecodedFileEditorState::TextList(state)) => str.show_editor(state, ui),
+                DecodedFileEditorState::TextList(state)) => {
+                str.show_editor(state, ui)
+            },
+            (DecodedFile::BehaviourFunction(bhav),
+                DecodedFileEditorState::BehaviourFunction(state)) => {
+                bhav.show_editor(state, ui)
+            },
             _ => panic!(),
         }
     }
@@ -110,7 +121,9 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
             KnownDBPFFileType::TextList |
             KnownDBPFFileType::CatalogDescription |
             KnownDBPFFileType::CatalogString |
-            KnownDBPFFileType::PieMenuStrings
+            KnownDBPFFileType::PieMenuStrings |
+
+            KnownDBPFFileType::SimanticsBehaviourFunction
         ) => true,
         _ => false,
     }

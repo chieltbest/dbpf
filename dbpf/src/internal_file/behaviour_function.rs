@@ -65,9 +65,9 @@ impl BinRead for Goto {
             }
         } else {
             match reader.read_type::<u16>(endian)? {
-                0xFFFD => Error,
-                0xFFFE => True,
-                0xFFFF => False,
+                0xFFFC => Error,
+                0xFFFD => True,
+                0xFFFE => False,
                 n => Instr(n),
             }
         })
@@ -111,6 +111,7 @@ pub struct Instruction {
     #[brw(if(signature >= V5))]
     pub node_version: u8,
     #[br(count = if signature >= V3 { 16 } else { 8 })]
+    // #[bw(assert(operands.len() == if signature >= V3 { 16 } else { 8 }))]
     pub operands: Vec<u8>,
 
     // pub function: Function,

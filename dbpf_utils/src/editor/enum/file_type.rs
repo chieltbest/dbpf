@@ -59,6 +59,10 @@ impl EnumEditor for DBPFFileType {
         }
         res
     }
+
+    fn all_known() -> impl Iterator<Item=Self::KnownEnum> {
+        enum_iterator::all()
+    }
 }
 
 impl Editor for DBPFFileType {
