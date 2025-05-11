@@ -25,13 +25,13 @@ jobs:
         with:
           cache-on-failure: true
       - run: cargo test
-      - run: cargo build --target x86_64-pc-windows-gnu
+      - run: cargo build --target x86_64-pc-windows-gnu --profile release
       - name: Install cargo packager
         run: cargo install --locked cargo-packager
       - name: Build AppImages
         run: |
-          cargo build
-          cargo packager -f appimage
+          cargo build --profile release
+          cargo packager --profile release -f appimage
       - name: Update latest release
         uses: mini-bomba/create-github-release@v1.2.0
         with:
@@ -53,9 +53,9 @@ jobs:
             For Linux users:
             Download the .AppImage files, then click on the file to run it.
           files: |
-            target/debug/*.AppImage
-            target/x86_64-pc-windows-gnu/debug/batl.exe
-            target/x86_64-pc-windows-gnu/debug/yact.exe
-            target/x86_64-pc-windows-gnu/debug/yape.exe
-            target/x86_64-pc-windows-gnu/debug/dbpfrecompress.exe
+            target/release/*.AppImage
+            target/x86_64-pc-windows-gnu/release/batl.exe
+            target/x86_64-pc-windows-gnu/release/yact.exe
+            target/x86_64-pc-windows-gnu/release/yape.exe
+            target/x86_64-pc-windows-gnu/release/dbpfrecompress.exe
           clear_attachments: true
