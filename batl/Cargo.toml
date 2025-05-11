@@ -40,6 +40,7 @@ walkdir = "2"
 tracing = "0.1"
 
 tokio = { version = "1.38", features = ["full"] }
+num_cpus = "1.16"
 
 [build-dependencies]
 embed-resource = "3.0"

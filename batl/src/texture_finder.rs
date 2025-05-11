@@ -20,14 +20,17 @@ use dbpf::filetypes::DBPFFileType::Known;
 
 use dbpf::internal_file::DecodedFile;
 use dbpf::internal_file::resource_collection::ResourceData;
-use dbpf::internal_file::resource_collection::texture_resource::{TextureFormat, TextureResource};
+use dbpf::internal_file::resource_collection::texture_resource::TextureFormat;
 
 
 fn ser_file_type<S: Serializer>(t: &DBPFFileType, ser: S) -> Result<S::Ok, S::Error> {
     ser.serialize_u32(t.code())
 }
 
-fn deser_file_type<'a, D>(d: D) -> Result<DBPFFileType, D::Error> where D: Deserializer<'a> {
+fn deser_file_type<'a, D>(d: D) -> Result<DBPFFileType, D::Error>
+where
+    D: Deserializer<'a>,
+{
     Ok(DBPFFileType::from(u32::deserialize(d)?))
 }
 
@@ -35,7 +38,10 @@ pub(crate) fn ser_texture_format<S: Serializer>(t: &TextureFormat, ser: S) -> Re
     ser.serialize_u32((*t) as u32)
 }
 
-pub(crate) fn deser_texture_format<'a, D>(d: D) -> Result<TextureFormat, D::Error> where D: Deserializer<'a> {
+pub(crate) fn deser_texture_format<'a, D>(d: D) -> Result<TextureFormat, D::Error>
+where
+    D: Deserializer<'a>,
+{
     u32::deserialize(d)
         .and_then(|v| {
             let mut bytes = [0u8; 4];
@@ -83,10 +89,10 @@ pub struct FoundTexture {
     pub memory_size: usize,
 }
 
-fn get_textures<R: Read + Seek>(path: PathBuf, mut header: DBPFFile, reader: &mut R) -> Vec<(TGI, TextureResource)> {
+fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R) -> impl Iterator<Item=FoundTexture> + use<'_, R> {
     // TODO proper error handling
-    header.index.iter_mut()
-        .filter_map(|file| {
+    header.index.into_iter()
+        .filter_map(move |mut file| {
             let type_id = file.type_id;
             let group_id = file.group_id;
             let instance_id = file.instance_id;
@@ -98,19 +104,25 @@ fn get_textures<R: Read + Seek>(path: PathBuf, mut header: DBPFFile, reader: &mu
                     .inspect_err(|err| {
                         error!(?path, ?err);
                     })
-                    .ok()?
-                    // .unwrap()
+                    .ok()? // TODO return error
                     .unwrap() {
                     DecodedFile::ResourceCollection(res) =>
                         match &res.entries.first().unwrap().data {
-                            ResourceData::Texture(tex) => Some((
-                                TGI {
-                                    type_id,
-                                    group_id,
-                                    instance_id,
+                            ResourceData::Texture(tex) => Some(FoundTexture {
+                                id: TextureId {
+                                    path: path.clone(),
+                                    tgi: TGI {
+                                        type_id,
+                                        group_id,
+                                        instance_id,
+                                    },
                                 },
-                                tex.clone()
-                            )),
+                                width: tex.width,
+                                height: tex.height,
+                                format: tex.get_format(),
+                                mip_levels: tex.mip_levels(),
+                                memory_size: tex.get_format().compressed_size(tex.width as usize, tex.height as usize) * tex.textures.len(),
+                            }),
                             _ => None,
                         }
                     _ => None,
@@ -119,7 +131,6 @@ fn get_textures<R: Read + Seek>(path: PathBuf, mut header: DBPFFile, reader: &mu
                 None
             }
         })
-        .collect()
 }
 
 async fn get_path_textures(path: PathBuf) -> (PathBuf, Option<Vec<FoundTexture>>) {
@@ -127,20 +138,7 @@ async fn get_path_textures(path: PathBuf) -> (PathBuf, Option<Vec<FoundTexture>>
     let mut data = BufReader::new(data);
     let path_clone = path.clone();
     let result = tokio::task::spawn_blocking(move || -> BinResult<Vec<FoundTexture>> {
-        let res = get_textures(path_clone.clone(), DBPFFile::read(&mut data)?, &mut data);
-        Ok(res.iter().map(|(tgi, tex)| {
-            FoundTexture {
-                id: TextureId {
-                    path: path_clone.clone(),
-                    tgi: *tgi,
-                },
-                width: tex.width,
-                height: tex.height,
-                format: tex.get_format(),
-                mip_levels: tex.mip_levels(),
-                memory_size: tex.get_format().compressed_size(tex.width as usize, tex.height as usize) * tex.textures.len(),
-            }
-        }).collect())
+        Ok(get_textures(path_clone.clone(), DBPFFile::read(&mut data)?, &mut data).collect())
     }).await.unwrap();
     match result {
         Ok(textures) => {
@@ -156,7 +154,7 @@ async fn get_path_textures(path: PathBuf) -> (PathBuf, Option<Vec<FoundTexture>>
 pub async fn find_textures(dirs: Vec<PathBuf>,
                            tx: Sender<FoundTexture>,
                            mut progress: impl FnMut(PathBuf, usize, usize)) {
-    let files_futures_vec = dirs.iter().map(|dir| {
+    let files_futures_vec = dirs.iter().flat_map(|dir| {
         WalkDir::new(dir).sort_by_file_name().into_iter().filter_map(|entry| {
             let path = entry.unwrap().path().to_path_buf();
             if path.extension() == Some(OsStr::new("package")) {
@@ -165,13 +163,16 @@ pub async fn find_textures(dirs: Vec<PathBuf>,
                 None
             }
         })
-    }).flatten().collect::<Vec<_>>();
+    }).enumerate().map(|(i, fut)| {
+        progress(PathBuf::from(""), 0, i);
+        fut
+    }).collect::<Vec<_>>();
     let total_files = files_futures_vec.len();
     progress(PathBuf::from(""), 0, total_files);
 
     let mut tgis_stream = stream::iter(
         files_futures_vec.into_iter()
-    ).buffered(512)
+    ).buffered(num_cpus::get())
         .enumerate();
 
     while let Some((i, (path, data))) = tgis_stream.next().await {

@@ -445,7 +445,6 @@ impl DBPFApp {
 
     #[instrument(skip_all)]
     fn show_table(&mut self, ui: &mut Ui) {
-
         ui.push_id(ui.make_persistent_id("texture table"), |ui| {
             let col_widths = [60.0, 120.0, 50.0, 55.0, 70.0, 60.0, 40.0];
 
@@ -460,20 +459,20 @@ impl DBPFApp {
                 .striped(true)
                 .max_scroll_height(f32::MAX)
                 .column(Column::exact(remainder)
-                            .clip(true));
+                    .clip(true));
             for width in col_widths.into_iter()
                 .zip(self.enabled_columns)
-                .filter_map(|(width, enabled)| enabled.then_some(width)){
+                .filter_map(|(width, enabled)| enabled.then_some(width)) {
                 table = table.column(Column::exact(width));
             }
             table
                 .header(30.0, |mut row| {
                     row.col(|ui| {
-                            ui.heading("Path")
-                                .on_hover_text("the location of the package file\n\
+                        ui.heading("Path")
+                            .on_hover_text("the location of the package file\n\
                             If you want to know the complete path of the package file, either turn on \"Show paths\" \
                             in the top bar, or hover over the items in the list with your cursor");
-                        });
+                    });
 
                     for (_, (name, desc)) in self.enabled_columns.iter()
                         .zip(EXTRA_COLUMN_NAMES.iter().zip(EXTRA_COLUMN_DESCRIPTIONS))
@@ -484,45 +483,45 @@ impl DBPFApp {
                     }
                 })
                 .body(|body| {
-                let filtered = self.texture_list.get_filtered().clone();
-                let mut highlight = None;
-                body.rows(14.0, filtered.len(),
-                          |mut row| {
-                              let texture = &filtered[row.index()];
-                              row.col(|ui| {
-                                  if self.show_path_cell(
-                                      texture,
-                                      &texture.id.path,
-                                      ui) {
-                                      highlight = Some(texture.clone());
-                                  }
-                              });
-
-                              let columns = [
-                                  format!("{:X?}", texture.id.tgi.group_id),
-                                  format!("{:016X?}", texture.id.tgi.instance_id),
-                                  format!("{}", texture.width),
-                                  format!("{}", texture.height),
-                                  format!("{}", texture.memory_size),
-                                  format!("{:?}", texture.format),
-                                  format!("{}", texture.mip_levels),
-                              ];
-
-                              self.enabled_columns
-                                  .iter()
-                                  .zip(columns)
-                                  .filter(|(e, _)| **e)
-                                  .for_each(|(_, text)| {
-                                      row.col(|ui| {
-                                          ui.style_mut().override_text_style = Some(TextStyle::Monospace);
-                                          ui.label(text);
-                                      });
+                    let filtered = self.texture_list.get_filtered().clone();
+                    let mut highlight = None;
+                    body.rows(14.0, filtered.len(),
+                              |mut row| {
+                                  let texture = &filtered[row.index()];
+                                  row.col(|ui| {
+                                      if self.show_path_cell(
+                                          texture,
+                                          &texture.id.path,
+                                          ui) {
+                                          highlight = Some(texture.clone());
+                                      }
                                   });
-                          });
-                if let Some(_) = highlight {
-                    self.highlighted_texture = highlight;
-                }
-            });
+
+                                  let columns = [
+                                      format!("{:X?}", texture.id.tgi.group_id),
+                                      format!("{:016X?}", texture.id.tgi.instance_id),
+                                      format!("{}", texture.width),
+                                      format!("{}", texture.height),
+                                      format!("{}", texture.memory_size),
+                                      format!("{:?}", texture.format),
+                                      format!("{}", texture.mip_levels),
+                                  ];
+
+                                  self.enabled_columns
+                                      .iter()
+                                      .zip(columns)
+                                      .filter(|(e, _)| **e)
+                                      .for_each(|(_, text)| {
+                                          row.col(|ui| {
+                                              ui.style_mut().override_text_style = Some(TextStyle::Monospace);
+                                              ui.label(text);
+                                          });
+                                      });
+                              });
+                    if let Some(_) = highlight {
+                        self.highlighted_texture = highlight;
+                    }
+                });
         });
     }
 }
@@ -600,9 +599,10 @@ impl App for DBPFApp {
 
                 if let Some((ref path, progress, total)) = *self.find_textures_progress.lock().unwrap() {
                     ui.add(ProgressBar::new(progress as f32 / total as f32)
-                        .text(Self::strip_prefix(&self.scan_ran_with_folders, path)
-                            .unwrap_or(path)
-                            .display().to_string()));
+                        .text(format!("{progress}/{total} {}",
+                                      Self::strip_prefix(&self.scan_ran_with_folders, path)
+                                          .unwrap_or(path)
+                                          .display().to_string())));
                 }
 
                 ui.separator();
@@ -622,10 +622,10 @@ impl App for DBPFApp {
         EXTRA_COLUMN_NAMES.iter()
             .zip(self.enabled_columns)
             .for_each(|(name, enabled)| {
-            let mut key = "enabled_columns_".to_string();
-            key.push_str(name);
-            storage.set_string(&key, enabled.to_string());
-        });
+                let mut key = "enabled_columns_".to_string();
+                key.push_str(name);
+                storage.set_string(&key, enabled.to_string());
+            });
 
         storage.set_string("downloads_folder", self.scan_folders.clone());
 
