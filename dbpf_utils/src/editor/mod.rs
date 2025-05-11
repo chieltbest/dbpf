@@ -14,11 +14,14 @@ mod cpf;
 mod common;
 mod text_list;
 mod r#enum;
+mod behaviour_function;
 
 pub trait Editor {
-    type EditorState;
+    type EditorState: Default;
 
-    fn new_editor(&self, context: &egui::Context) -> Self::EditorState;
+    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
+        Self::EditorState::default()
+    }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response;
 }

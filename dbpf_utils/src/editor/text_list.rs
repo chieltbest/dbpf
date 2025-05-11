@@ -1,7 +1,6 @@
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use dbpf::common::LanguageCode;
 use dbpf::internal_file::text_list::{TextList, TaggedString, UntaggedString, VersionedTextList, Version};
-use eframe::egui;
 use eframe::egui::{ComboBox, Context, Response, Ui};
 use crate::editor::r#enum::EnumEditorState;
 
@@ -22,8 +21,6 @@ impl Editor for TaggedString {
 impl Editor for UntaggedString {
     type EditorState = ();
 
-    fn new_editor(&self, _context: &Context) -> Self::EditorState {}
-
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         self.value.show_editor(&mut (), ui)
     }
@@ -32,7 +29,7 @@ impl Editor for UntaggedString {
 impl Editor for TextList {
     type EditorState = VecEditorState<TaggedString>;
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
+    fn new_editor(&self, _context: &Context) -> Self::EditorState {
         VecEditorState {
             columns: 3,
             storage: VecEditorStateStorage::Shared(EnumEditorState::default()),

@@ -30,12 +30,6 @@ trait EnumEditor {
 
     fn search_strings(known_enum: &Self::KnownEnum) -> Vec<String>;
 
-    fn new_enum_editor() -> EnumEditorState {
-        EnumEditorState {
-            search_string: "".to_string(),
-        }
-    }
-
     fn show_enum_editor(&mut self, state: &mut EnumEditorState, ui: &mut Ui) -> Response
     where
         <Self as EnumEditor>::KnownEnum: Sequence,

@@ -17,8 +17,6 @@ impl Editor for Property {
 impl Editor for MaterialDefinition {
     type EditorState = ();
 
-    fn new_editor(&self, _context: &Context) -> Self::EditorState {}
-
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = self.file_name.name.show_editor(&mut (), ui);
         ui.horizontal(|ui| {

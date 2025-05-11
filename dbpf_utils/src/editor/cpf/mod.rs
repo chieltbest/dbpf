@@ -1,5 +1,5 @@
 use eframe::egui;
-use eframe::egui::{Align, ComboBox, Context, DragValue, Response, Ui};
+use eframe::egui::{Align, ComboBox, DragValue, Response, Ui};
 use eframe::emath::Numeric;
 use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
@@ -9,8 +9,6 @@ mod binary_index;
 
 impl Editor for Item {
     type EditorState = ();
-
-    fn new_editor(&self, _context: &Context) -> Self::EditorState {}
 
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = ComboBox::from_id_salt("data_type")
@@ -36,8 +34,6 @@ impl Editor for Item {
 
 impl Editor for CPF {
     type EditorState = ();
-
-    fn new_editor(&self, _context: &Context) -> Self::EditorState {}
 
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = ui.horizontal_wrapped(|ui| {

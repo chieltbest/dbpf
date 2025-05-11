@@ -1,13 +1,10 @@
 use crate::editor::cpf::{drag_fn, reference_edit_fn};
 use crate::editor::Editor;
 use dbpf::internal_file::cpf::binary_index::BinaryIndex;
-use eframe::egui;
 use eframe::egui::{Grid, Response, Ui};
 
 impl Editor for BinaryIndex {
     type EditorState = ();
-
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {}
 
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = Grid::new("BinaryIndex edit grid")

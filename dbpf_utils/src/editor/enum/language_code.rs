@@ -1,7 +1,6 @@
 use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 use crate::editor::Editor;
 use dbpf::common::{KnownLanguageCode, LanguageCode};
-use eframe::egui;
 use eframe::egui::{Response, Ui};
 use std::fmt::Write;
 use std::str::FromStr;
@@ -52,10 +51,6 @@ impl EnumEditor for LanguageCode {
 
 impl Editor for LanguageCode {
     type EditorState = EnumEditorState;
-
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
-        Self::new_enum_editor()
-    }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         Self::show_enum_editor(self, state, ui)

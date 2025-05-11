@@ -141,8 +141,6 @@ impl Into<usize> for TextureFilterOperation {
 impl Editor for TextureFilterOperation {
     type EditorState = ();
 
-    fn new_editor(&self, _context: &Context) -> Self::EditorState {}
-
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut selected: usize = self.clone().into();
 

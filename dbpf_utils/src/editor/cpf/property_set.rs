@@ -19,8 +19,6 @@ impl Editor for Override {
 impl Editor for PropertySet {
     type EditorState = ();
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {}
-
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = Grid::new("PropertySet edit grid")
             .num_columns(2)

@@ -9,10 +9,6 @@ use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 impl Editor for Entry {
     type EditorState = <DBPFFileType as Editor>::EditorState;
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
-        Default::default()
-    }
-
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = self.type_id.show_editor(state, ui);
         res |= ui.add(DragValue::new(&mut self.group_id)
