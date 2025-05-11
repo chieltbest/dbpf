@@ -17,6 +17,7 @@ use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use cpf::binary_index::BinaryIndex;
 use cpf::property_set::PropertySet;
+use crate::internal_file::behaviour_function::BehaviourFunction;
 use crate::internal_file::cpf::CPF;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
@@ -259,6 +260,7 @@ pub enum DecodedFile {
     // others
     SimOutfits(SimOutfits),
     TextList(TextList),
+    BehaviourFunction(BehaviourFunction),
 }
 
 impl DecodedFile {
@@ -307,6 +309,9 @@ impl DecodedFile {
                                 KnownDBPFFileType::PieMenuStrings) => {
                 Some(TextList::read(&mut cursor).map(|r| DecodedFile::TextList(r)))
             }
+            DBPFFileType::Known(KnownDBPFFileType::SimanticsBehaviourFunction) => {
+                Some(BehaviourFunction::read(&mut cursor).map(|r| DecodedFile::BehaviourFunction(r)))
+            }
             _ => None,
         }
     }
@@ -320,6 +325,7 @@ impl DecodedFile {
             DecodedFile::SimOutfits(x) => x.write(&mut data)?,
             DecodedFile::ResourceCollection(x) => x.write(&mut data)?,
             DecodedFile::TextList(x) => x.write(&mut data)?,
+            DecodedFile::BehaviourFunction(x) => x.write(&mut data)?,
         }
         // TODO write error handling?
         Ok(RawFileData { data: data.into_inner() })

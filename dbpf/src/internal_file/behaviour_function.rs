@@ -1,12 +1,12 @@
 use std::io::{Read, Seek, Write};
 use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, Endian, NamedArgs, args};
+use crate::common::FileName;
 use crate::internal_file::behaviour_function::Goto::{Error, False, Instr, True};
 use crate::internal_file::behaviour_function::Signature::*;
-use crate::internal_file::resource_collection::FileName;
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone, Debug)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone, Debug, Default)]
 pub enum Signature {
     V0 = 0x8000,
     V1,
@@ -17,6 +17,7 @@ pub enum Signature {
     V6,
     V7,
     V8,
+    #[default]
     V9,
 }
 
@@ -86,9 +87,9 @@ impl BinWrite for Goto {
             }
         } else {
             match self {
-                Error => writer.write_type(&0xFFFDu16, endian)?,
-                True => writer.write_type(&0xFFFEu16, endian)?,
-                False => writer.write_type(&0xFFFFu16, endian)?,
+                Error => writer.write_type(&0xFFFCu16, endian)?,
+                True => writer.write_type(&0xFFFDu16, endian)?,
+                False => writer.write_type(&0xFFFEu16, endian)?,
                 Instr(n) => writer.write_type(n, endian)?,
             }
         }
@@ -102,19 +103,22 @@ impl BinWrite for Goto {
 pub struct Instruction {
     // #[br(temp)]
     // #[bw(calc = function.opcode())]
-    opcode: u16,
+    pub opcode: u16,
     #[brw(args {signature})]
     pub true_target: Goto,
     #[brw(args {signature})]
     pub false_target: Goto,
-    #[br(count = if signature <= V2 { 8 } else { 16 })]
-    operands: Vec<u8>,
+    #[brw(if(signature >= V5))]
+    pub node_version: u8,
+    #[br(count = if signature >= V3 { 16 } else { 8 })]
+    pub operands: Vec<u8>,
 
     // pub function: Function,
 }
 
 #[binrw]
 #[brw(little)]
+#[derive(Clone, Debug, Default)]
 pub struct BehaviourFunction {
     pub name: FileName,
     pub signature: Signature,
@@ -126,6 +130,9 @@ pub struct BehaviourFunction {
     pub num_locals: u8,
     pub header_flags: u8,
     pub tree_version: i32,
+
+    #[brw(if(matches!(signature, V9)))]
+    pub cache_flags: u8,
 
     #[br(count = num_instructions, args { inner: args ! {signature}})]
     #[bw(args { signature: * signature })]
