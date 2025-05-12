@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::ffi::OsStr;
 use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Read, Seek};
@@ -89,7 +90,7 @@ pub struct FoundTexture {
     pub memory_size: usize,
 }
 
-fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R) -> impl Iterator<Item=FoundTexture> + use<'_, R> {
+fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R) -> impl Iterator<Item=FoundTexture> + use < '_, R > {
     header.index.into_iter()
         .filter_map(move |mut file| {
             let type_id = file.type_id;
@@ -107,21 +108,28 @@ fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R)
                     .expect("TextureResource should always be allowed to decode") {
                     DecodedFile::ResourceCollection(res) =>
                         match &res.entries.first()?.data {
-                            ResourceData::Texture(tex) => Some(FoundTexture {
-                                id: TextureId {
-                                    path: path.clone(),
-                                    tgi: TGI {
-                                        type_id,
-                                        group_id,
-                                        instance_id,
+                            ResourceData::Texture(tex) => {
+                                let total_memory = (0..tex.mip_levels())
+                                    .map(|i| tex.get_format()
+                                        .compressed_size(max(tex.width as usize >> i, 1),
+                                                         max(tex.height as usize >> i, 1))
+                                        * tex.textures.len()).sum();
+                                Some(FoundTexture {
+                                    id: TextureId {
+                                        path: path.clone(),
+                                        tgi: TGI {
+                                            type_id,
+                                            group_id,
+                                            instance_id,
+                                        },
                                     },
-                                },
-                                width: tex.width,
-                                height: tex.height,
-                                format: tex.get_format(),
-                                mip_levels: tex.mip_levels(),
-                                memory_size: tex.get_format().compressed_size(tex.width as usize, tex.height as usize) * tex.textures.len(),
-                            }),
+                                    width: tex.width,
+                                    height: tex.height,
+                                    format: tex.get_format(),
+                                    mip_levels: tex.mip_levels(),
+                                    memory_size: total_memory,
+                                })
+                            }
                             _ => None,
                         }
                     _ => None,
