@@ -7,6 +7,7 @@ use eframe::egui::{ColorImage, TextureHandle};
 use egui_dock::egui::TextureOptions;
 use lru::LruCache;
 use tokio::fs::File;
+use tracing::error;
 use dbpf::DBPFFile;
 use dbpf::internal_file::DecodedFile;
 use dbpf::internal_file::resource_collection::ResourceData;
@@ -27,50 +28,43 @@ impl ImageCache {
     async fn fetch_texture(cache: Weak<Mutex<LruCache<TextureId, Vec<TextureHandle>>>>,
                            id: TextureId,
                            ctx: egui::Context) {
-        let data = File::open(id.path.clone()).await.unwrap().into_std().await;
-        let mut data = BufReader::new(data);
-        let mut file = DBPFFile::read(&mut data).unwrap();
-        let index = file.index.iter_mut().find(|entry|
-            entry.type_id == id.tgi.type_id &&
-                entry.group_id == id.tgi.group_id &&
-                entry.instance_id == id.tgi.instance_id).unwrap();
-        let idata = index.data(&mut data).unwrap();
+        match File::open(&id.path).await {
+            Err(err) => {
+                error!(?err);
+            }
+            Ok(async_data) => {
+                let data = async_data.into_std().await;
+                let mut data = BufReader::new(data);
+                let mut file = DBPFFile::read(&mut data).unwrap();
+                let index = file.index.iter_mut().find(|entry|
+                    entry.type_id == id.tgi.type_id &&
+                        entry.group_id == id.tgi.group_id &&
+                        entry.instance_id == id.tgi.instance_id).unwrap();
+                let idata = index.data(&mut data).unwrap();
 
-        let decoded = idata.decoded().unwrap().unwrap();
-        if let DecodedFile::ResourceCollection(res) = decoded {
-            let ResourceData::Texture(tex) = &mut res.entries.first_mut().unwrap().data else { return; };
-            let tex_vec = tex.decompress_all().into_iter().filter_map(|t| {
-                t.into_iter().rev()
-                    .find_map(|mip| mip.ok())
-                    .map(|decoded_tex| {
-                        ctx.load_texture(
-                            format!("{:?}", id),
-                            ColorImage::from_rgba_unmultiplied(
-                                [decoded_tex.width, decoded_tex.height],
-                                &decoded_tex.data,
-                            ),
-                            TextureOptions::NEAREST,
-                        )
-                    })
-            }).collect();
-            // let tex_vec = tex.textures.iter().enumerate().filter_map(|(ti, t)| {
-            //     let decoded_tex = ((t.entries.len() - 1)..=0)
-            //         .map(|i| tex.decompress(ti, i))
-            //         .find(|tex| tex.is_ok())?.unwrap();
-            //     println!("decoded {}x{}", decoded_tex.width, decoded_tex.height);
-            //     Some(ctx.load_texture(
-            //         format!("{:?}", id),
-            //         ColorImage::from_rgba_unmultiplied(
-            //             [decoded_tex.width, decoded_tex.height],
-            //             &decoded_tex.data,
-            //         ),
-            //         TextureOptions::NEAREST,
-            //     ))
-            // }).collect();
+                let decoded = idata.decoded().unwrap().unwrap();
+                if let DecodedFile::ResourceCollection(res) = decoded {
+                    let ResourceData::Texture(tex) = &mut res.entries.first_mut().unwrap().data else { return; };
+                    let tex_vec = tex.decompress_all().into_iter().filter_map(|t| {
+                        t.into_iter().rev()
+                            .find_map(|mip| mip.ok())
+                            .map(|decoded_tex| {
+                                ctx.load_texture(
+                                    format!("{:?}", id),
+                                    ColorImage::from_rgba_unmultiplied(
+                                        [decoded_tex.width, decoded_tex.height],
+                                        &decoded_tex.data,
+                                    ),
+                                    TextureOptions::NEAREST,
+                                )
+                            })
+                    }).collect();
 
-            let cache = cache.upgrade().unwrap();
-            let mut cw = cache.lock().unwrap();
-            cw.push(id, tex_vec);
+                    let cache = cache.upgrade().unwrap();
+                    let mut cw = cache.lock().unwrap();
+                    cw.push(id, tex_vec);
+                }
+            }
         }
     }
 

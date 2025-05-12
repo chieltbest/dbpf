@@ -22,7 +22,7 @@ use eframe::epaint::Vec2;
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
-use tracing::{info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 use dbpf_utils::graphical_application_main;
 use crate::filtered_texture_list::FilteredTextureList;
 use crate::texture_finder::{find_textures, FoundTexture};
@@ -417,7 +417,9 @@ impl DBPFApp {
                     highlight = true;
                 });
                 lbl.double_clicked().then(|| {
-                    open::that_detached(path).unwrap();
+                    if let Err(err) = open::that_detached(path) {
+                        error!(?err);
+                    }
                 });
 
                 let res = ui.centered_and_justified(|ui| ui.label(""));

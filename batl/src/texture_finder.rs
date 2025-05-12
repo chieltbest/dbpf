@@ -18,7 +18,7 @@ use dbpf::DBPFFile;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::filetypes::DBPFFileType::Known;
 
-use dbpf::internal_file::DecodedFile;
+use dbpf::internal_file::{CompressionError, DecodedFile};
 use dbpf::internal_file::resource_collection::ResourceData;
 use dbpf::internal_file::resource_collection::texture_resource::TextureFormat;
 
@@ -90,7 +90,6 @@ pub struct FoundTexture {
 }
 
 fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R) -> impl Iterator<Item=FoundTexture> + use<'_, R> {
-    // TODO proper error handling
     header.index.into_iter()
         .filter_map(move |mut file| {
             let type_id = file.type_id;
@@ -99,15 +98,15 @@ fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R)
 
             if type_id == Known(KnownDBPFFileType::TextureResource) {
                 match file.data(reader)
-                    .unwrap()
-                    .decoded()
+                    .map_err(CompressionError::BinResult)
+                    .and_then(|d| d.decoded())
                     .inspect_err(|err| {
                         error!(?path, ?err);
                     })
-                    .ok()? // TODO return error
-                    .unwrap() {
+                    .ok()?
+                    .expect("TextureResource should always be allowed to decode") {
                     DecodedFile::ResourceCollection(res) =>
-                        match &res.entries.first().unwrap().data {
+                        match &res.entries.first()?.data {
                             ResourceData::Texture(tex) => Some(FoundTexture {
                                 id: TextureId {
                                     path: path.clone(),
@@ -134,19 +133,27 @@ fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R)
 }
 
 async fn get_path_textures(path: PathBuf) -> (PathBuf, Option<Vec<FoundTexture>>) {
-    let data = File::open(&path).await.unwrap().into_std().await;
-    let mut data = BufReader::new(data);
-    let path_clone = path.clone();
-    let result = tokio::task::spawn_blocking(move || -> BinResult<Vec<FoundTexture>> {
-        Ok(get_textures(path_clone.clone(), DBPFFile::read(&mut data)?, &mut data).collect())
-    }).await.unwrap();
-    match result {
-        Ok(textures) => {
-            (path, Some(textures))
-        }
+    match File::open(&path).await {
         Err(err) => {
-            error!("{err:#?}");
+            error!(?err);
             (path, None)
+        }
+        Ok(async_data) => {
+            let data = async_data.into_std().await;
+            let mut data = BufReader::new(data);
+            let path_clone = path.clone();
+            let result = tokio::task::spawn_blocking(move || -> BinResult<Vec<FoundTexture>> {
+                Ok(get_textures(path_clone.clone(), DBPFFile::read(&mut data)?, &mut data).collect())
+            }).await.unwrap();
+            match result {
+                Ok(textures) => {
+                    (path, Some(textures))
+                }
+                Err(err) => {
+                    error!(?err);
+                    (path, None)
+                }
+            }
         }
     }
 }
@@ -156,7 +163,10 @@ pub async fn find_textures(dirs: Vec<PathBuf>,
                            mut progress: impl FnMut(PathBuf, usize, usize)) {
     let files_futures_vec = dirs.iter().flat_map(|dir| {
         WalkDir::new(dir).sort_by_file_name().into_iter().filter_map(|entry| {
-            let path = entry.unwrap().path().to_path_buf();
+            let path = entry
+                .inspect_err(|err| error!(?err))
+                .ok()?
+                .path().to_path_buf();
             if path.extension() == Some(OsStr::new("package")) {
                 Some(get_path_textures(path.clone()))
             } else {
@@ -178,9 +188,11 @@ pub async fn find_textures(dirs: Vec<PathBuf>,
     while let Some((i, (path, data))) = tgis_stream.next().await {
         progress(path.clone(), i + 1, total_files);
         if let Some(textures) = data {
-            textures.into_iter().for_each(|tex| {
-                tx.send(tex).unwrap();
-            });
+            for tex in textures.into_iter() {
+                if tx.send(tex).is_err() {
+                    return;
+                }
+            };
         }
     };
 }
