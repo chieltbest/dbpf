@@ -326,7 +326,6 @@ impl FilteredTextureList {
     pub fn show_filter_menu(&mut self, ui: &mut Ui) {
         let res = Window::new("Filter List")
             .resizable(false)
-            .hscroll(true)
             .open(&mut self.open_texture_filter_ui)
             .show(ui.ctx(), |ui| {
                 let state = self.texture_filter_ui_state.get_or_insert_with(|| {
