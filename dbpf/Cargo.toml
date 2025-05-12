@@ -17,6 +17,7 @@ derive_more = { version = "2.0", features = ["try_from", "from", "try_into", "di
 texpresso = "2.0"
 miniz_oxide = { version = "0.7.4", features = ["simd"] }
 xmltree = "0.11"
+log = "0.4.27"
 
 [dev-dependencies]
 proptest = "1"

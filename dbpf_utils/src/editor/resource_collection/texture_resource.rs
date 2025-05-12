@@ -3,6 +3,7 @@ use std::io::Cursor;
 use eframe::egui;
 use eframe::egui::{ColorImage, ComboBox, DragValue, Response, ScrollArea, TextureOptions, Ui};
 use image::ImageReader;
+use tracing::error;
 use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureFormat, TextureResource, TextureResourceData};
 use crate::editor::Editor;
 
@@ -32,7 +33,8 @@ impl Editor for TextureResource {
         Self::EditorState {
             textures: self.decompress_all().into_iter().enumerate().map(|(tex_num, texture)| {
                 texture.into_iter().enumerate().rev().map(|(mip_num, mip)| {
-                    mip.ok().map(|decoded| {
+                    mip.inspect_err(|err| error!(?err))
+                        .ok().map(|decoded| {
                         context.load_texture(
                             format!("texture{tex_num}_mip{mip_num}"),
                             ColorImage::from_rgba_unmultiplied(
@@ -114,9 +116,9 @@ impl Editor for TextureResource {
                     for (mip_num, mip_level) in texture.entries.iter().enumerate() {
                         match mip_level {
                             TextureResourceData::Embedded(_) => {
-                                let image = state.textures[texture_num][mip_num].as_ref().unwrap();
-
-                                ui.image(image);
+                                if let Some(image) = state.textures[texture_num][mip_num].as_ref() {
+                                    ui.image(image);
+                                }
                             }
                             TextureResourceData::LIFOFile { file_name } => {
                                 ui.end_row();

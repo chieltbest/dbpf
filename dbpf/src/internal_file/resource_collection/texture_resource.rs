@@ -1,6 +1,7 @@
 use std::cmp::max;
 use std::fmt::Debug;
 use binrw::{args, BinResult, binrw, Error};
+use log::error;
 use crate::common::BigString;
 use crate::internal_file::resource_collection::{FileName, ResourceBlockVersion};
 
@@ -161,10 +162,12 @@ impl EmbeddedTextureResourceMipLevel {
         // move this logic to binread?
         let compressed_size = format.compressed_size(width, height);
         if compressed_size != self.data.len() {
-            eprintln!("decompress failed: {:?} {} {compressed_size} {} {}", format, self.data.len(), width, height);
+            error!("decompress failed: {:?} {} {compressed_size} {} {}", format, self.data.len(), width, height);
             return Err(Error::AssertFail {
                 pos: 0,
-                message: "Mipmap level has bad size".to_string(),
+                message: format!("Mipmap level calculated size {compressed_size} \
+                 does not match data length {} \
+                 with texture size {width}x{height}", self.data.len()),
             });
         }
         format.decompress(&self.data, width, height, &mut out);
