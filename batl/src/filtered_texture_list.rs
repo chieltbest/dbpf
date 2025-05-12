@@ -190,6 +190,7 @@ impl Editor for TextureFilterOperation {
             TextureFilterOperation::Memory(c, y) |
             TextureFilterOperation::Mip(c, y) => {
                 let res = ComboBox::from_id_salt(ui.id().with(1))
+                    .width(40.0)
                     .selected_text(format!("{c}"))
                     .show_ui(ui, |ui| {
                         [
