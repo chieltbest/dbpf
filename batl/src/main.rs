@@ -28,7 +28,7 @@ use crate::filtered_texture_list::FilteredTextureList;
 use crate::texture_finder::{find_textures, FoundTexture};
 use crate::ui_image_cache::ImageCache;
 
-const IMAGE_CACHE_N: usize = 512;
+const IMAGE_CACHE_N: usize = 64;
 const IMAGE_MAX_SIZE: f32 = 300.0;
 
 const EXTRA_COLUMN_NAMES: [&str; 7] = [
@@ -322,10 +322,11 @@ impl DBPFApp {
                 }
             });
 
-        ui.button("Known textures")
-            .clicked().then(|| {
+        if ui.button("Known textures")
+            .on_hover_text("List of the textures that have been marked as known")
+            .clicked() {
             self.open_known_texture_gui = !self.open_known_texture_gui;
-        });
+        }
     }
 
     #[instrument(skip(self, ui))]
@@ -554,25 +555,25 @@ impl App for DBPFApp {
                     });
 
                     ui.horizontal(|ui| {
-                        ui.add(DragValue::new(&mut self.ui_scale)
+                        let res = ui.add(DragValue::new(&mut self.ui_scale)
                             .speed(0.01)
-                            .fixed_decimals(1))
-                            .on_hover_text("Scale of the interface")
-                            .changed().then(|| {
+                            .fixed_decimals(1));
+                        if res.changed() {
                             ctx.set_pixels_per_point(self.ui_scale);
-                        });
-                        ui.label("UI Scale");
-                    });
+                        }
+                        res | ui.label("UI Scale")
+                    }).inner.on_hover_text("Scale of the interface");
 
                     self.texture_list.show_filter_menu(ui);
 
                     self.known_texture_menu(ctx, ui);
 
                     let mut show_known = self.texture_list.get_show_known();
-                    ui.checkbox(&mut show_known, "Show known")
-                        .changed().then(|| {
+                    if ui.checkbox(&mut show_known, "Show known")
+                        .on_hover_text("Show textures that have been marked as a known texture")
+                        .changed() {
                         self.texture_list.set_show_known(show_known);
-                    });
+                    }
 
                     ui.checkbox(&mut self.show_folders, "Show paths")
                         .on_hover_text("Show what folders the packages are in?");
@@ -585,19 +586,23 @@ impl App for DBPFApp {
                     }).response.on_hover_text("What columns should be shown in the table?");
                 });
 
-                ui.horizontal(|ui| {
-                    ui.label("Downloads: ");
+                let res = ui.horizontal(|ui| {
+                    let res = ui.label("Downloads: ");
 
-                    ui.add(TextEdit::singleline(&mut self.scan_folders)
+                    let text_res = ui.add(TextEdit::singleline(&mut self.scan_folders)
                         .id_source("scan folders")
-                        .desired_width(ui.available_width() - 30.0))
-                        .lost_focus().then(|| {
+                        .desired_width(ui.available_width() - 30.0));
+                    if text_res.lost_focus() {
                         self.start_scannning(ctx);
-                    });
-                    if ui.button("🗁").clicked() {
+                    }
+
+                    let button_res = ui.button("🗁");
+                    if button_res.clicked() {
                         self.open_downloads_picker();
                     }
-                }).response.on_hover_text_at_pointer("The folder you want to scan (normally your downloads folder)");
+                    res | text_res | button_res
+                });
+                (res.response | res.inner).on_hover_text_at_pointer("The folder you want to scan (normally your downloads folder)");
 
                 if let Some((ref path, progress, total)) = *self.find_textures_progress.lock().unwrap() {
                     ui.add(ProgressBar::new(progress as f32 / total as f32)

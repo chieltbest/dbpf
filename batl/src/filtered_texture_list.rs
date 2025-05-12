@@ -341,6 +341,7 @@ impl FilteredTextureList {
                 })));
 
         ui.button("Filter")
+            .on_hover_text("The filters that are being applied to the found texture list")
             .clicked().then(|| {
             self.open_texture_filter_ui = !self.open_texture_filter_ui;
         });
