@@ -614,12 +614,12 @@ impl App for DBPFApp {
                     }).response.on_hover_text("What columns should be shown in the table?");
                 });
 
-                let res = ui.horizontal(|ui| {
+                ui.horizontal(|ui| {
                     let res = ui.label("Downloads: ");
 
                     let text_res = ui.add(TextEdit::singleline(&mut self.scan_folders)
                         .id_source("scan folders")
-                        .desired_width(ui.available_width() - 30.0));
+                        .desired_width(ui.available_width() - 60.0));
                     if text_res.lost_focus() {
                         self.start_scannning(ctx);
                     }
@@ -628,9 +628,15 @@ impl App for DBPFApp {
                     if button_res.clicked() {
                         self.open_downloads_picker();
                     }
-                    res | text_res | button_res
+                    (res | text_res | button_res).on_hover_text_at_pointer("The folder you want to scan (normally your downloads folder)");
+
+                    if ui.button("⟳")
+                        .on_hover_text("Scan all the files in the folder again")
+                        .clicked() {
+                        self.start_scannning(ctx);
+                    }
                 });
-                (res.response | res.inner).on_hover_text_at_pointer("The folder you want to scan (normally your downloads folder)");
+                // (res.response | res.inner)
 
                 if let Some((ref path, progress, total)) = *self.find_textures_progress.lock().unwrap() {
                     ui.add(ProgressBar::new(progress as f32 / total as f32)
