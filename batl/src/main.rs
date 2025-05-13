@@ -3,30 +3,28 @@
 // TODO texture conversion
 // TODO sort?
 // TODO memory problems
-// TODO mip level memory counting
 // TODO add total memory size
 
 mod filtered_texture_list;
 mod texture_finder;
 mod ui_image_cache;
 
-use std::error::Error;
-use std::num::NonZeroUsize;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, mpsc, Mutex};
-use std::sync::mpsc::{Receiver, TryRecvError};
-use eframe::{App, egui, Frame, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, Image, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window, TextStyle};
-use eframe::egui::style::Interaction;
-use eframe::epaint::Vec2;
-use egui_extras::Column;
-use futures::channel::oneshot;
-use rfd::FileHandle;
-use tracing::{error, info, instrument, warn};
-use dbpf_utils::graphical_application_main;
 use crate::filtered_texture_list::FilteredTextureList;
 use crate::texture_finder::{find_textures, FoundTexture};
 use crate::ui_image_cache::ImageCache;
+use dbpf_utils::graphical_application_main;
+use eframe::egui::style::Interaction;
+use eframe::egui::{containers, Color32, Context, DragValue, Image, Label, ProgressBar, Response, RichText, Sense, Style, TextEdit, TextStyle, Ui, Visuals, Window};
+use eframe::{egui, App, Frame, Storage};
+use egui_extras::Column;
+use futures::channel::oneshot;
+use rfd::FileHandle;
+use std::error::Error;
+use std::num::NonZeroUsize;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::{mpsc, Arc, Mutex};
+use tracing::{error, info, instrument, warn};
 
 const IMAGE_CACHE_N: usize = 64;
 const IMAGE_MAX_SIZE: f32 = 300.0;
@@ -77,6 +75,7 @@ struct DBPFApp {
     find_textures_result_stream: Option<Receiver<FoundTexture>>,
     find_textures_progress: Arc<Mutex<Option<(PathBuf, usize, usize)>>>,
     highlighted_texture: Option<FoundTexture>,
+    last_hovered_texture: Option<FoundTexture>,
     ui_image_cache: ImageCache,
 }
 
@@ -97,6 +96,7 @@ impl DBPFApp {
             find_textures_result_stream: None,
             find_textures_progress: Mutex::new(None).into(),
             highlighted_texture: None,
+            last_hovered_texture: None,
             ui_image_cache: ImageCache::new(NonZeroUsize::new(IMAGE_CACHE_N).unwrap()),
         };
         if let Some(storage) = cc.storage {
@@ -235,16 +235,14 @@ impl DBPFApp {
         }
     }
 
-    fn texture_description_string(path: &Path, texture: &FoundTexture) -> String {
-        format!("{}\n\
-        Group: {:X}\n\
-        Instance: {:X}\n\
-        Width: {}\n\
-        Height: {}\n\
-        Memory size (bytes): {}\n\
-        Format: {:?}\n\
-        Mipmap levels: {}",
-                path.to_string_lossy(),
+    fn texture_description_string(texture: &FoundTexture) -> String {
+        format!("Group: {:X}\n\
+                Instance: {:X}\n\
+                Width: {}\n\
+                Height: {}\n\
+                Memory size (bytes): {}\n\
+                Format: {:?}\n\
+                Mipmap levels: {}",
                 texture.id.tgi.group_id,
                 texture.id.tgi.instance_id,
                 texture.width,
@@ -373,13 +371,13 @@ impl DBPFApp {
         scan_folders.iter().find_map(|folder| path.strip_prefix(folder).ok())
     }
 
-    fn show_path_cell(&mut self, texture: &FoundTexture, path: &PathBuf, ui: &mut Ui) -> bool {
-        let stripped_path = Self::strip_prefix(&self.scan_ran_with_folders, path).unwrap_or(path);
+    fn show_path_cell(&mut self, texture: &FoundTexture, ui: &mut Ui) -> Response {
+        let stripped_path = Self::strip_prefix(&self.scan_ran_with_folders, &texture.id.path).unwrap_or(&texture.id.path);
 
         let text_string = if self.show_folders {
             stripped_path.to_string_lossy().to_string()
         } else {
-            path.file_name()
+            texture.id.path.file_name()
                 .map(|name| name.to_string_lossy().to_string())
                 .unwrap_or(stripped_path.to_string_lossy().to_string())
         };
@@ -393,8 +391,6 @@ impl DBPFApp {
                 Color32::GRAY
             });
         }
-
-        let tooltip = Self::texture_description_string(stripped_path, &texture);
 
         let mut frame = containers::Frame::new();
         let selected = self.highlighted_texture.as_ref().map(|c| texture == c).unwrap_or(false);
@@ -412,13 +408,14 @@ impl DBPFApp {
             let res = ui.horizontal_centered(|ui| {
                 ui.style_mut().interaction.selectable_labels = false;
                 let lbl = ui.add(Label::new(text)
+                    .extend()
                     .sense(Sense::click()));
-                lbl.context_menu(|ui| self.texture_menu(path, texture, ui));
+                lbl.context_menu(|ui| self.texture_menu(&texture.id.path, texture, ui));
                 lbl.clicked().then(|| {
                     highlight = true;
                 });
                 lbl.double_clicked().then(|| {
-                    if let Err(err) = open::that_detached(path) {
+                    if let Err(err) = open::that_detached(&texture.id.path) {
                         error!(?err);
                     }
                 });
@@ -432,18 +429,7 @@ impl DBPFApp {
         });
         let res = res.response | res.inner;
 
-        res.on_hover_ui_at_pointer(|ui| {
-            ui.label(tooltip);
-            if let Some(tex) = self.ui_image_cache.get(&texture.id, ui.ctx()) {
-                for t in tex {
-                    ui.add(Image::from_texture(&t)
-                        .max_size(Vec2::new(IMAGE_MAX_SIZE, IMAGE_MAX_SIZE))
-                        .bg_fill(Color32::GRAY));
-                }
-            }
-        });
-
-        highlight
+        res
     }
 
     #[instrument(skip_all)]
@@ -468,37 +454,48 @@ impl DBPFApp {
                 .filter_map(|(width, enabled)| enabled.then_some(width)) {
                 table = table.column(Column::exact(width));
             }
-            table
-                .header(30.0, |mut row| {
-                    row.col(|ui| {
-                        ui.heading("Path")
-                            .on_hover_text("the location of the package file\n\
+            let mut total_rect = None;
+            let table_res = table.header(30.0, |mut row| {
+                row.col(|ui| {
+                    ui.heading("Path")
+                        .on_hover_text("the location of the package file\n\
                             If you want to know the complete path of the package file, either turn on \"Show paths\" \
                             in the top bar, or hover over the items in the list with your cursor");
-                    });
+                });
 
-                    for (_, (name, desc)) in self.enabled_columns.iter()
-                        .zip(EXTRA_COLUMN_NAMES.iter().zip(EXTRA_COLUMN_DESCRIPTIONS))
-                        .filter(|(e, _)| **e) {
-                        row.col(|ui| {
-                            ui.heading(*name).on_hover_text(desc);
-                        });
-                    }
-                })
+                for (_, (name, desc)) in self.enabled_columns.iter()
+                    .zip(EXTRA_COLUMN_NAMES.iter().zip(EXTRA_COLUMN_DESCRIPTIONS))
+                    .filter(|(e, _)| **e) {
+                    row.col(|ui| {
+                        ui.heading(*name).on_hover_text(desc);
+                    });
+                }
+            })
                 .body(|body| {
                     let filtered = self.texture_list.get_filtered().clone();
                     let mut highlight = None;
                     body.rows(14.0, filtered.len(),
                               |mut row| {
-                                  let texture = &filtered[row.index()];
-                                  row.col(|ui| {
-                                      if self.show_path_cell(
-                                          texture,
-                                          &texture.id.path,
-                                          ui) {
+                                  let idx = row.index();
+                                  let texture = &filtered[idx];
+
+                                  let mut hover = false;
+                                  let (rect, res) = row.col(|ui| {
+                                      let res = self.show_path_cell(texture, ui);
+                                      if res.clicked() {
                                           highlight = Some(texture.clone());
                                       }
+                                      if res.hovered() {
+                                          hover = true;
+                                      }
                                   });
+                                  if res.hovered() | hover {
+                                      self.last_hovered_texture = Some(texture.clone());
+                                  }
+                                  match &mut total_rect {
+                                      r => *r = Some(rect),
+                                      Some(r) => *r = r.union(rect),
+                                  }
 
                                   let columns = [
                                       format!("{:X?}", texture.id.tgi.group_id),
@@ -525,6 +522,37 @@ impl DBPFApp {
                         self.highlighted_texture = highlight;
                     }
                 });
+
+            if let Some(rect) = total_rect {
+                if let Some(texture) = &self.last_hovered_texture {
+                    let rect = rect.intersect(table_res.inner_rect.expand(5.0));
+                    let res = ui.interact(rect, ui.auto_id_with("path interact rect"), Sense::hover());
+
+                    res.on_hover_ui_at_pointer(|ui| {
+                        let stripped_path = Self::strip_prefix(&self.scan_ran_with_folders, &texture.id.path)
+                            .unwrap_or(&texture.id.path);
+                        let tooltip = Self::texture_description_string(texture);
+
+                        ui.add(Label::new(stripped_path.to_string_lossy()).wrap());
+                        ui.label(tooltip);
+
+
+                        if let Some(tex) = self.ui_image_cache.get(&texture.id, ui.ctx()) {
+                            ui.add_sized([IMAGE_MAX_SIZE, IMAGE_MAX_SIZE],
+                                         Image::from_texture(&tex)
+                                             .shrink_to_fit()
+                                             .bg_fill(Color32::GRAY));
+                        } else {
+                            egui::Frame::new()
+                                .fill(Color32::GRAY)
+                                .show(ui, |ui| {
+                                    ui.add_sized([IMAGE_MAX_SIZE, IMAGE_MAX_SIZE],
+                                                 egui::Spinner::new());
+                                });
+                        }
+                    });
+                }
+            }
         });
     }
 }

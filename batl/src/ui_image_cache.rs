@@ -14,7 +14,7 @@ use dbpf::internal_file::resource_collection::ResourceData;
 use crate::texture_finder::TextureId;
 
 pub struct ImageCache {
-    cache: Arc<Mutex<LruCache<TextureId, Vec<TextureHandle>>>>,
+    cache: Arc<Mutex<LruCache<TextureId, TextureHandle>>>,
 }
 
 
@@ -25,7 +25,7 @@ impl ImageCache {
         }
     }
 
-    async fn fetch_texture(cache: Weak<Mutex<LruCache<TextureId, Vec<TextureHandle>>>>,
+    async fn fetch_texture(cache: Weak<Mutex<LruCache<TextureId, TextureHandle>>>,
                            id: TextureId,
                            ctx: egui::Context) {
         match File::open(&id.path).await {
@@ -45,31 +45,33 @@ impl ImageCache {
                 let decoded = idata.decoded().unwrap().unwrap();
                 if let DecodedFile::ResourceCollection(res) = decoded {
                     let ResourceData::Texture(tex) = &mut res.entries.first_mut().unwrap().data else { return; };
-                    let tex_vec = tex.decompress_all().into_iter().filter_map(|t| {
+                    let found_texture = tex.decompress_all().into_iter().find_map(|t| {
                         t.into_iter().rev()
-                            .find_map(|mip| mip.ok())
-                            .map(|decoded_tex| {
-                                ctx.load_texture(
-                                    format!("{:?}", id),
-                                    ColorImage::from_rgba_unmultiplied(
-                                        [decoded_tex.width, decoded_tex.height],
-                                        &decoded_tex.data,
-                                    ),
-                                    TextureOptions::NEAREST,
-                                )
-                            })
-                    }).collect();
+                            .find_map(|mip| mip.ok()
+                                .map(|decoded_tex| {
+                                    ctx.load_texture(
+                                        format!("{:?}", id),
+                                        ColorImage::from_rgba_unmultiplied(
+                                            [decoded_tex.width, decoded_tex.height],
+                                            &decoded_tex.data,
+                                        ),
+                                        TextureOptions::NEAREST,
+                                    )
+                                }))
+                    });
 
-                    let cache = cache.upgrade().unwrap();
-                    let mut cw = cache.lock().unwrap();
-                    cw.push(id, tex_vec);
+                    if let Some(tex) = found_texture {
+                        let cache = cache.upgrade().unwrap();
+                        let mut cw = cache.lock().unwrap();
+                        cw.push(id, tex);
+                    }
                 }
             }
         }
     }
 
     /// get, and if not found, fetch the texture from disk asynchronously, returning an `egui::TextureHandle`
-    pub fn get(&mut self, id: &TextureId, ctx: &egui::Context) -> Option<Vec<TextureHandle>> {
+    pub fn get(&mut self, id: &TextureId, ctx: &egui::Context) -> Option<TextureHandle> {
         let o = self.cache.lock().unwrap().get(id).cloned();
         if o.is_none() {
             // fetch the image concurrently
