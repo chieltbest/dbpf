@@ -14,7 +14,7 @@ use crate::texture_finder::{find_textures, FoundTexture};
 use crate::ui_image_cache::ImageCache;
 use dbpf_utils::graphical_application_main;
 use eframe::egui::style::Interaction;
-use eframe::egui::{containers, Color32, Context, DragValue, Image, Label, ProgressBar, Response, RichText, Sense, Style, TextEdit, TextStyle, Ui, Visuals, Window};
+use eframe::egui::{containers, Color32, Context, DragValue, Image, Label, ProgressBar, Rect, Response, RichText, Sense, Style, TextEdit, TextStyle, Ui, Visuals, Window};
 use eframe::{egui, App, Frame, Storage};
 use egui_extras::Column;
 use futures::channel::oneshot;
@@ -454,7 +454,7 @@ impl DBPFApp {
                 .filter_map(|(width, enabled)| enabled.then_some(width)) {
                 table = table.column(Column::exact(width));
             }
-            let mut total_rect = None;
+            let mut total_rect: Option<Rect> = None;
             let table_res = table.header(30.0, |mut row| {
                 row.col(|ui| {
                     ui.heading("Path")
@@ -493,8 +493,8 @@ impl DBPFApp {
                                       self.last_hovered_texture = Some(texture.clone());
                                   }
                                   match &mut total_rect {
-                                      r => *r = Some(rect),
                                       Some(r) => *r = r.union(rect),
+                                      r => *r = Some(rect),
                                   }
 
                                   let columns = [
