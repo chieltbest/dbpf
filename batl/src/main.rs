@@ -408,7 +408,6 @@ impl DBPFApp {
             let res = ui.horizontal_centered(|ui| {
                 ui.style_mut().interaction.selectable_labels = false;
                 let lbl = ui.add(Label::new(text)
-                    .extend()
                     .sense(Sense::click()));
                 lbl.context_menu(|ui| self.texture_menu(&texture.id.path, texture, ui));
                 lbl.clicked().then(|| {
