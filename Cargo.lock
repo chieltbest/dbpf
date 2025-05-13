@@ -4188,8 +4188,7 @@ dependencies = [
 [[package]]
 name = "texpresso"
 version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8277e703c934b9693d0773d5749faacc6366b3d81d012da556a4cfd4ab87f336"
+source = "git+https://github.com/jansol/texpresso.git#b11740341c148782b7c205ffa22615f3db647718"
 dependencies = [
  "libm",
 ]
