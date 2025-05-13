@@ -23,6 +23,7 @@ use egui_memory_editor::option_data::MemoryEditorOptions;
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use dbpf::{CompressionType, DBPFFile, IndexEntry};
 use dbpf::internal_file::CompressionError;
 
@@ -416,7 +417,7 @@ impl YaPeApp {
                     .collect()
             }
             Err(e) => {
-                eprintln!("{e}");
+                error!(?e);
                 vec![]
             }
         };
@@ -428,7 +429,7 @@ impl YaPeApp {
 
     fn open_file(&mut self, path: PathBuf) {
         let Ok(bytes) = fs::read(path.clone())
-            .inspect_err(|e| eprintln!("{e}")) else {
+            .inspect_err(|e| error!(?e)) else {
             return;
         };
         self.open_bytes(bytes);
@@ -455,7 +456,7 @@ impl YaPeApp {
                             "", 0..decompressed.data.len())))
                 }
             })
-            .inspect_err(|err| eprintln!("{err:?}"));
+            .inspect_err(|err| error!(?err));
 
         Some(EntryEditorTab {
             state: res.unwrap_or_else(|err| EditorType::Error(err)),
@@ -554,10 +555,10 @@ impl App for YaPeApp {
                             .clicked().then(|| {
                             let mut buf = Cursor::new(Vec::new());
                             match self.save_bytes(&mut buf) {
-                                Err(e) => eprintln!("{e}"),
+                                Err(e) => error!(?e),
                                 Ok(_) => {
                                     if let Err(e) = fs::write(path, buf.into_inner()) {
-                                        eprintln!("{e}");
+                                        error!(?e);
                                     }
                                 }
                             }
