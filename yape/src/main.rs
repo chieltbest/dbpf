@@ -3,7 +3,7 @@
 // TODO add resource type tooltip
 // TODO add type filter
 // TODO header editor
-// TODO add open with arguments
+// TODO add open with resource tgi arguments
 
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -67,6 +67,9 @@ struct EntryEditorTab {
     id: usize,
 
     // used for (de)serialising
+    #[serde(default)]
+    is_hex_editor: bool,
+    #[serde(default)]
     index: Option<usize>,
 }
 
@@ -89,6 +92,8 @@ struct YaPeAppData {
 
     #[serde(skip)]
     open_new_tab_index: Option<usize>,
+    #[serde(skip)]
+    open_new_hex_tab_index: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -125,6 +130,7 @@ impl Default for YaPeApp {
                 highlight_index: None,
 
                 open_new_tab_index: None,
+                open_new_hex_tab_index: None,
 
                 open_file: None,
             },
@@ -178,6 +184,7 @@ impl EntryEditorTab {
 impl YaPeAppData {
     fn show_index(&mut self, ui: &mut Ui) {
         let mut open_index = None;
+        let mut open_hex_index = None;
 
         match &mut self.open_file {
             None => {}
@@ -234,13 +241,20 @@ impl YaPeAppData {
                                       let i = row.index();
 
                                       let mut sense_fun = |ui: &mut Ui, res: Response, clicked: bool| {
-                                          if ui.interact(
+                                          let interact_res = ui.interact(
                                               Rect::everything_right_of(res.rect.right()),
                                               Id::from(format!("row_interact_{i}")),
                                               Sense::click(),
-                                          ).clicked() || (clicked && res.clicked()) {
+                                          );
+                                          if interact_res.clicked() || (clicked && res.clicked()) {
                                               open_index = Some(i);
                                           }
+                                          (res | interact_res).context_menu(|ui| {
+                                              if ui.button("Open hex editor").clicked() {
+                                                  open_hex_index = Some(i);
+                                                  ui.close_menu();
+                                              }
+                                          });
                                       };
 
                                       let selected = self.highlight_index.is_some_and(|hi| hi == i);
@@ -292,6 +306,7 @@ impl YaPeAppData {
                 if open_index.is_some() {
                     self.highlight_index = open_index;
                 }
+                self.open_new_hex_tab_index = open_hex_index;
 
                 if let Some(delete_i) = delete_index {
                     entries.remove(delete_i);
@@ -377,8 +392,9 @@ impl YaPeApp {
                         match tab {
                             YaPeTab::File => Some(YaPeTab::File),
                             YaPeTab::Entry(entry) => {
+                                let hex_editor = entry.is_hex_editor;
                                 entry.index.and_then(|i|
-                                    Self::open_index(*id_rc.borrow_mut(), *data_rc.borrow_mut(), rc_entries, i, &cc.egui_ctx)
+                                    Self::open_index(*id_rc.borrow_mut(), *data_rc.borrow_mut(), rc_entries, i, hex_editor, &cc.egui_ctx)
                                         .map(|t| YaPeTab::Entry(t)))
                             }
                         }
@@ -437,7 +453,7 @@ impl YaPeApp {
     }
 
     #[must_use]
-    fn open_index<R: Read + Seek>(next_tab_id: &mut usize, reader: &mut R, rc_entries: &Vec<Rc<RefCell<IndexEntry>>>, index: usize, ui_ctx: &Context) -> Option<EntryEditorTab> {
+    fn open_index<R: Read + Seek>(next_tab_id: &mut usize, reader: &mut R, rc_entries: &Vec<Rc<RefCell<IndexEntry>>>, index: usize, mut hex_editor: bool, ui_ctx: &Context) -> Option<EntryEditorTab> {
         let id = *next_tab_id;
         *next_tab_id = next_tab_id.wrapping_add(1);
         let index_entry = &rc_entries.get(index)?;
@@ -446,10 +462,11 @@ impl YaPeApp {
         let res = entry_ref.data(reader)
             .map_err(|err| CompressionError::BinResult(err))
             .and_then(|entry| {
-                if editor_supported(file_type) {
+                if editor_supported(file_type) && !hex_editor {
                     let decoded = entry.decoded()?.unwrap();
                     Ok(EditorType::DecodedEditor(decoded.new_editor(ui_ctx)))
                 } else {
+                    hex_editor = true;
                     let decompressed = entry.decompressed()?;
                     Ok(EditorType::HexEditor(
                         MemoryEditor::new().with_address_range(
@@ -462,13 +479,14 @@ impl YaPeApp {
             state: res.unwrap_or_else(|err| EditorType::Error(err)),
             data: Rc::downgrade(index_entry),
             index: Some(index),
+            is_hex_editor: hex_editor,
             id,
         })
     }
 
-    fn open_index_tab(&mut self, index: usize, ui_ctx: &Context) {
+    fn open_index_tab(&mut self, index: usize, hex_editor: bool, ui_ctx: &Context) {
         if let Some((cur, _file, rc_entries)) = &mut self.data.open_file {
-            let Some(tab) = Self::open_index(&mut self.next_tab_id, cur, rc_entries, index, ui_ctx) else { return; };
+            let Some(tab) = Self::open_index(&mut self.next_tab_id, cur, rc_entries, index, hex_editor, ui_ctx) else { return; };
             let leaf_pos = self.dock_state.iter_all_tabs().skip(1).last().map(|(pos, _tab)| pos);
             if let Some(pos) = leaf_pos {
                 if let Some((_i, node)) = self.dock_state.iter_all_nodes_mut().nth(pos.1.0) {
@@ -601,7 +619,11 @@ impl App for YaPeApp {
 
         if let Some(new_tab_index) = self.data.open_new_tab_index {
             self.data.open_new_tab_index = None;
-            self.open_index_tab(new_tab_index, ctx);
+            self.open_index_tab(new_tab_index, false, ctx);
+        }
+        if let Some(new_hex_tab_index) = self.data.open_new_hex_tab_index {
+            self.data.open_new_hex_tab_index = None;
+            self.open_index_tab(new_hex_tab_index, true, ctx);
         }
 
         ctx.input(|i| i.raw.dropped_files.get(0).map(|f| f.clone()))
