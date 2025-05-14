@@ -27,12 +27,6 @@ impl From<NullString> for ByteString {
     }
 }
 
-impl From<BigString> for ByteString {
-    fn from(value: BigString) -> Self {
-        Self(value.data)
-    }
-}
-
 impl TryInto<String> for ByteString {
     type Error = FromUtf8Error;
 
@@ -284,57 +278,22 @@ impl BinWrite for BigInt {
     }
 }
 
+impl From<usize> for BigInt {
+    fn from(value: usize) -> Self {
+        Self {
+            num: value,
+        }
+    }
+}
+
+impl From<BigInt> for usize {
+    fn from(value: BigInt) -> Self {
+        value.num
+    }
+}
+
 /// Also referred to as 7BITSTR, a string that encodes it's length in a variable-length int before the data
-#[binrw]
-#[derive(Clone, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
-#[cfg_attr(test, derive(Arbitrary))]
-pub struct BigString {
-    #[br(temp)]
-    #[bw(calc = BigInt{num: data.len()})]
-    len: BigInt,
-    #[br(count = len.num)]
-    pub data: Vec<u8>,
-}
-
-impl Debug for BigString {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BigString")
-            .field("data", &String::from_utf8(self.data.clone()))
-            .finish()
-    }
-}
-
-impl From<&str> for BigString {
-    fn from(value: &str) -> Self {
-        Self {
-            data: Vec::from(value)
-        }
-    }
-}
-
-impl From<String> for BigString {
-    fn from(value: String) -> Self {
-        Self {
-            data: value.into_bytes()
-        }
-    }
-}
-
-impl From<ByteString> for BigString {
-    fn from(value: ByteString) -> Self {
-        Self {
-            data: value.0,
-        }
-    }
-}
-
-impl TryFrom<BigString> for String {
-    type Error = FromUtf8Error;
-
-    fn try_from(value: BigString) -> Result<Self, Self::Error> {
-        String::from_utf8(value.data)
-    }
-}
+pub type BigString = PascalString<BigInt>;
 
 #[binrw]
 #[brw(little)]
