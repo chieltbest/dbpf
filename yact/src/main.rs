@@ -500,12 +500,17 @@ impl App for DBPFApp {
 
                     ui.add(TextEdit::singleline(&mut self.scan_folders)
                         .id_source("scan folders")
-                        .desired_width(ui.available_width() - 30.0))
+                        .desired_width(ui.available_width() - 60.0))
                         .lost_focus().then(|| {
                         self.start_scannning(ctx);
                     });
                     if ui.button("🗁").clicked() {
                         self.open_downloads_picker();
+                    }
+                    if ui.button("⟳")
+                        .on_hover_text("Scan all the files in the folder again")
+                        .clicked() {
+                        self.start_scannning(ctx);
                     }
                 }).response.on_hover_text_at_pointer("The folder you want to scan (normally your downloads folder)");
 
