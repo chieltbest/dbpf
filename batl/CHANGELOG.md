@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.2.2] - 2025-05-14
+
+### 🚀 Features
+
+- *(dbpf)* Add support for decoding of Behaviour Function resources
+- Add primitive Behaviour Function editor/viewer
+- Add scan again button
+
+### ♿ Accessibility
+
+- Prevent flashing of the texture tooltip in almost all cases
+
+### 🐛 Bug Fixes
+
+- Properly log crashes (panics) instead of discarding them
+- Improve error handling
+- Automatic sizing of filter list
+- Take the amount of mipmap levels into account when calculating texture memory size
+- Textures that have bad data are reported and will not crash the program
+- Make texture tooltip actually show up
+- *(dbpf)* Decompression of dxt textures that are not a multiple of 4
+- Improve texture preview open condition
+
+### 📚 Documentation
+
+- Add some tooltips and fix existing ones
+
+### ⚡ Performance
+
+- Attempt to alleviate some memory usage problems
+
+### 🚜 Refactor
+
+- *(editor)* Simplify Editor trait
+- Make BigString implementation an instance of PascalString
+
+### 🎨 Styling
+
+- Reduce the width of the comparison selector
+
 ## [0.2.1] - 2025-05-10
 
 ### 🚀 Features
@@ -61,6 +101,7 @@
 
 ### 🚀 Features
 
+- Log to a file in the config directory
 - *(dbpf)* Add support for header V3 (Spore) files
 
 ### 🐛 Bug Fixes

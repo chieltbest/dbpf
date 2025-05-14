@@ -615,7 +615,7 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "batl"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "binrw",
  "dbpf",
