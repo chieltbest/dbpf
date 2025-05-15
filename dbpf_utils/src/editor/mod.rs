@@ -3,7 +3,7 @@ use std::hash::Hash;
 use eframe::egui;
 use eframe::egui::{Grid, Response, Ui};
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
-use dbpf::internal_file::behaviour_function::BehaviourFunction;
+use dbpf::internal_file::behaviour::behaviour_function::BehaviourFunction;
 use dbpf::internal_file::DecodedFile;
 use dbpf::internal_file::sim_outfits::SimOutfits;
 use dbpf::internal_file::text_list::TextList;

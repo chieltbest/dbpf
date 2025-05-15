@@ -1,5 +1,5 @@
 use eframe::egui::{ComboBox, Context, DragValue, Grid, Response, Ui};
-use dbpf::internal_file::behaviour_function::{BehaviourFunction, Goto, Instruction, Signature};
+use dbpf::internal_file::behaviour::behaviour_function::{BehaviourFunction, Goto, Instruction, Signature};
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 

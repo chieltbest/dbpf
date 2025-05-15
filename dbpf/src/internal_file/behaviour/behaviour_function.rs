@@ -1,8 +1,8 @@
 use std::io::{Read, Seek, Write};
 use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, Endian, NamedArgs, args};
 use crate::common::FileName;
-use crate::internal_file::behaviour_function::Goto::{Error, False, Instr, True};
-use crate::internal_file::behaviour_function::Signature::*;
+use crate::internal_file::behaviour::behaviour_function::Goto::{Error, False, Instr, True};
+use crate::internal_file::behaviour::behaviour_function::Signature::*;
 
 #[binrw]
 #[brw(repr = u16)]

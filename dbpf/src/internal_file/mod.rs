@@ -1,12 +1,10 @@
 pub mod dbpf_directory;
 pub mod sim_outfits;
 pub mod resource_collection;
-pub mod behaviour_function;
 pub mod text_list;
 pub mod cpf;
-pub mod behaviour_constants;
 pub mod audio_reference;
-pub mod object_functions;
+pub mod behaviour;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
@@ -21,10 +19,10 @@ use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use cpf::binary_index::BinaryIndex;
 use cpf::property_set::PropertySet;
 use crate::internal_file::audio_reference::AudioReference;
-use crate::internal_file::behaviour_constants::BehaviourConstants;
-use crate::internal_file::behaviour_function::BehaviourFunction;
+use behaviour::behaviour_constants::BehaviourConstants;
+use behaviour::behaviour_function::BehaviourFunction;
 use crate::internal_file::cpf::CPF;
-use crate::internal_file::object_functions::ObjectFunctions;
+use behaviour::object_functions::ObjectFunctions;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
 use crate::internal_file::text_list::TextList;
