@@ -309,6 +309,9 @@ impl YaPeAppData {
                     self.highlight_index = open_index;
                 }
                 self.open_new_hex_tab_index = open_hex_index;
+                if open_hex_index.is_some() {
+                    self.highlight_index = open_hex_index;
+                }
 
                 if let Some(delete_i) = delete_index {
                     entries.remove(delete_i);
