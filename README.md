@@ -35,7 +35,6 @@ A native Linux version of SimPE. Currently several editors are implemented for v
 | TXMT         | Material Definition | :white_check_mark: | :white_check_mark: |
 | STR          | Text List           | :white_check_mark: | :white_check_mark: |
 | CTSS         | Catalog Description | :white_check_mark: | :white_check_mark: |
-| CATS         | Catalog String      | :white_check_mark: | :white_check_mark: |
 | TTAs         | Pie Menu Strings    | :white_check_mark: | :white_check_mark: |
 
 ### Generic editor for:

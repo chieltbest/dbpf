@@ -309,7 +309,6 @@ impl DecodedFile {
             }
             DBPFFileType::Known(KnownDBPFFileType::TextList |
                                 KnownDBPFFileType::CatalogDescription |
-                                KnownDBPFFileType::CatalogString |
                                 KnownDBPFFileType::PieMenuStrings) => {
                 Some(TextList::read(&mut cursor).map(|r| DecodedFile::TextList(r)))
             }

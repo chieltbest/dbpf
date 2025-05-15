@@ -120,7 +120,6 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
             // STR
             KnownDBPFFileType::TextList |
             KnownDBPFFileType::CatalogDescription |
-            KnownDBPFFileType::CatalogString |
             KnownDBPFFileType::PieMenuStrings |
 
             KnownDBPFFileType::SimanticsBehaviourFunction
