@@ -4,6 +4,7 @@ pub mod resource_collection;
 pub mod behaviour_function;
 pub mod text_list;
 pub mod cpf;
+pub mod behaviour_constants;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
@@ -17,6 +18,7 @@ use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use cpf::binary_index::BinaryIndex;
 use cpf::property_set::PropertySet;
+use crate::internal_file::behaviour_constants::BehaviourConstants;
 use crate::internal_file::behaviour_function::BehaviourFunction;
 use crate::internal_file::cpf::CPF;
 use crate::internal_file::resource_collection::ResourceCollection;
@@ -260,7 +262,9 @@ pub enum DecodedFile {
     // others
     SimOutfits(SimOutfits),
     TextList(TextList),
+
     BehaviourFunction(BehaviourFunction),
+    BehaviourConstants(BehaviourConstants),
 }
 
 impl DecodedFile {
@@ -312,6 +316,9 @@ impl DecodedFile {
             DBPFFileType::Known(KnownDBPFFileType::SimanticsBehaviourFunction) => {
                 Some(BehaviourFunction::read(&mut cursor).map(|r| DecodedFile::BehaviourFunction(r)))
             }
+            DBPFFileType::Known(KnownDBPFFileType::SimanticsBehaviourConstants) => {
+                Some(BehaviourConstants::read(&mut cursor).map(|r| DecodedFile::BehaviourConstants(r)))
+            }
             _ => None,
         }
     }
@@ -326,6 +333,7 @@ impl DecodedFile {
             DecodedFile::ResourceCollection(x) => x.write(&mut data)?,
             DecodedFile::TextList(x) => x.write(&mut data)?,
             DecodedFile::BehaviourFunction(x) => x.write(&mut data)?,
+            DecodedFile::BehaviourConstants(x) => x.write(&mut data)?,
         }
         // TODO write error handling?
         Ok(RawFileData { data: data.into_inner() })

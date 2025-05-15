@@ -83,7 +83,7 @@ impl FilteredConflictList {
     }
 
     fn filter_defaults() -> HashSet<KnownDBPFFileType> {
-        HashSet::from([KnownDBPFFileType::SimanticsBehaviourConstant,
+        HashSet::from([KnownDBPFFileType::SimanticsBehaviourConstants,
             KnownDBPFFileType::SimanticsBehaviourFunction,
             // KnownDBPFFileType::CatalogDescription,
             KnownDBPFFileType::GlobalData,
@@ -101,7 +101,7 @@ impl FilteredConflictList {
     }
 
     pub fn filter_types() -> [KnownDBPFFileType; 14] {
-        [KnownDBPFFileType::SimanticsBehaviourConstant,
+        [KnownDBPFFileType::SimanticsBehaviourConstants,
             KnownDBPFFileType::SimanticsBehaviourFunction,
             KnownDBPFFileType::CatalogDescription,
             KnownDBPFFileType::GlobalData,

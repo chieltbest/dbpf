@@ -111,7 +111,7 @@ pub async fn find_conflicts(dirs: Vec<PathBuf>,
                 match tgi {
                     // BCON, BHAV, CTSS, GLOB, GZPS, OBJD, OBJF, SLOT, STR, TPRP, TRCN, TTAB, TTAS, VERS
                     TGI {
-                        type_id: Known(KnownDBPFFileType::SimanticsBehaviourConstant |
+                        type_id: Known(KnownDBPFFileType::SimanticsBehaviourConstants |
                                        KnownDBPFFileType::SimanticsBehaviourFunction |
                                        KnownDBPFFileType::CatalogDescription |
                                        KnownDBPFFileType::GlobalData |

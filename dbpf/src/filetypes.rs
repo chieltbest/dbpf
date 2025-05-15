@@ -53,7 +53,7 @@ pub enum KnownDBPFFileType {
     // SCOR
     SimScores = 0x3053CF74,
     // BCON
-    SimanticsBehaviourConstant = 0x42434F4E,
+    SimanticsBehaviourConstants = 0x42434F4E,
     // BHAV
     SimanticsBehaviourFunction = 0x42484156,
     // BMP
@@ -359,7 +359,7 @@ impl KnownDBPFFileType {
             DormerThumbnail => ("Dormer Thumbnail", "THUB", Some("dormer_thumb.jpg"), No),
             FenceXML => ("Fence XML", "XFNC", Some("fence.xml"), No),
             SimScores => ("Sim Scores", "SCOR", None, No),
-            SimanticsBehaviourConstant => ("Simantics Behaviour Constant", "BCON", None, Embedded),
+            SimanticsBehaviourConstants => ("Simantics Behaviour Constants", "BCON", None, Embedded),
             SimanticsBehaviourFunction => ("Simantics Behaviour Function", "BHAV", None, Embedded),
             BitmapImage => ("Bitmap Image", "BMP", Some("bmp"), Embedded),
             CatalogString => ("Catalog String", "CATS", None, No),
