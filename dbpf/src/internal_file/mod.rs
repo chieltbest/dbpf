@@ -6,6 +6,7 @@ pub mod text_list;
 pub mod cpf;
 pub mod behaviour_constants;
 pub mod audio_reference;
+pub mod object_functions;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
@@ -23,6 +24,7 @@ use crate::internal_file::audio_reference::AudioReference;
 use crate::internal_file::behaviour_constants::BehaviourConstants;
 use crate::internal_file::behaviour_function::BehaviourFunction;
 use crate::internal_file::cpf::CPF;
+use crate::internal_file::object_functions::ObjectFunctions;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
 use crate::internal_file::text_list::TextList;
@@ -268,6 +270,7 @@ pub enum DecodedFile {
     // others
     SimOutfits(SimOutfits),
     AudioReference(AudioReference),
+    ObjectFunctions(ObjectFunctions),
     TextList(TextList),
 }
 
@@ -325,6 +328,9 @@ impl DecodedFile {
             DBPFFileType::Known(KnownDBPFFileType::AudioReference) => {
                 Some(AudioReference::read(&mut cursor).map(|r| DecodedFile::AudioReference(r)))
             }
+            DBPFFileType::Known(KnownDBPFFileType::ObjectFunctions) => {
+                Some(ObjectFunctions::read(&mut cursor).map(|r| DecodedFile::ObjectFunctions(r)))
+            }
             _ => None,
         }
     }
@@ -341,6 +347,7 @@ impl DecodedFile {
             DecodedFile::BehaviourFunction(x) => x.write(&mut data)?,
             DecodedFile::BehaviourConstants(x) => x.write(&mut data)?,
             DecodedFile::AudioReference(x) => x.write(&mut data)?,
+            DecodedFile::ObjectFunctions(x) => x.write(&mut data)?,
         }
         // TODO write error handling?
         Ok(RawFileData { data: data.into_inner() })
