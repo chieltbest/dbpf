@@ -155,21 +155,23 @@ impl EntryEditorTab {
                     let mut data_ref = data.borrow_mut();
                     let data = data_ref.data(reader).unwrap().decompressed().unwrap();
                     if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-                        ui.centered_and_justified(|ui|
-                            ScrollArea::vertical().show(ui, |ui| {
-                                if ui.code_editor(&mut str).changed() {
-                                    data.data = str.into_bytes();
-                                }
-                            })
-                        );
-                    } else {
-                        editor.draw_editor_contents(
-                            ui,
-                            data,
-                            |mem, addr| Some(mem.data[addr]),
-                            |mem, addr, byte| mem.data[addr] = byte,
-                        );
+                        if !self.is_hex_editor {
+                            ui.centered_and_justified(|ui|
+                                ScrollArea::vertical().show(ui, |ui| {
+                                    if ui.code_editor(&mut str).changed() {
+                                        data.data = str.into_bytes();
+                                    }
+                                })
+                            );
+                            return;
+                        }
                     }
+                    editor.draw_editor_contents(
+                        ui,
+                        data,
+                        |mem, addr| Some(mem.data[addr]),
+                        |mem, addr, byte| mem.data[addr] = byte,
+                    );
                 }
                 EditorType::DecodedEditor(state) => {
                     let mut data_ref = data.borrow_mut();
@@ -395,7 +397,7 @@ impl YaPeApp {
                                 let hex_editor = entry.is_hex_editor;
                                 entry.index.and_then(|i|
                                     Self::open_index(*id_rc.borrow_mut(), *data_rc.borrow_mut(), rc_entries, i, hex_editor, &cc.egui_ctx)
-                                        .map(|t| YaPeTab::Entry(t)))
+                                        .map(YaPeTab::Entry))
                             }
                         }
                     });
@@ -453,7 +455,7 @@ impl YaPeApp {
     }
 
     #[must_use]
-    fn open_index<R: Read + Seek>(next_tab_id: &mut usize, reader: &mut R, rc_entries: &Vec<Rc<RefCell<IndexEntry>>>, index: usize, mut hex_editor: bool, ui_ctx: &Context) -> Option<EntryEditorTab> {
+    fn open_index<R: Read + Seek>(next_tab_id: &mut usize, reader: &mut R, rc_entries: &Vec<Rc<RefCell<IndexEntry>>>, index: usize, hex_editor: bool, ui_ctx: &Context) -> Option<EntryEditorTab> {
         let id = *next_tab_id;
         *next_tab_id = next_tab_id.wrapping_add(1);
         let index_entry = &rc_entries.get(index)?;
@@ -466,7 +468,6 @@ impl YaPeApp {
                     let decoded = entry.decoded()?.unwrap();
                     Ok(EditorType::DecodedEditor(decoded.new_editor(ui_ctx)))
                 } else {
-                    hex_editor = true;
                     let decompressed = entry.decompressed()?;
                     Ok(EditorType::HexEditor(
                         MemoryEditor::new().with_address_range(
@@ -492,10 +493,8 @@ impl YaPeApp {
                 if let Some((_i, node)) = self.dock_state.iter_all_nodes_mut().nth(pos.1.0) {
                     node.append_tab(YaPeTab::Entry(tab));
                 }
-            } else {
-                if let Some(focus) = self.dock_state.focused_leaf() {
-                    self.dock_state.split(focus, Split::Below, 0.5, Node::leaf(YaPeTab::Entry(tab)));
-                }
+            } else if let Some(focus) = self.dock_state.focused_leaf() {
+                self.dock_state.split(focus, Split::Below, 0.5, Node::leaf(YaPeTab::Entry(tab)));
             }
         }
     }
