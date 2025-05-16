@@ -111,7 +111,7 @@ impl FilteredConflictList {
             KnownDBPFFileType::ObjectSlot,
             KnownDBPFFileType::TextList,
             KnownDBPFFileType::EdithSimanticsBehaviourLabels,
-            KnownDBPFFileType::BehaviourConstantLabels,
+            KnownDBPFFileType::BehaviourConstantsLabels,
             KnownDBPFFileType::PieMenuFunctions,
             KnownDBPFFileType::PieMenuStrings,
             KnownDBPFFileType::VersionInformation]

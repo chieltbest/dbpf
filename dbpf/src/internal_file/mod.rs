@@ -23,6 +23,8 @@ use behaviour::behaviour_constants::BehaviourConstants;
 use behaviour::behaviour_function::BehaviourFunction;
 use crate::internal_file::cpf::CPF;
 use behaviour::object_functions::ObjectFunctions;
+use crate::internal_file::behaviour::behaviour_constants_labels::BehaviourConstantsLabels;
+use crate::internal_file::behaviour::behaviour_function_labels::BehaviourFunctionLabels;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
 use crate::internal_file::text_list::TextList;
@@ -263,12 +265,14 @@ pub enum DecodedFile {
 
     // SimAntics
     BehaviourFunction(BehaviourFunction),
+    BehaviourFunctionLabels(BehaviourFunctionLabels),
     BehaviourConstants(BehaviourConstants),
+    BehaviourConstantsLabels(BehaviourConstantsLabels),
+    ObjectFunctions(ObjectFunctions),
 
     // others
     SimOutfits(SimOutfits),
     AudioReference(AudioReference),
-    ObjectFunctions(ObjectFunctions),
     TextList(TextList),
 }
 
@@ -320,14 +324,20 @@ impl DecodedFile {
             DBPFFileType::Known(KnownDBPFFileType::SimanticsBehaviourFunction) => {
                 Some(BehaviourFunction::read(&mut cursor).map(|r| DecodedFile::BehaviourFunction(r)))
             }
+            DBPFFileType::Known(KnownDBPFFileType::EdithSimanticsBehaviourLabels) => {
+                Some(BehaviourFunctionLabels::read(&mut cursor).map(|r| DecodedFile::BehaviourFunctionLabels(r)))
+            }
             DBPFFileType::Known(KnownDBPFFileType::SimanticsBehaviourConstants) => {
                 Some(BehaviourConstants::read(&mut cursor).map(|r| DecodedFile::BehaviourConstants(r)))
             }
-            DBPFFileType::Known(KnownDBPFFileType::AudioReference) => {
-                Some(AudioReference::read(&mut cursor).map(|r| DecodedFile::AudioReference(r)))
+            DBPFFileType::Known(KnownDBPFFileType::BehaviourConstantsLabels) => {
+                Some(BehaviourConstantsLabels::read(&mut cursor).map(|r| DecodedFile::BehaviourConstantsLabels(r)))
             }
             DBPFFileType::Known(KnownDBPFFileType::ObjectFunctions) => {
                 Some(ObjectFunctions::read(&mut cursor).map(|r| DecodedFile::ObjectFunctions(r)))
+            }
+            DBPFFileType::Known(KnownDBPFFileType::AudioReference) => {
+                Some(AudioReference::read(&mut cursor).map(|r| DecodedFile::AudioReference(r)))
             }
             _ => None,
         }
@@ -343,9 +353,11 @@ impl DecodedFile {
             DecodedFile::ResourceCollection(x) => x.write(&mut data)?,
             DecodedFile::TextList(x) => x.write(&mut data)?,
             DecodedFile::BehaviourFunction(x) => x.write(&mut data)?,
+            DecodedFile::BehaviourFunctionLabels(x) => x.write(&mut data)?,
             DecodedFile::BehaviourConstants(x) => x.write(&mut data)?,
-            DecodedFile::AudioReference(x) => x.write(&mut data)?,
+            DecodedFile::BehaviourConstantsLabels(x) => x.write(&mut data)?,
             DecodedFile::ObjectFunctions(x) => x.write(&mut data)?,
+            DecodedFile::AudioReference(x) => x.write(&mut data)?,
         }
         // TODO write error handling?
         Ok(RawFileData { data: data.into_inner() })

@@ -131,7 +131,7 @@ pub enum KnownDBPFFileType {
     // TPRP
     EdithSimanticsBehaviourLabels = 0x54505250,
     // TRCN
-    BehaviourConstantLabels = 0x5452434E,
+    BehaviourConstantsLabels = 0x5452434E,
     // TREE
     EdithFlowchartTrees = 0x54524545,
     // GROP
@@ -398,7 +398,7 @@ impl KnownDBPFFileType {
             TextList => ("Text List", "STR", None, Embedded),
             TATT => ("TATT", "TATT", None, Embedded),
             EdithSimanticsBehaviourLabels => ("Edith Simantics Behaviour Labels", "TPRP", None, Embedded),
-            BehaviourConstantLabels => ("Behaviour Constant Labels", "TRCN", None, No),
+            BehaviourConstantsLabels => ("Behaviour Constants Labels", "TRCN", None, No),
             EdithFlowchartTrees => ("Edith Flowchart Trees", "TREE", Some("tree.txt"), Embedded),
             GroupsCache => ("Groups Cache", "GROP", None, No),
             PieMenuFunctions => ("Pie Menu Functions", "TTAB", None, Embedded),
