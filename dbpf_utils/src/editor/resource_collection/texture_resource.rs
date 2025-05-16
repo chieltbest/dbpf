@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 use eframe::egui;
-use eframe::egui::{ColorImage, ComboBox, DragValue, Response, ScrollArea, TextureOptions, Ui};
+use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Response, ScrollArea, TextureOptions, Ui};
 use image::ImageReader;
 use tracing::error;
 use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureFormat, TextureResource, TextureResourceData};
@@ -40,7 +40,7 @@ impl Editor for TextureResource {
                             ColorImage::from_rgba_unmultiplied(
                                 [decoded.width, decoded.height],
                                 &decoded.data),
-                            TextureOptions::NEAREST
+                            TextureOptions::NEAREST,
                         )
                     })
                 }).collect()
@@ -64,6 +64,41 @@ impl Editor for TextureResource {
                     .map(|t| t.entries.len())
                     .unwrap_or(0)));
             ui.label("Mip levels");
+
+            let top_is_lifo = self.textures.iter().any(|tex| {
+                matches!(tex.entries.last(), Some(TextureResourceData::LIFOFile { .. }))
+            });
+            let bottom_is_lifo = self.textures.iter().any(|tex| {
+                matches!(tex.entries.first(), Some(TextureResourceData::LIFOFile { .. }))
+            });
+
+            if ui.add_enabled(!top_is_lifo,
+                              Button::new("Recalculate all mipmaps")).clicked() {
+                self.remove_smaller_mip_levels();
+                self.add_max_mip_levels();
+                res.mark_changed();
+                update_images = true;
+            }
+            if ui.add_enabled(self.mip_levels() < self.max_mip_levels() && !bottom_is_lifo,
+                              Button::new("Add missing mipmaps")).clicked() {
+                self.add_max_mip_levels();
+                res.mark_changed();
+                update_images = true;
+            }
+            if ui.add_enabled(self.mip_levels() > 1,
+                              Button::new("Remove all mipmaps")).clicked() {
+                self.remove_smaller_mip_levels();
+                res.mark_changed();
+                update_images = true;
+            }
+            if ui.add_enabled(self.mip_levels() > 1,
+                              Button::new("Remove largest texture"))
+                .on_hover_text("Deletes the biggest image from the list of mipmaps, effectively halving the image size")
+                .clicked() {
+                self.remove_largest_mip_levels(1);
+                res.mark_changed();
+                update_images = true;
+            }
         });
 
         let formats = [
@@ -91,6 +126,11 @@ impl Editor for TextureResource {
                 *self = new;
                 update_images = true;
             }
+        }
+
+        if update_images {
+            *state = self.new_editor(ui.ctx());
+            update_images = false;
         }
 
         ui.horizontal(|ui| {
@@ -142,15 +182,25 @@ impl Editor for TextureResource {
                             .with_guessed_format()
                             .ok())
                         .map(|i| i.decode())
-
                 };
 
                 if let Some(Ok(image)) = image {
+                    let orig_format = self.get_format();
+
+                    let has_mip = self.mip_levels() > 1;
+
                     self.compress_replace(DecodedTexture {
                         width: image.width() as usize,
                         height: image.height() as usize,
                         data: image.into_rgba8().to_vec(),
-                    });
+                    }, has_mip.then_some(TextureFormat::RawBGRA));
+
+                    if has_mip {
+                        self.add_max_mip_levels();
+                        if let Ok(new) = self.recompress_with_format(orig_format) {
+                            *self = new;
+                        }
+                    }
 
                     update_images = true;
 
