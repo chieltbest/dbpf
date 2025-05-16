@@ -296,27 +296,54 @@ pub struct DecodedTexture {
 impl DecodedTexture {
     /// halves the image in both dimensions, combining the value of groups of four pixels into a single pixel
     fn shrink(&mut self) -> bool {
-        if (self.width % 2 == 1) || (self.height % 2 == 1) {
+        if (self.width > 1 && self.width % 2 == 1) ||
+            (self.height > 1 && self.height % 2 == 1) ||
+            (self.width == 1 && self.height == 1) {
             return false;
         }
-        let new_width = self.width / 2;
-        let new_height = self.height / 2;
-        for y in 0..new_height {
-            for x in 0..new_width {
+        let pixel_offset = 4;
+        let new_width = max(self.width / 2, 1);
+        let new_height = max(self.height / 2, 1);
+        match (self.width, self.height) {
+            (w, h) if w == 1 || h == 1 => {
                 let pixel_offset = 4;
-                let orig_row_offset = pixel_offset * self.width;
-                let orig_i = (x * pixel_offset * 2) + (y * orig_row_offset * 2);
-                let new_i = (x * pixel_offset) + (y * pixel_offset * new_width);
-                for c in 0..4 {
-                    let new_c: u16 = ((self.data[c + orig_i] as u16) +
-                        (self.data[c + orig_i + pixel_offset] as u16) +
-                        (self.data[c + orig_i + orig_row_offset] as u16) +
-                        (self.data[c + orig_i + orig_row_offset + pixel_offset] as u16)) / 4;
-                    self.data[c + new_i] = new_c as u8;
+                let new_dim = new_width * new_height;
+                for i in 0..new_dim {
+                    let orig_i = i * pixel_offset * 2;
+                    let new_i = i * pixel_offset;
+                    for c in 0..4 {
+                        let new_c: u16 = ((self.data[c + orig_i] as u16) +
+                            (self.data[c + orig_i + pixel_offset] as u16)) / 2;
+                        self.data[c + new_i] = new_c as u8;
+                    }
                 }
+                self.data.truncate(new_dim * pixel_offset);
+            }
+            (w, h) => {
+                for y in 0..new_height {
+                    for x in 0..new_width {
+                        let orig_row_offset = pixel_offset * self.width;
+                        let orig_i = (x * pixel_offset * 2) + (y * orig_row_offset * 2);
+                        let new_i = (x * pixel_offset) + (y * pixel_offset * new_width);
+                        for c in 0..4 {
+                            let o = c;
+                            // makes a rainbow effect yayyy
+                            /*let o = if c < 3 {
+                                (c + 1) % 3
+                            } else {
+                                c
+                            };*/
+                            let new_c: u16 = ((self.data[o + orig_i] as u16) +
+                                (self.data[o + orig_i + pixel_offset] as u16) +
+                                (self.data[o + orig_i + orig_row_offset] as u16) +
+                                (self.data[o + orig_i + orig_row_offset + pixel_offset] as u16)) / 4;
+                            self.data[c + new_i] = new_c as u8;
+                        }
+                    }
+                }
+                self.data.truncate(new_width * new_height * pixel_offset);
             }
         }
-        self.data.truncate(new_width * new_height * 4);
         self.data.shrink_to_fit();
         self.width = new_width;
         self.height = new_height;
@@ -325,6 +352,7 @@ impl DecodedTexture {
 }
 
 impl TextureResource {
+    /// guess the best matching size for the given mipmap level
     fn mip_size(&self, mip_level: usize) -> (usize, usize) {
         let width = max(self.width >> mip_level, 1) as usize;
         let height = max(self.height >> mip_level, 1) as usize;
@@ -439,7 +467,9 @@ impl TextureResource {
         assert!(mip_levels >= 1);
         let cur_mip_levels = self.mip_levels();
         let (smallest_width, smallest_height) = self.mip_size(cur_mip_levels - 1);
-        if (smallest_width % 2 == 1) || (smallest_height % 2 == 1) {
+        if (smallest_width > 1 && smallest_width % 2 == 1) ||
+            (smallest_height > 1 && smallest_height % 2 == 1) ||
+            (smallest_width == 1 && smallest_height == 1) {
             return 0;
         }
         let cur_smallest_textures = self.textures.iter_mut().map(|tex| {
@@ -460,8 +490,6 @@ impl TextureResource {
         let Ok(mut cur_textures) = cur_smallest_textures else { return 0 };
 
         for i in 0..mip_levels {
-            let new_width = smallest_width >> (i + 1);
-            let new_height = smallest_height >> (i + 1);
             if cur_textures.iter_mut().try_for_each(|tex| {
                 if tex.shrink() {
                     Ok(())
@@ -486,7 +514,12 @@ impl TextureResource {
     }
 
     pub fn add_max_mip_levels(&mut self) {
-        self.add_extra_mip_levels(self.max_mip_levels() - self.mip_levels());
+        let max = self.max_mip_levels();
+        let cur = self.mip_levels();
+        let extra = max - cur;
+        if extra > 0 {
+            self.add_extra_mip_levels(extra);
+        }
     }
 
     pub fn mip_levels(&self) -> usize {
@@ -498,10 +531,14 @@ impl TextureResource {
         let mut height = self.height;
         assert!(width > 0 && height > 0);
         let mut i = 1;
-        while (width % 2 == 0) && (height % 2 == 0) {
+        while (width > 1) || (height > 1)  {
+            if (width > 1 && width % 2 == 1) ||
+                (height > 1 && height % 2 == 1) {
+                return 1;
+            }
             i += 1;
-            width >>= 1;
-            height >>= 1;
+            width = max(width >> 1, 1);
+            height = max(height >> 1, 1);
         }
         i
     }
