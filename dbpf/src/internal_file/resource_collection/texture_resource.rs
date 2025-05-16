@@ -152,7 +152,7 @@ pub struct EmbeddedTextureResourceMipLevel {
     #[br(temp)]
     #[bw(calc = data.len() as u32)]
     num_input_bytes: u32,
-    #[br(args { count: num_input_bytes as usize })]
+    #[br(args{ count: num_input_bytes as usize })]
     pub data: Vec<u8>,
 }
 
@@ -241,7 +241,7 @@ pub enum TextureResourceData {
 }
 
 #[binrw]
-#[brw(import {version: ResourceBlockVersion, mip_levels: u32})]
+#[brw(import{version: ResourceBlockVersion, mip_levels: u32})]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TextureResourceTexture {
     #[br(if (matches ! (version, ResourceBlockVersion::V9), mip_levels))]
@@ -260,7 +260,7 @@ pub struct TextureResourceTexture {
 }
 
 #[binrw]
-#[brw(import {version: ResourceBlockVersion})]
+#[brw(import{version: ResourceBlockVersion})]
 #[derive(Clone, Debug, Default)]
 pub struct TextureResource {
     pub file_name: FileName,
@@ -270,7 +270,7 @@ pub struct TextureResource {
 
     format: TextureFormat,
     #[br(temp)]
-    #[bw(calc = self.mip_levels())]
+    #[bw(calc = self.mip_levels() as u32)]
     mip_levels: u32,
     pub purpose: f32,
     #[br(temp)]
@@ -281,8 +281,8 @@ pub struct TextureResource {
     #[br(if (matches ! (version, ResourceBlockVersion::V9)))]
     pub file_name_repeat: BigString,
 
-    #[br(args {count: num_textures as usize, inner: args ! {version, mip_levels}})]
-    #[bw(args {version, mip_levels: mip_levels})]
+    #[br(args{count: num_textures as usize, inner: args ! {version, mip_levels}})]
+    #[bw(args{version, mip_levels: mip_levels})]
     pub textures: Vec<TextureResourceTexture>,
 }
 
@@ -293,6 +293,12 @@ pub struct DecodedTexture {
 }
 
 impl TextureResource {
+    fn mip_size(&self, mip_level: usize) -> (usize, usize) {
+        let width = max(self.width >> mip_level, 1) as usize;
+        let height = max(self.height >> mip_level, 1) as usize;
+        (width, height)
+    }
+
     /// decompress a single texture given by its texture and mip index
     /// the mip index goes from 0 (largest) to mip_levels (smallest)
     /// if a mip level is represented as a LIFOStream then this function will return None
@@ -305,8 +311,7 @@ impl TextureResource {
             });
         };
         let mip_shift = (self.textures[texture_index].entries.len() - 1) - mip_index;
-        let width = max(self.width >> mip_shift, 1) as usize;
-        let height = max(self.height >> mip_shift, 1) as usize;
+        let (width, height) = self.mip_size(mip_shift);
         let data = data.decompress(width, height, self.format)?;
         Ok(DecodedTexture {
             data,
@@ -352,8 +357,7 @@ impl TextureResource {
                 match entry {
                     TextureResourceData::Embedded(mip) => {
                         let mip_shift = (total_mip_levels - 1) - mip_level;
-                        let width = max(new.width >> mip_shift, 1) as usize;
-                        let height = max(new.height >> mip_shift, 1) as usize;
+                        let (width, height) = self.mip_size(mip_shift);
                         let texture_data = mip.decompress(width, height, previous_format)?;
                         mip.compress(width, height, texture_format, &texture_data);
                         Ok(())
@@ -373,8 +377,9 @@ impl TextureResource {
     /// remove n mipmap levels, starting from the largest first, effectively decreasing the size of the texture
     /// the number of mipmap levels will be reduced by mip_levels
     pub fn remove_largest_mip_levels(&mut self, mip_levels: usize) {
-        self.width = max(self.width >> mip_levels, 1);
-        self.height = max(self.height >> mip_levels, 1);
+        let (width, height) = self.mip_size(mip_levels);
+        self.width = width as u32;
+        self.height = height as u32;
         self.textures.iter_mut().for_each(|texture| {
             texture.entries.truncate(texture.entries.len() - mip_levels);
         });
@@ -388,7 +393,76 @@ impl TextureResource {
         });
     }
 
-    pub fn mip_levels(&self) -> u32 {
-        self.textures.first().map(|t| t.entries.len()).unwrap_or(0) as u32
+    /// remove all but the largest mipmap level
+    pub fn remove_smaller_mip_levels(&mut self) {
+        let cur_mip_levels = self.mip_levels();
+        self.remove_smallest_mip_levels(cur_mip_levels - 1);
+    }
+
+    fn shrink_bitmap(mut bitmap: Vec<u8>, orig_width: usize, orig_height: usize) -> Vec<u8> {
+        let new_width = orig_width / 2;
+        let new_height = orig_height / 2;
+        for y in (0..new_height) {
+            for x in (0..new_width) {
+                let pixel_offset = 4;
+                let orig_row_offset = (pixel_offset * orig_width);
+                let orig_i = (x * pixel_offset * 2) + (y * orig_row_offset * 2);
+                let new_i = (x * pixel_offset) + (y * pixel_offset * new_width);
+                for c in (0..4) {
+                    bitmap[new_i] = ((bitmap[c + orig_i] as u16) +
+                        (bitmap[c + orig_i + pixel_offset] as u16) +
+                        (bitmap[c + orig_i + orig_row_offset] as u16) +
+                        (bitmap[c + orig_i + orig_row_offset + pixel_offset] as u16) / 4) as u8;
+                }
+            }
+        }
+        bitmap.truncate(new_width * new_height * 4);
+        bitmap.shrink_to_fit();
+        bitmap
+    }
+
+    pub fn add_extra_mip_level(&mut self) -> bool {
+        let cur_mip_levels = self.mip_levels();
+        let (smallest_width, smallest_height) = self.mip_size(cur_mip_levels - 1);
+        if (smallest_width % 2 == 1) || (smallest_height % 2 == 1) {
+            return false;
+        }
+        let new_width = smallest_width / 2;
+        let new_height = smallest_height / 2;
+        let new_textures = self.textures.iter_mut().map(|tex| {
+            let smallest_mipmap = tex.entries.first().cloned();
+            match smallest_mipmap {
+                Some(TextureResourceData::Embedded(e)) => {
+                    let orig_image = e.decompress(smallest_width, smallest_height, self.format)
+                        .map_err(|_| ())?;
+                    let new_image = Self::shrink_bitmap(orig_image, smallest_width, smallest_height);
+                    Ok(TextureResourceData::Embedded(
+                        EmbeddedTextureResourceMipLevel::new(
+                            new_width, new_height, self.format, &new_image)))
+                }
+                _ => {
+                    Err(())
+                }
+            }
+        }).collect::<Result<Vec<_>, _>>();
+        match new_textures {
+            Ok(new) => {
+                self.textures.iter_mut()
+                    .zip(new)
+                    .for_each(|(tex, new)| {
+                        tex.entries.insert(0, new);
+                    });
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    pub fn add_max_mip_levels(&mut self) {
+        while self.add_extra_mip_level() {}
+    }
+
+    pub fn mip_levels(&self) -> usize {
+        self.textures.first().map(|t| t.entries.len()).unwrap_or(0)
     }
 }

@@ -126,7 +126,7 @@ fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R)
                                     width: tex.width,
                                     height: tex.height,
                                     format: tex.get_format(),
-                                    mip_levels: tex.mip_levels(),
+                                    mip_levels: tex.mip_levels() as u32,
                                     memory_size: total_memory,
                                 })
                             }
