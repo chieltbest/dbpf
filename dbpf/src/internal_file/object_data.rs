@@ -63,11 +63,11 @@ pub struct ObjectData {
     pub proxy_guid: u32,
     pub slot_group: u16,
     pub aspiration: u16,
-    pub memory: u16,
-    pub sale_price_different: u16,
+    pub memory_nice: u16,
+    pub ignore_quarter_tile_placement: u16, // ignore quarter tile
     pub initial_depreciation: u16,
     pub daily_depreciation: u16,
-    pub self_depreciation: u16,
+    pub self_depreciating: u16,
     pub depreciation_limit: u16,
     pub room_sort: u16,
     pub function_sort: u16,
@@ -89,26 +89,27 @@ pub struct ObjectData {
     pub shadow_type: u16,
     pub num_attributes: u16,
     pub num_object_arrays: u16,
-    unused1: u16,
+    pub for_sale_flags: u16,
     pub front_direction: u16,
-    unused2: u16,
+    pub unused2: u16,
     pub multi_tile_lead: u16,
-    pub expansion_flags: u16,
-    pub num_dynamic_sprites: u16,
+    pub expansion_flags_1: u16, // ts1 dynamic sprites id
+    pub expansion_flags_2: u16, // ts1 num dynamic sprites
     pub chair_entry_flags: u16,
     pub tile_width: u16,
     pub inhibit_suit_copying: u16,
     pub build_mode_type: u16,
     pub original_guid: u32,
-    pub object_model_guid: u32,
+    pub default_graphic: u16, // object model guid?
+    pub unused3: u16,
     pub build_mode_subsort: u16,
-    pub thumbnail_graphic: u16,
-    pub shadow_flags: u16,
+    pub selector_category: u16, // ts1 thumbnail graphic
+    pub selector_sub_category: u16, // ts1 shadow flags
     pub footprint_mask: u16,
-    unused3: u16,
-    pub shadow_brightness: u16,
-    unused4: u16,
-    pub wall_style_sprite_id: u16,
+    pub extend_footprint: u16,
+    pub object_size: u16, // ts1 shadow brightness
+    pub unused4: u16,
+    pub wall_style_sprite_id: u16, // ts1
     pub hunger_rating: u16,
     pub comfort_rating: u16,
     pub hygiene_rating: u16,
@@ -119,7 +120,7 @@ pub struct ObjectData {
     pub gives_skill: u16,
     pub num_type_attributes: u16,
     pub misc_flags: u16,
-    pub type_attribute_guid: u32,
+    pub type_attribute_guid: u32, // ts1
     pub function_sub_sort: u16,
     pub downtown_sort: u16,
     pub keep_buying: u16,
@@ -128,7 +129,12 @@ pub struct ObjectData {
     pub object_type_3d: u16,
     pub community_sort: u16,
     pub dream_flags: u16,
-    unused: [u16; 6],
+    pub thumbnail_flags: u16,
+    pub scratch_rating: u16,
+    pub chew_rating: u16,
+    pub unused5: u16,
+    pub unused6: u16,
+    pub requirements: u16,
 
     // SimPE will sometimes not write this string for some reason, so we have to support that behaviour
     #[br(try)]

@@ -1,4 +1,5 @@
-use crate::editor::cpf::{drag_fn, reference_edit_fn};
+use crate::editor::drag_fn;
+use crate::editor::cpf::reference_edit_fn;
 use crate::editor::Editor;
 use dbpf::internal_file::cpf::binary_index::BinaryIndex;
 use eframe::egui::{Grid, Response, Ui};
@@ -9,6 +10,7 @@ impl Editor for BinaryIndex {
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = Grid::new("BinaryIndex edit grid")
             .num_columns(2)
+            .max_col_width(1000.0)
             .show(ui, |ui| {
                 macro_rules! drag {
                     ($name:ident) => {

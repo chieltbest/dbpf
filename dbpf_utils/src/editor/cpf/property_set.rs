@@ -1,4 +1,7 @@
-use crate::editor::cpf::{drag_checkbox_fn, drag_fn, drag_option_fn, reference_edit_fn};
+use crate::editor::drag_option_fn;
+use crate::editor::drag_checkbox_fn;
+use crate::editor::drag_fn;
+use crate::editor::cpf::reference_edit_fn;
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use dbpf::internal_file::cpf::property_set::{Override, PropertySet};
 use eframe::egui;

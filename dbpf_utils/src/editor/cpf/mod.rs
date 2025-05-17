@@ -1,8 +1,6 @@
-use eframe::egui;
-use eframe::egui::{Align, ComboBox, DragValue, Response, Ui};
-use eframe::emath::Numeric;
-use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
+use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
+use eframe::egui::{ComboBox, DragValue, Response, Ui};
 
 mod property_set;
 mod binary_index;
@@ -91,64 +89,6 @@ impl Editor for CPF {
 
         res
     }
-}
-
-pub(crate) fn drag_fn<T: Numeric>(name: &str, value: &mut T, ui: &mut Ui) -> Response {
-    ui.label(name);
-    let res = ui.add(DragValue::new(value).hexadecimal(1, false, false));
-    ui.end_row();
-    res
-}
-
-fn drag_option_fn<T: Numeric>(name: &str, mut value: &mut Option<T>, default: T, ui: &mut Ui) -> Response {
-    ui.label(name);
-    let mut has_value = value.is_some();
-    let res = ui.horizontal(|ui| {
-        let mut res = ui.checkbox(&mut has_value, "");
-        match (&mut value, has_value) {
-            (Some(v), true) => {
-                res |= ui.add(DragValue::new(v).hexadecimal(1, false, false));
-            }
-            (Some(_), false) => {
-                *value = None;
-            }
-            (None, true) => {
-                *value = Some(default);
-            }
-            (None, false) => {}
-        }
-        res
-    });
-    ui.end_row();
-    res.response | res.inner
-}
-
-fn drag_checkbox_fn<const N: usize>(name: &str, value: &mut u32, bit_names: [&str; N], ui: &mut Ui) -> Response {
-    ui.label(name);
-    let res = ui.with_layout(
-        egui::Layout::left_to_right(Align::TOP).with_main_wrap(true),
-        |ui| {
-            let res = ui.add(DragValue::new(value).hexadecimal(1, false, false));
-
-            bit_names.iter().enumerate().fold(res, |res, (i, c_name)| {
-                let mask = 1 << i;
-                let o = (*value & mask) > 0;
-                let mut c = o;
-                let res = res | ui.checkbox(&mut c, *c_name);
-                if c != o {
-                    *value = (*value & !mask) | (
-                        if c {
-                            1
-                        } else {
-                            0
-                        } << i
-                    );
-                }
-                res
-            })
-        });
-    ui.end_row();
-    res.response | res.inner
 }
 
 fn reference_edit_fn(name: &str, value: &mut Reference, ui: &mut Ui) -> Response {
