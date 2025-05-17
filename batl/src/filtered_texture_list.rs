@@ -28,12 +28,12 @@ pub enum ComparisonType {
 impl Display for ComparisonType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            ComparisonType::Less => "< ",
-            ComparisonType::LessEq => "<=",
-            ComparisonType::Greater => "> ",
-            ComparisonType::GreaterEq => ">=",
-            ComparisonType::Equal => "==",
-            ComparisonType::NotEqual => "!=",
+            ComparisonType::Less => "<",
+            ComparisonType::LessEq => "≤",
+            ComparisonType::Greater => ">",
+            ComparisonType::GreaterEq => "≥",
+            ComparisonType::Equal => "=",
+            ComparisonType::NotEqual => "≠",
         })
     }
 }
