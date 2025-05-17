@@ -229,16 +229,17 @@ impl Debug for RawFileData {
             writeln!(f, "{}{}", align, str)?;
         } else {
             let lines = self.data.chunks(16);
-            for line in lines {
+            for (i, line) in lines.enumerate() {
                 let mut line_hex_str = String::new();
                 for group in line.chunks(2) {
                     for byte in group {
                         line_hex_str.push_str(format!("{byte:02x}").as_str());
                     }
-                    line_hex_str.push_str(" ");
+                    line_hex_str.push(' ');
                 }
+                let line_start = i * 16;
                 writeln!(f,
-                         "{}{line_hex_str:40}{}",
+                         "0x{line_start:04x}: {}{line_hex_str:40}{}",
                          align,
                          line.iter().map(|&c| match c {
                              0..=31 => char::from_u32(0x2400 + c as u32).unwrap(),
