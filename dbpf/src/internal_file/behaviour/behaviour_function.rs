@@ -99,7 +99,7 @@ impl BinWrite for Goto {
 
 #[binrw]
 #[brw(import {signature: Signature})]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Instruction {
     // #[br(temp)]
     // #[bw(calc = function.opcode())]
@@ -119,7 +119,7 @@ pub struct Instruction {
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BehaviourFunction {
     pub name: FileName,
     pub signature: Signature,

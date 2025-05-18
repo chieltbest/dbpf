@@ -7,7 +7,7 @@ struct Header;
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BehaviourFunctionLabels {
     pub file_name: FileName,
     

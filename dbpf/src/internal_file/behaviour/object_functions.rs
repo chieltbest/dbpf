@@ -6,7 +6,7 @@ use crate::common::FileName;
 struct HeaderMagic;
 
 #[binrw]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Header {
     Normal(
         [u8; 0x8],
@@ -29,7 +29,7 @@ impl Default for Header {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Entry {
     pub guardian_id: u16,
     pub action_id: u16,
@@ -37,7 +37,7 @@ pub struct Entry {
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ObjectFunctions {
     pub file_name: FileName,
     pub header: Header,

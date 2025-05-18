@@ -255,7 +255,7 @@ impl Debug for RawFileData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum DecodedFile {
     // CPF/XML

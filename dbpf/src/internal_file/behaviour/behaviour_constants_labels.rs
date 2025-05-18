@@ -6,7 +6,7 @@ use crate::common::{BigString, FileName, NullString};
 struct HeaderMagic;
 
 #[binrw]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Header {
     Normal(
         #[br(temp)]
@@ -31,7 +31,7 @@ impl Default for Header {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LabelV1 {
     pub used: u32,
     pub id: u32,
@@ -43,7 +43,7 @@ pub struct LabelV1 {
 
 #[binrw]
 #[brw(repr = u8)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum LabelV2Tag {
     #[default]
     Some = 0xa3,
@@ -51,7 +51,7 @@ pub enum LabelV2Tag {
 
 #[binrw]
 #[brw(import { header: Header })]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LabelV2 {
     pub used: u32,
     pub id: u32,
@@ -67,7 +67,7 @@ pub struct LabelV2 {
 
 #[binrw]
 #[brw(import { header: Header })]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Label {
     #[br(pre_assert(matches!(header, Header::Normal(_, _))))]
     V1(LabelV1),
@@ -83,7 +83,7 @@ impl Default for Label {
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BehaviourConstantsLabels {
     pub file_name: FileName,
 

@@ -9,7 +9,7 @@ pub mod material_definition;
 
 #[binrw]
 #[brw(import {type_id: DBPFFileType, version: ResourceBlockVersion})]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ResourceData {
     #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::TextureResource))))]
     Texture(#[brw(args {version: version.clone()})] TextureResource),
@@ -62,7 +62,7 @@ pub struct FileLink {
 }
 
 #[binrw]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ResourceEntry {
     pub name: BigString,
 
@@ -75,7 +75,7 @@ pub struct ResourceEntry {
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResourceCollection {
     #[br(try, temp)]
     #[bw(calc(version.then_some(ResourceVersion)))]

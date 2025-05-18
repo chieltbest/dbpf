@@ -31,7 +31,7 @@ pub enum Version {
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ObjectData {
     pub file_name: FileName,
     pub version: Version,

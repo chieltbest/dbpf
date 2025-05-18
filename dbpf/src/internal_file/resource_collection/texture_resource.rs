@@ -261,7 +261,7 @@ pub struct TextureResourceTexture {
 
 #[binrw]
 #[brw(import{version: ResourceBlockVersion})]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TextureResource {
     pub file_name: FileName,
 

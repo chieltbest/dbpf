@@ -5,7 +5,7 @@ use crate::header_v1::InstanceId;
 
 #[binrw]
 #[brw(import {version: IndexMinorVersion})]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Entry {
     pub type_id: DBPFFileType,
     pub group_id: u32,
@@ -15,7 +15,7 @@ pub struct Entry {
 
 #[binrw]
 #[brw(magic = 0xDEADBEEFu32, little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SimOutfits {
     pub version: IndexMinorVersion,
     #[br(temp)]

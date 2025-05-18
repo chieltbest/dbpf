@@ -3,7 +3,7 @@ use crate::common::FileName;
 
 #[binrw]
 #[brw(little)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BehaviourConstants {
     pub file_name: FileName,
 

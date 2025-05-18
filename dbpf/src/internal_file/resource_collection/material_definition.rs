@@ -3,7 +3,7 @@ use crate::common::BigString;
 use crate::internal_file::resource_collection::{FileName, ResourceBlockVersion};
 
 #[binrw]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Property {
     pub name: BigString,
     pub value: BigString,
@@ -11,7 +11,7 @@ pub struct Property {
 
 #[binrw]
 #[brw(import {version: ResourceBlockVersion})]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MaterialDefinition {
     pub file_name: FileName,
 
