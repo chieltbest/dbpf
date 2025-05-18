@@ -36,6 +36,7 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
                 match entry.data(reader) {
                     Err(err) => println!("{err}"),
                     Ok(data) => {
+                        let orig_decompressed = data.decompressed().cloned();
                         match data.decoded() {
                             Ok(Some(orig_decoded)) => {
                                 let orig_decoded = orig_decoded.clone();
@@ -43,7 +44,12 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
                                 let new_decoded = data.decoded();
                                 match (orig_decoded, new_decoded) {
                                     (_, Err(err)) => {
+                                        if let Ok(data) = orig_decompressed {
+                                            println!("old decompressed data");
+                                            println!("{data:?}");
+                                        }
                                         if let Ok(data) = new_decompressed {
+                                            println!("new decompressed data");
                                             println!("{data:?}");
                                         }
                                         print_path(i, num_idx, tid, gid, iid, path.clone());
