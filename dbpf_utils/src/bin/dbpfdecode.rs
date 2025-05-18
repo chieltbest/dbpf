@@ -7,10 +7,25 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 
+fn print_path(i: usize, i_total: usize, tid: DBPFFileType, gid: u32, iid: u64, path: PathBuf) {
+    println!("{}/{} {:?} {:X} {:X} {:X}: {:?}",
+             i + 1,
+             i_total,
+             tid,
+             tid.code(),
+             gid,
+             iid,
+             path);
+
+}
+
 fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf) {
     let num_idx = header.index.len();
     for (i, entry) in header.index.iter_mut().enumerate() {
-        match (entry.type_id, entry.group_id, entry.instance_id) {
+        let tid = entry.type_id;
+        let gid = entry.group_id;
+        let iid = entry.instance_id;
+        match (tid, gid, iid) {
             // known bad resources
             (DBPFFileType::Known(KnownDBPFFileType::TrackSettings), 0x0DA1F2CA, 0xDDB5D85EFF99E0DE) |
             (DBPFFileType::Known(KnownDBPFFileType::TrackSettings), 0xEB8AB356, 0x12D2658DFF8BCEB2) |
@@ -21,20 +36,41 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
                 match entry.data(reader) {
                     Err(err) => println!("{err}"),
                     Ok(data) => {
-                        if let Err(err) = data.decoded() {
-                            if let Ok(data) = data.decompressed() {
-                                println!("{data:?}");
+                        match data.decoded() {
+                            Ok(Some(orig_decoded)) => {
+                                let orig_decoded = orig_decoded.clone();
+                                let new_decompressed = data.decompressed().cloned();
+                                let new_decoded = data.decoded();
+                                match (orig_decoded, new_decoded) {
+                                    (_, Err(err)) => {
+                                        if let Ok(data) = new_decompressed {
+                                            println!("{data:?}");
+                                        }
+                                        print_path(i, num_idx, tid, gid, iid, path.clone());
+                                        println!("{err}");
+                                        println!("Could not decode data after writing decoded!");
+                                        println!();
+                                    }
+                                    (d1, Ok(Some(d2))) => {
+                                        if d1 != *d2 {
+                                            println!("{d1:?}");
+                                            println!("{d2:?}");
+                                            println!("data was not the same!");
+                                            print_path(i, num_idx, tid, gid, iid, path.clone());
+                                        }
+                                    }
+                                    _ => {}
+                                }
                             }
-                            println!("{}/{} {:?} {:X} {:X} {:X}: {:?}",
-                                     i + 1,
-                                     num_idx,
-                                     entry.type_id,
-                                     entry.type_id.code(),
-                                     entry.group_id,
-                                     entry.instance_id,
-                                     path);
-                            println!("{err}");
-                            println!();
+                            Err(err) => {
+                                if let Ok(data) = data.decompressed() {
+                                    println!("{data:?}");
+                                }
+                                print_path(i, num_idx, tid, gid, iid, path.clone());
+                                println!("{err}");
+                                println!();
+                            }
+                            _ => {}
                         }
                     }
                 }
