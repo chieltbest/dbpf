@@ -227,29 +227,25 @@ impl Debug for RawFileData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "RawFileData {{")?;
         let align = f.fill().to_string().repeat(4);
-        if let Ok(str) = String::from_utf8(self.data.clone()) {
-            writeln!(f, "{}{}", align, str)?;
-        } else {
-            let lines = self.data.chunks(16);
-            for (i, line) in lines.enumerate() {
-                let mut line_hex_str = String::new();
-                for group in line.chunks(2) {
-                    for byte in group {
-                        line_hex_str.push_str(format!("{byte:02x}").as_str());
-                    }
-                    line_hex_str.push(' ');
+        let lines = self.data.chunks(16);
+        for (i, line) in lines.enumerate() {
+            let mut line_hex_str = String::new();
+            for group in line.chunks(2) {
+                for byte in group {
+                    line_hex_str.push_str(format!("{byte:02x}").as_str());
                 }
-                let line_start = i * 16;
-                writeln!(f,
-                         "0x{line_start:04x}: {}{line_hex_str:40}{}",
-                         align,
-                         line.iter().map(|&c| match c {
-                             0..=31 => char::from_u32(0x2400 + c as u32).unwrap(),
-                             127 => '␡',
-                             128.. => char::REPLACEMENT_CHARACTER,
-                             _ => c.into(),
-                         }).collect::<String>())?;
+                line_hex_str.push(' ');
             }
+            let line_start = i * 16;
+            writeln!(f,
+                     "0x{line_start:04x}: {}{line_hex_str:40}{}",
+                     align,
+                     line.iter().map(|&c| match c {
+                         0..=31 => char::from_u32(0x2400 + c as u32).unwrap(),
+                         127 => '␡',
+                         128.. => char::REPLACEMENT_CHARACTER,
+                         _ => c.into(),
+                     }).collect::<String>())?;
         }
         write!(f, "}}")
     }
