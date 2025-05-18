@@ -44,7 +44,7 @@ pub enum VersionedTextList {
     },
     Untagged {
         #[br(big, temp)]
-        #[bw(calc = sets.len() as u16)]
+        #[bw(big, calc = sets.len() as u16)]
         count: u16,
         #[br(count = count)]
         sets: Vec<UntaggedString>,
