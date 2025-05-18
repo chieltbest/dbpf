@@ -3,11 +3,14 @@ use binrw::{BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian};
 use binrw::Endian::Little;
 use binrw::Error::AssertFail;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
+#[cfg(test)]
+use test_strategy::Arbitrary;
 use crate::common::PascalString;
 use crate::internal_file::cpf::{cpf_get_all, CPFVersion, Data, Item, Reference, CPF};
 use crate::internal_file::cpf::Id;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct Override {
     pub shape: u32,
     pub subset: PascalString<u32>,
@@ -15,7 +18,8 @@ pub struct Override {
     pub resource: Reference,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct PropertySet {
     pub version: Option<u32>,
     pub product: Option<u32>,
@@ -209,12 +213,31 @@ impl BinWrite for PropertySet {
         resource.write_cpf(&mut cpf, "resource", true);
         shape.write_cpf(&mut cpf, "shape", true);
 
-        for Override { shape, subset, resource } in overrides {
-            cpf.entries.push(get!(shape));
-            cpf.entries.push(get!(subset));
-            resource.write_cpf(&mut cpf, "resource", true);
+        cpf.entries.push(Item::new("numoverrides", overrides.len() as u32));
+        for (i, Override { shape, subset, resource }) in
+            overrides.iter().cloned().enumerate() {
+            cpf.entries.push(Item::new(format!("override{i}shape"), shape));
+            cpf.entries.push(Item::new(format!("override{i}subset"), subset));
+            resource.write_cpf(&mut cpf, format!("override{i}resource"), true);
         }
 
         writer.write_type(&cpf, endian)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+    use proptest::prop_assert_eq;
+    use test_strategy::proptest;
+    use super::*;
+
+    #[proptest]
+    fn write_read_same(property_set: PropertySet) {
+        let mut cur = Cursor::new(vec![]);
+        property_set.write(&mut cur)?;
+        cur.rewind()?;
+        let read = PropertySet::read(&mut cur)?;
+        prop_assert_eq!(property_set, read);
     }
 }

@@ -2,10 +2,13 @@ use std::io::{Read, Seek, Write};
 use binrw::{BinRead, BinWrite, BinResult, Endian, BinReaderExt, BinWriterExt};
 use binrw::Endian::Little;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
+#[cfg(test)]
+use test_strategy::Arbitrary;
 use crate::internal_file::cpf::{CPF, Item, cpf_get_all, CPFVersion, Data, Reference};
 use crate::internal_file::cpf::Id;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct BinaryIndex {
     pub icon: Reference,
     pub stringset: Reference,
@@ -112,5 +115,22 @@ impl BinWrite for BinaryIndex {
         reference!(object);
 
         writer.write_type(&cpf, endian)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+    use proptest::prop_assert_eq;
+    use test_strategy::proptest;
+    use super::*;
+
+    #[proptest]
+    fn write_read_same(binary_index: BinaryIndex) {
+        let mut cur = Cursor::new(vec![]);
+        binary_index.write(&mut cur)?;
+        cur.rewind()?;
+        let read = BinaryIndex::read(&mut cur)?;
+        prop_assert_eq!(binary_index, read);
     }
 }

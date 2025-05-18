@@ -467,7 +467,8 @@ macro_rules! cpf_get_all {
 }
 pub(crate) use cpf_get_all;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum Reference {
     Idx(u32),
     TGI(u32, u32, u32),
@@ -494,10 +495,10 @@ impl Reference {
     }
 
     fn write_cpf<S: AsRef<str>>(&self, cpf: &mut CPF, name: S, key: bool) {
-        let idx = if key { "keyidx" } else { "idx" };
+        let keyidx = if key { "keyidx" } else { "idx" };
         match self {
             Reference::Idx(idx) => {
-                cpf.entries.push(Item::new(format!("{}{idx}", name.as_ref()), idx.clone()));
+                cpf.entries.push(Item::new(format!("{}{keyidx}", name.as_ref()), idx.clone()));
             }
             Reference::TGI(t, g, i) => {
                 cpf.entries.push(Item::new(format!("{}restypeid", name.as_ref()), t.clone()));
