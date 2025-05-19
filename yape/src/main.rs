@@ -4,6 +4,7 @@
 // TODO add type filter
 // TODO header editor
 // TODO add open with resource tgi arguments
+// TODO save as
 
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -80,6 +81,18 @@ enum YaPeTab {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+enum SplitDirection {
+    Horizontal,
+    Vertical,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RootNodeState {
+    fraction: f32,
+    split: SplitDirection,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct YaPeAppData {
     memory_editor_options: MemoryEditorOptions,
 
@@ -103,6 +116,7 @@ struct YaPeApp {
     dark_mode_preference: Option<bool>,
 
     dock_state: DockState<YaPeTab>,
+    root_node_state: RootNodeState,
 
     data: YaPeAppData,
 
@@ -121,6 +135,10 @@ impl Default for YaPeApp {
             dark_mode_preference: None,
 
             dock_state: DockState::new(vec![YaPeTab::File]),
+            root_node_state: RootNodeState {
+                fraction: 0.5,
+                split: SplitDirection::Vertical,
+            },
 
             data: YaPeAppData {
                 memory_editor_options: MemoryEditorOptions::default(),
@@ -497,7 +515,14 @@ impl YaPeApp {
                     node.append_tab(YaPeTab::Entry(tab));
                 }
             } else if let Some(focus) = self.dock_state.focused_leaf() {
-                self.dock_state.split(focus, Split::Below, 0.5, Node::leaf(YaPeTab::Entry(tab)));
+                self.dock_state.split(
+                    focus,
+                    match self.root_node_state.split {
+                        SplitDirection::Horizontal => Split::Right,
+                        SplitDirection::Vertical => Split::Below,
+                    },
+                    self.root_node_state.fraction,
+                    Node::leaf(YaPeTab::Entry(tab)));
             }
         }
     }
@@ -547,6 +572,20 @@ impl App for YaPeApp {
                     self.open_bytes(data);
                     self.data.open_file_path = Some(path);
                 }
+            }
+        }
+
+        if let Some(root) = self.dock_state.main_surface().root_node() {
+            match root {
+                Node::Vertical { fraction, .. } => {
+                    self.root_node_state.split = SplitDirection::Vertical;
+                    self.root_node_state.fraction = *fraction;
+                }
+                Node::Horizontal { fraction, .. } => {
+                    self.root_node_state.split = SplitDirection::Horizontal;
+                    self.root_node_state.fraction = *fraction;
+                }
+                _ => {}
             }
         }
 
@@ -708,7 +747,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(YaPeApp::new(cc, )))),
+                Box::new(|cc| Ok(Box::new(YaPeApp::new(cc)))),
             )
             .await;
 
