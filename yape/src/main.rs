@@ -5,6 +5,7 @@
 // TODO header editor
 // TODO add open with resource tgi arguments
 // TODO save as
+// TODO focus previous tab on open
 
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -84,6 +85,7 @@ enum YaPeTab {
 enum SplitDirection {
     Horizontal,
     Vertical,
+    Tabs,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -515,14 +517,24 @@ impl YaPeApp {
                     node.append_tab(YaPeTab::Entry(tab));
                 }
             } else if let Some(focus) = self.dock_state.focused_leaf() {
-                self.dock_state.split(
-                    focus,
-                    match self.root_node_state.split {
-                        SplitDirection::Horizontal => Split::Right,
-                        SplitDirection::Vertical => Split::Below,
-                    },
-                    self.root_node_state.fraction,
-                    Node::leaf(YaPeTab::Entry(tab)));
+                match self.root_node_state.split {
+                    SplitDirection::Tabs => {
+                        if let Some((_, node)) = self.dock_state.iter_all_nodes_mut()
+                            .find(|(surface, node)| *surface == focus.0) {
+                            node.append_tab(YaPeTab::Entry(tab))
+                        }
+                    }
+                    _ => {
+                        self.dock_state.split(
+                            focus,
+                            match self.root_node_state.split {
+                                SplitDirection::Horizontal => Split::Right,
+                                _ => Split::Below,
+                            },
+                            self.root_node_state.fraction,
+                            Node::leaf(YaPeTab::Entry(tab)));
+                    }
+                }
             }
         }
     }
@@ -584,6 +596,11 @@ impl App for YaPeApp {
                 Node::Horizontal { fraction, .. } => {
                     self.root_node_state.split = SplitDirection::Horizontal;
                     self.root_node_state.fraction = *fraction;
+                }
+                Node::Leaf { tabs, .. } => {
+                    if tabs.len() > 1 {
+                        self.root_node_state.split = SplitDirection::Tabs;
+                    }
                 }
                 _ => {}
             }
