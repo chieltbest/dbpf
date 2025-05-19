@@ -44,14 +44,20 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
                                 let new_decoded = data.decoded();
                                 match (orig_decoded, new_decoded) {
                                     (_, Err(err)) => {
-                                        if let Ok(data) = orig_decompressed {
-                                            println!("old decompressed data");
-                                            println!("{data:?}");
+                                        if let (Ok(old), Ok(new)) = (orig_decompressed, new_decompressed) {
+                                            // println!("old decompressed data");
+                                            // println!("{data:?}");
+                                            println!("{}", similar::TextDiff::from_lines(
+                                                &format!("{old:?}"),
+                                                                          
+                                                &format!("{new:?}"))
+                                                .unified_diff()
+                                                .header("old", "new"));
                                         }
-                                        if let Ok(data) = new_decompressed {
+                                        /*if let Ok(data) = new_decompressed {
                                             println!("new decompressed data");
                                             println!("{data:?}");
-                                        }
+                                        }*/
                                         print_path(i, num_idx, tid, gid, iid, path.clone());
                                         println!("{err}");
                                         println!("Could not decode data after writing decoded!");
