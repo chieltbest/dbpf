@@ -407,11 +407,13 @@ mod test {
 
     #[proptest]
     fn nullstring_write_read_same(string: NullString) {
-        let mut cur = Cursor::new(vec![]);
-        string.write_le(&mut cur)?;
-        cur.rewind()?;
-        let read = NullString::read_le(&mut cur)?;
-        prop_assert_eq!(string, read);
+        if !string.0.contains(&0) {
+            let mut cur = Cursor::new(vec![]);
+            string.write_le(&mut cur)?;
+            cur.rewind()?;
+            let read = NullString::read_le(&mut cur)?;
+            prop_assert_eq!(string, read);
+        }
     }
 
     #[proptest]
