@@ -94,12 +94,24 @@ struct RootNodeState {
     split: SplitDirection,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl Default for RootNodeState {
+    fn default() -> Self {
+        Self {
+            fraction: 0.5,
+            split: SplitDirection::Vertical,
+        }
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
 struct YaPeAppData {
+    #[serde(default)]
     memory_editor_options: MemoryEditorOptions,
 
+    #[serde(default)]
     open_file_path: Option<PathBuf>,
 
+    #[serde(default)]
     highlight_index: Option<usize>,
 
     #[serde(skip)]
@@ -115,11 +127,14 @@ struct YaPeAppData {
 #[serde(default)]
 struct YaPeApp {
     ui_scale: f32,
+    #[serde(default)]
     dark_mode_preference: Option<bool>,
 
     dock_state: DockState<YaPeTab>,
+    #[serde(default)]
     root_node_state: RootNodeState,
 
+    #[serde(default)]
     data: YaPeAppData,
 
     #[serde(skip)]
@@ -137,23 +152,9 @@ impl Default for YaPeApp {
             dark_mode_preference: None,
 
             dock_state: DockState::new(vec![YaPeTab::File]),
-            root_node_state: RootNodeState {
-                fraction: 0.5,
-                split: SplitDirection::Vertical,
-            },
+            root_node_state: Default::default(),
 
-            data: YaPeAppData {
-                memory_editor_options: MemoryEditorOptions::default(),
-
-                open_file_path: None,
-
-                highlight_index: None,
-
-                open_new_tab_index: None,
-                open_new_hex_tab_index: None,
-
-                open_file: None,
-            },
+            data: Default::default(),
 
             next_tab_id: 0,
 
