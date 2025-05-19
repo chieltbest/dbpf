@@ -380,8 +380,39 @@ impl From<u8> for LanguageCode {
 
 #[cfg(test)]
 mod test {
+    use std::io::{Cursor, Seek};
+    use binrw::BinWrite;
+    use proptest::prop_assert_eq;
     use test_strategy::proptest;
-    use crate::common::PascalString;
+    use crate::common::{BigString, PascalString};
+    use super::*;
+
+    #[proptest]
+    fn bigstring_write_read_same(string: BigString) {
+        let mut cur = Cursor::new(vec![]);
+        string.write_le(&mut cur)?;
+        cur.rewind()?;
+        let read = BigString::read_le(&mut cur)?;
+        prop_assert_eq!(string, read);
+    }
+
+    #[proptest]
+    fn pascalstring_write_read_same(string: PascalString<u32>) {
+        let mut cur = Cursor::new(vec![]);
+        string.write_le(&mut cur)?;
+        cur.rewind()?;
+        let read = PascalString::<u32>::read_le(&mut cur)?;
+        prop_assert_eq!(string, read);
+    }
+
+    #[proptest]
+    fn nullstring_write_read_same(string: NullString) {
+        let mut cur = Cursor::new(vec![]);
+        string.write_le(&mut cur)?;
+        cur.rewind()?;
+        let read = NullString::read_le(&mut cur)?;
+        prop_assert_eq!(string, read);
+    }
 
     #[proptest]
     #[should_panic]
