@@ -278,7 +278,7 @@ pub struct TextureResource {
     num_textures: u32,
     pub unknown: u32,
 
-    #[br(if (matches ! (version, ResourceBlockVersion::V9)))]
+    #[brw(if (matches ! (version, ResourceBlockVersion::V9)))]
     pub file_name_repeat: BigString,
 
     #[br(args{count: num_textures as usize, inner: args ! {version, mip_levels}})]
