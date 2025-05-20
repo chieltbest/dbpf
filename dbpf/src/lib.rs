@@ -60,13 +60,13 @@ pub enum V3Minor {
 #[binrw]
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub struct UserVersion {
-    major: u32,
-    minor: u32,
+    pub major: u32,
+    pub minor: u32,
 }
 
 #[binrw]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Default)]
-pub struct Timestamp(u32);
+pub struct Timestamp(pub u32);
 
 #[binrw]
 #[brw(repr = u32)]
