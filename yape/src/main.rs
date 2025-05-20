@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // TODO add type filter
-// TODO header editor
 // TODO add open with resource tgi arguments
 
 use std::cell::RefCell;
@@ -274,6 +273,7 @@ impl YaPeAppData {
 
                 egui_extras::TableBuilder::new(ui)
                     .striped(true)
+                    .column(Column::auto())
                     .column(Column::auto()
                         .at_least(100.0)
                         .clip(true))
@@ -289,6 +289,7 @@ impl YaPeAppData {
                     .min_scrolled_height(100.0)
                     .max_scroll_height(f32::MAX)
                     .header(30.0, |mut row| {
+                        row.col(|_ui| {});
                         row.col(|ui| { ui.label("Type"); });
                         row.col(|ui| { ui.label("Group"); });
                         row.col(|ui| { ui.label("Instance"); });
@@ -319,13 +320,16 @@ impl YaPeAppData {
                                       let selected = self.highlight_index.is_some_and(|hi| hi == i);
                                       row.set_selected(selected);
 
+                                      row.col(|ui| {
+                                          ui.button("🗑").clicked().then(|| {
+                                              delete_index = Some(i);
+                                          });
+                                      });
+
                                       let mut entry = entries[i].borrow_mut();
                                       row.col(|ui| {
                                           let t = entry.type_id;
                                           let res = ui.horizontal_centered(|ui| {
-                                              ui.button("🗑").clicked().then(|| {
-                                                  delete_index = Some(i);
-                                              });
                                               ui.add(Label::new(t.properties().map_or_else(
                                                   || format!("{:08X}", t.code()),
                                                   |prop| prop.abbreviation.to_string()))
