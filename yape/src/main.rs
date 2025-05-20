@@ -215,7 +215,42 @@ impl YaPeAppData {
             Some((_, Err(err), _entries)) => {
                 ui.colored_label(Color32::RED, err.to_string());
             }
-            Some((_, Ok(_file), entries)) => {
+            Some((_, Ok(file), entries)) => {
+                ui.collapsing("header", |ui| {
+                    let header = &mut file.header;
+                    egui::Grid::new("header grid")
+                        .num_columns(2)
+                        .show(ui, |ui| {
+                            ui.label("version");
+                            header.version.show_editor(&mut (), ui);
+                            ui.end_row();
+
+                            ui.label("index version");
+                            header.index_version.show_editor(&mut (), ui);
+                            ui.end_row();
+
+                            ui.label("user version");
+                            header.user_version.show_editor(&mut (), ui);
+                            ui.end_row();
+
+                            ui.label("flags");
+                            ui.add(egui::DragValue::new(&mut header.flags).hexadecimal(1, false, false));
+                            ui.end_row();
+
+                            ui.label("created");
+                            ui.push_id("created", |ui| {
+                                header.created.show_editor(&mut (), ui);
+                            });
+                            ui.end_row();
+
+                            ui.label("modified");
+                            ui.push_id("modified", |ui| {
+                                header.modified.show_editor(&mut (), ui);
+                            });
+                            ui.end_row();
+                        });
+                });
+
                 let mut delete_index = None;
 
                 let style_mut = ui.style_mut();
