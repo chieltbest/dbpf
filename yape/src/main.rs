@@ -437,6 +437,13 @@ impl TabViewer for YaPeAppData {
             YaPeTab::Entry(entry) => entry.data.strong_count() == 0,
         }
     }
+
+    fn scroll_bars(&self, _tab: &Self::Tab) -> [bool; 2] {
+        match _tab {
+            YaPeTab::File => [true, false],
+            YaPeTab::Entry(_) => [true, true]
+        }
+    }
 }
 
 impl YaPeApp {
