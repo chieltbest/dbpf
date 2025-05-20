@@ -413,22 +413,24 @@ impl TextureResource {
 
         let mut new = self.clone();
 
-        new.format = texture_format;
-        new.textures.iter_mut().try_for_each(|texture| {
-            let total_mip_levels = texture.entries.len();
-            texture.entries.iter_mut().enumerate().try_for_each(|(mip_level, entry)| -> BinResult<()> {
-                match entry {
-                    TextureResourceData::Embedded(mip) => {
-                        let mip_shift = (total_mip_levels - 1) - mip_level;
-                        let (width, height) = self.mip_size(mip_shift);
-                        let texture_data = mip.decompress(width, height, previous_format)?;
-                        mip.compress(width, height, texture_format, &texture_data);
-                        Ok(())
+        if new.format != texture_format {
+            new.format = texture_format;
+            new.textures.iter_mut().try_for_each(|texture| {
+                let total_mip_levels = texture.entries.len();
+                texture.entries.iter_mut().enumerate().try_for_each(|(mip_level, entry)| -> BinResult<()> {
+                    match entry {
+                        TextureResourceData::Embedded(mip) => {
+                            let mip_shift = (total_mip_levels - 1) - mip_level;
+                            let (width, height) = self.mip_size(mip_shift);
+                            let texture_data = mip.decompress(width, height, previous_format)?;
+                            mip.compress(width, height, texture_format, &texture_data);
+                            Ok(())
+                        }
+                        TextureResourceData::LIFOFile { .. } => Ok(()),
                     }
-                    TextureResourceData::LIFOFile { .. } => Ok(()),
-                }
-            })
-        })?;
+                })
+            })?;
+        }
 
         Ok(new)
     }

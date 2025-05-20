@@ -10,6 +10,7 @@ use crate::editor::Editor;
 #[derive(Default)]
 pub struct TextureResourceEditorState {
     textures: Vec<Vec<Option<egui::TextureHandle>>>,
+    original_texture: TextureResource,
 }
 
 impl Debug for TextureResourceEditorState {
@@ -26,25 +27,30 @@ impl Debug for TextureResourceEditorState {
     }
 }
 
+fn load_textures(res: &TextureResource, context: &egui::Context) -> Vec<Vec<Option<egui::TextureHandle>>> {
+    res.decompress_all().into_iter().enumerate().map(|(tex_num, texture)| {
+        texture.into_iter().enumerate().rev().map(|(mip_num, mip)| {
+            mip.inspect_err(|err| error!(?err))
+                .ok().map(|decoded| {
+                context.load_texture(
+                    format!("texture{tex_num}_mip{mip_num}"),
+                    ColorImage::from_rgba_unmultiplied(
+                        [decoded.width, decoded.height],
+                        &decoded.data),
+                    TextureOptions::NEAREST,
+                )
+            })
+        }).collect()
+    }).collect()
+}
+
 impl Editor for TextureResource {
     type EditorState = TextureResourceEditorState;
 
     fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
         Self::EditorState {
-            textures: self.decompress_all().into_iter().enumerate().map(|(tex_num, texture)| {
-                texture.into_iter().enumerate().rev().map(|(mip_num, mip)| {
-                    mip.inspect_err(|err| error!(?err))
-                        .ok().map(|decoded| {
-                        context.load_texture(
-                            format!("texture{tex_num}_mip{mip_num}"),
-                            ColorImage::from_rgba_unmultiplied(
-                                [decoded.width, decoded.height],
-                                &decoded.data),
-                            TextureOptions::NEAREST,
-                        )
-                    })
-                }).collect()
-            }).collect(),
+            textures: load_textures(self, context),
+            original_texture: self.clone(),
         }
     }
 
@@ -75,19 +81,23 @@ impl Editor for TextureResource {
             if ui.add_enabled(!top_is_lifo,
                               Button::new("Recalculate all mipmaps")).clicked() {
                 self.remove_smaller_mip_levels();
+                state.original_texture.remove_smaller_mip_levels();
                 self.add_max_mip_levels();
+                state.original_texture.add_max_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
             if ui.add_enabled(self.mip_levels() < self.max_mip_levels() && !bottom_is_lifo,
                               Button::new("Add missing mipmaps")).clicked() {
                 self.add_max_mip_levels();
+                state.original_texture.add_max_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
             if ui.add_enabled(self.mip_levels() > 1,
                               Button::new("Remove all mipmaps")).clicked() {
                 self.remove_smaller_mip_levels();
+                state.original_texture.remove_smaller_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
@@ -96,6 +106,7 @@ impl Editor for TextureResource {
                 .on_hover_text("Deletes the biggest image from the list of mipmaps, effectively halving the image size")
                 .clicked() {
                 self.remove_largest_mip_levels(1);
+                state.original_texture.remove_largest_mip_levels(1);
                 res.mark_changed();
                 update_images = true;
             }
@@ -122,14 +133,18 @@ impl Editor for TextureResource {
                 }
             });
         if current_format != prev_format {
-            if let Ok(new) = self.recompress_with_format(current_format) {
+            if let Ok(mut new) = state.original_texture.recompress_with_format(current_format) {
+                new.file_name = std::mem::take(&mut self.file_name);
+                new.file_name_repeat = std::mem::take(&mut self.file_name_repeat);
+                new.purpose = self.purpose;
+                new.unknown = self.unknown;
                 *self = new;
                 update_images = true;
             }
         }
 
         if update_images {
-            *state = self.new_editor(ui.ctx());
+            state.textures = load_textures(self, ui.ctx());
             update_images = false;
         }
 
@@ -193,13 +208,15 @@ impl Editor for TextureResource {
                         width: image.width() as usize,
                         height: image.height() as usize,
                         data: image.into_rgba8().to_vec(),
-                    }, has_mip.then_some(TextureFormat::RawBGRA));
+                    }, Some(TextureFormat::RawBGRA));
+
+                    state.original_texture = self.clone();
 
                     if has_mip {
                         self.add_max_mip_levels();
-                        if let Ok(new) = self.recompress_with_format(orig_format) {
-                            *self = new;
-                        }
+                    }
+                    if let Ok(new) = self.recompress_with_format(orig_format) {
+                        *self = new;
                     }
 
                     update_images = true;
@@ -210,7 +227,7 @@ impl Editor for TextureResource {
         });
 
         if update_images {
-            *state = self.new_editor(ui.ctx());
+            state.textures = load_textures(self, ui.ctx());
         }
 
         res
