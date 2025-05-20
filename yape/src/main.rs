@@ -4,8 +4,6 @@
 // TODO add type filter
 // TODO header editor
 // TODO add open with resource tgi arguments
-// TODO save as
-// TODO focus previous tab on open
 
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -140,9 +138,12 @@ struct YaPeApp {
     #[serde(skip)]
     next_tab_id: usize,
 
-    /// Rusty file dialog async file picker
+    /// Rusty file dialog async read file picker
     #[serde(skip)]
     file_picker: Option<oneshot::Receiver<Option<(Vec<u8>, PathBuf)>>>,
+    /// Rusty file dialog async save as file picker
+    #[serde(skip)]
+    save_file_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
 }
 
 impl Default for YaPeApp {
@@ -159,6 +160,7 @@ impl Default for YaPeApp {
             next_tab_id: 0,
 
             file_picker: None,
+            save_file_picker: None,
         }
     }
 }
@@ -609,6 +611,21 @@ impl App for YaPeApp {
                 }
             }
         }
+        if let Some(picker) = &mut self.save_file_picker {
+            if let Ok(Some(handle)) = picker.try_recv() {
+                self.file_picker = None;
+                if let Some(handle) = handle {
+                    self.data.open_file_path = Some(handle.path().to_path_buf());
+                    let mut buf = Cursor::new(Vec::new());
+                    match self.save_bytes(&mut buf) {
+                        Err(e) => error!(?e),
+                        Ok(_) => {
+                            let _ = futures::executor::block_on(handle.write(&buf.into_inner()));
+                        }
+                    }
+                }
+            }
+        }
 
         if let Some(root) = self.dock_state.main_surface().root_node() {
             match root {
@@ -651,13 +668,19 @@ impl App for YaPeApp {
                         ui.label("UI Scale");
                     });
 
-                    ui.button("🗁")
-                        .clicked().then(|| {
+                    if ui.button("🗁")
+                        .on_hover_text("open file...")
+                        .clicked() && self.file_picker.is_none() {
                         let (tx, rx) = oneshot::channel();
-                        let dialog = rfd::AsyncFileDialog::new()
+                        let mut dialog = rfd::AsyncFileDialog::new()
                             .add_filter("Sims 2/3 package files (.package)", &["package"]);
+                        if let Some(path) = self.data.open_file_path.as_ref()
+                            .and_then(|p| p.parent()) {
+                            dialog = dialog.set_directory(path);
+                        }
+                        let dialog = dialog.pick_file();
                         async_execute(async move {
-                            let file = dialog.pick_file().await;
+                            let file = dialog.await;
                             let _ = if let Some(handle) = file {
                                 tx.send(Some(read_file_handle(handle).await))
                             } else {
@@ -665,11 +688,12 @@ impl App for YaPeApp {
                             };
                         });
                         self.file_picker = Some(rx);
-                    });
+                    }
 
                     if let Some(path) = self.data.open_file_path.clone() {
-                        ui.button("💾")
-                            .clicked().then(|| {
+                        if ui.button("💾")
+                            .on_hover_text("save")
+                            .clicked() {
                             let mut buf = Cursor::new(Vec::new());
                             match self.save_bytes(&mut buf) {
                                 Err(e) => error!(?e),
@@ -679,9 +703,31 @@ impl App for YaPeApp {
                                     }
                                 }
                             }
-                        });
+                        }
+                        if ui.button("💾✏")
+                            .on_hover_text("save as...")
+                            .clicked() && self.save_file_picker.is_none() {
+                            let (tx, rx) = oneshot::channel();
+                            let mut dialog = rfd::AsyncFileDialog::new()
+                                .add_filter("Sims 2/3 package files (.package)", &["package"]);
+                            if let Some(path) = self.data.open_file_path.as_ref()
+                                .and_then(|p| p.parent()){
+                                dialog = dialog.set_directory(path);
+                            }
+                            let dialog = dialog.save_file();
+                            async_execute(async move {
+                                let file = dialog.await;
+                                let _ = if let Some(handle) = file {
+                                    tx.send(Some(handle))
+                                } else {
+                                    tx.send(None)
+                                };
+                            });
+                            self.save_file_picker = Some(rx);
+                        }
                     } else {
                         ui.add_enabled(false, Button::new("💾"));
+                        ui.add_enabled(false, Button::new("💾✏"));
                     }
 
                     if let Some(path) = &self.data.open_file_path {
