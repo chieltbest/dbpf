@@ -18,7 +18,7 @@ use std::rc::{Rc, Weak};
 use clap::Parser;
 use eframe::{App, egui, Frame, Storage};
 use eframe::egui::{Align, Button, Color32, Context, DragValue, Id, Label, Layout, Rect, Response, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
-use egui_dock::{DockState, Node, Split, TabViewer};
+use egui_dock::{DockState, Node, NodeIndex, Split, TabIndex, TabViewer};
 use egui_extras::Column;
 use egui_memory_editor::MemoryEditor;
 use egui_memory_editor::option_data::MemoryEditorOptions;
@@ -511,6 +511,28 @@ impl YaPeApp {
 
     fn open_index_tab(&mut self, index: usize, hex_editor: bool, ui_ctx: &Context) {
         if let Some((cur, _file, rc_entries)) = &mut self.data.open_file {
+            let search_rc = &rc_entries[index];
+            let open_found = self.dock_state.iter_all_nodes()
+                .enumerate()
+                .find_map(|(node_i, (surf_i, node))| {
+                    node.iter_tabs().enumerate().find_map(|(tab_i, tab)| {
+                        match tab {
+                            YaPeTab::Entry(t) => {
+                                (t.data.ptr_eq(&Rc::downgrade(search_rc)) &&
+                                    t.is_hex_editor == hex_editor)
+                                    .then_some((surf_i, NodeIndex(node_i), TabIndex(tab_i)))
+                            },
+                            YaPeTab::File => None,
+                        }
+                    })
+                });
+            if let Some((surf_i, node_i, tab_i)) = open_found {
+                // tab was already open, just focus it
+                self.dock_state.set_active_tab((surf_i, node_i, tab_i));
+                // self.dock_state.set_focused_node_and_surface((surf_i, node_i));
+                return;
+            }
+
             let Some(tab) = Self::open_index(&mut self.next_tab_id, cur, rc_entries, index, hex_editor, ui_ctx) else { return; };
             let leaf_pos = self.dock_state.iter_all_tabs().skip(1).last().map(|(pos, _tab)| pos);
             if let Some(pos) = leaf_pos {
@@ -521,7 +543,7 @@ impl YaPeApp {
                 match self.root_node_state.split {
                     SplitDirection::Tabs => {
                         if let Some((_, node)) = self.dock_state.iter_all_nodes_mut()
-                            .find(|(surface, node)| *surface == focus.0) {
+                            .find(|(surface, _)| *surface == focus.0) {
                             node.append_tab(YaPeTab::Entry(tab))
                         }
                     }
