@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// TODO add resource type tooltip
 // TODO add type filter
 // TODO header editor
 // TODO add open with resource tgi arguments
@@ -297,6 +296,10 @@ impl YaPeAppData {
                                                   |prop| prop.abbreviation.to_string()))
                                                   .sense(Sense::click())
                                                   .selectable(false))
+                                                  .on_hover_text(format!(
+                                                      "{}\n{:08X}",
+                                                      t.full_name(),
+                                                      t.code()))
                                           });
                                           sense_fun(ui, res.inner, true);
                                       });
