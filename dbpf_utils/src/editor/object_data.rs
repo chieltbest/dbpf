@@ -162,7 +162,7 @@ impl Editor for ObjectData {
                     .show_ui(ui, |ui| {
                         ui.selectable_value(version, Version::S2, "Base game");
                         ui.selectable_value(version, Version::S2U, "University");
-                        ui.selectable_value(version, Version::S2, "Pets");
+                        ui.selectable_value(version, Version::S2P, "Pets");
                     });
                 ui.end_row();
 
