@@ -5,6 +5,12 @@ use log::error;
 use crate::common::BigString;
 use crate::internal_file::resource_collection::{FileName, ResourceBlockVersion};
 
+const TEXPRESSO_PARAMS: texpresso::Params = texpresso::Params {
+    algorithm: texpresso::Algorithm::IterativeClusterFit,
+    weights: texpresso::COLOUR_WEIGHTS_PERCEPTUAL,
+    weigh_colour_by_alpha: true,
+};
+
 #[binrw]
 #[brw(repr = u32)]
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -130,18 +136,9 @@ impl TextureFormat {
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
-            TextureFormat::DXT1 => texpresso::Format::Bc1.compress(data, width, height, texpresso::Params {
-                algorithm: texpresso::Algorithm::IterativeClusterFit,
-                ..Default::default()
-            }, output),
-            TextureFormat::DXT3 => texpresso::Format::Bc2.compress(data, width, height, texpresso::Params {
-                algorithm: texpresso::Algorithm::IterativeClusterFit,
-                ..Default::default()
-            }, output),
-            TextureFormat::DXT5 => texpresso::Format::Bc3.compress(data, width, height, texpresso::Params {
-                algorithm: texpresso::Algorithm::IterativeClusterFit,
-                ..Default::default()
-            }, output),
+            TextureFormat::DXT1 => texpresso::Format::Bc1.compress(data, width, height, TEXPRESSO_PARAMS, output),
+            TextureFormat::DXT3 => texpresso::Format::Bc2.compress(data, width, height, TEXPRESSO_PARAMS, output),
+            TextureFormat::DXT5 => texpresso::Format::Bc3.compress(data, width, height, TEXPRESSO_PARAMS, output),
         }
     }
 }
@@ -311,11 +308,19 @@ impl DecodedTexture {
                 for i in 0..new_dim {
                     let orig_i = i * pixel_offset * 2;
                     let new_i = i * pixel_offset;
-                    for c in 0..4 {
-                        let new_c: u16 = ((self.data[c + orig_i] as u16) +
-                            (self.data[c + orig_i + pixel_offset] as u16)) / 2;
+                    
+                    let a0 = self.data[3 + orig_i] as u32;
+                    let a1 = self.data[3 + orig_i + pixel_offset] as u32;
+                    let a_total = a0 + a1;
+                    
+                    for c in 0..3 {
+                        let new_c = ((self.data[c + orig_i] as u32 * a0) +
+                            (self.data[c + orig_i + pixel_offset] as u32 * a1)) 
+                            / max(a_total, 1);
                         self.data[c + new_i] = new_c as u8;
                     }
+                    
+                    self.data[3 + new_i] = (a_total / 2) as u8;
                 }
                 self.data.truncate(new_dim * pixel_offset);
             }
@@ -325,7 +330,14 @@ impl DecodedTexture {
                         let orig_row_offset = pixel_offset * self.width;
                         let orig_i = (x * pixel_offset * 2) + (y * orig_row_offset * 2);
                         let new_i = (x * pixel_offset) + (y * pixel_offset * new_width);
-                        for c in 0..4 {
+
+                        let a0 = self.data[3 + orig_i] as u32;
+                        let a1 = self.data[3 + orig_i + pixel_offset] as u32;
+                        let a2 = self.data[3 + orig_i + orig_row_offset] as u32;
+                        let a3 = self.data[3 + orig_i + orig_row_offset + pixel_offset] as u32;
+                        let a_total = a0 + a1 + a2 + a3;
+
+                        for c in 0..3 {
                             let o = c;
                             // makes a rainbow effect yayyy
                             /*let o = if c < 3 {
@@ -333,12 +345,16 @@ impl DecodedTexture {
                             } else {
                                 c
                             };*/
-                            let new_c: u16 = ((self.data[o + orig_i] as u16) +
-                                (self.data[o + orig_i + pixel_offset] as u16) +
-                                (self.data[o + orig_i + orig_row_offset] as u16) +
-                                (self.data[o + orig_i + orig_row_offset + pixel_offset] as u16)) / 4;
+                            // weigh color by the alpha channel
+                            let new_c = ((self.data[o + orig_i] as u32 * a0) +
+                                (self.data[o + orig_i + pixel_offset] as u32 * a1) +
+                                (self.data[o + orig_i + orig_row_offset] as u32 * a2) +
+                                (self.data[o + orig_i + orig_row_offset + pixel_offset] as u32 * a3)) 
+                                / max(a_total, 1);
                             self.data[c + new_i] = new_c as u8;
                         }
+                        // alpha
+                        self.data[3 + new_i] = (a_total / 4) as u8;
                     }
                 }
                 self.data.truncate(new_width * new_height * pixel_offset);
