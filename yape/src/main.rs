@@ -330,8 +330,9 @@ impl YaPeAppData {
                         body.rows(button_height, filtered_count,
                                   |mut row| {
                                       let (i, entry_rc) = filtered_entries[row.index()];
+                                      let mut entry = entry_rc.borrow_mut();
 
-                                      let mut sense_fun = |ui: &mut Ui, res: Response, clicked: bool| {
+                                      let mut sense_fun = |ui: &mut Ui, res: Response, clicked: bool, entry: &IndexEntry| {
                                           let interact_res = ui.interact(
                                               Rect::everything_right_of(res.rect.right()),
                                               Id::from(format!("row_interact_{i}")),
@@ -341,6 +342,9 @@ impl YaPeAppData {
                                               open_index = Some(i);
                                           }
                                           (res | interact_res).context_menu(|ui| {
+                                              if ui.button("Filter on type").clicked() {
+                                                  self.type_filter = (entry.type_id, true);
+                                              }
                                               if ui.button("Open hex editor").clicked() {
                                                   open_hex_index = Some(i);
                                                   ui.close_menu();
@@ -356,8 +360,6 @@ impl YaPeAppData {
                                               delete_index = Some(i);
                                           });
                                       });
-
-                                      let mut entry = entry_rc.borrow_mut();
                                       row.col(|ui| {
                                           let t = entry.type_id;
                                           let res = ui.horizontal_centered(|ui| {
@@ -371,17 +373,17 @@ impl YaPeAppData {
                                                       t.full_name(),
                                                       t.code()))
                                           });
-                                          sense_fun(ui, res.inner, true);
+                                          sense_fun(ui, res.inner, true, &entry);
                                       });
                                       row.col(|ui| {
                                           let res = ui.add(DragValue::new(&mut entry.group_id)
                                               .hexadecimal(8, false, true));
-                                          sense_fun(ui, res, false);
+                                          sense_fun(ui, res, false, &entry);
                                       });
                                       row.col(|ui| {
                                           let res = ui.add(DragValue::new(&mut entry.instance_id)
                                               .hexadecimal(8, false, true));
-                                          sense_fun(ui, res, false);
+                                          sense_fun(ui, res, false, &entry);
                                       });
                                       row.col(|ui| {
                                           let res = egui::ComboBox::from_id_salt(
@@ -395,7 +397,7 @@ impl YaPeAppData {
                                                   ui.selectable_value(&mut entry.compression, CompressionType::Streamable, "Streamable");
                                                   ui.selectable_value(&mut entry.compression, CompressionType::Deleted, "Deleted");
                                               });
-                                          sense_fun(ui, res.response, false);
+                                          sense_fun(ui, res.response, false, &entry);
                                       });
                                   });
                     });
