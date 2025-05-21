@@ -2,12 +2,13 @@ pub mod file_type;
 pub mod language_code;
 
 use eframe::egui::text::{CCursor, CCursorRange};
-use eframe::egui::{Key, Response, ScrollArea, TextEdit, Ui};
+use eframe::egui::{Align, Key, Response, ScrollArea, TextEdit, Ui};
 use fuzzy_matcher::FuzzyMatcher;
 
 #[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
 pub struct EnumEditorState {
     search_string: String,
+    focus_self: bool,
 }
 
 pub trait EnumEditor {
@@ -33,10 +34,21 @@ pub trait EnumEditor {
 
     fn show_enum_editor(&mut self, state: &mut EnumEditorState, ui: &mut Ui) -> Response
     where
-        Self: PartialEq, Self: Sized
+        Self: PartialEq,
+        Self: Sized,
     {
-        let mut inner_res = ui.menu_button(self.full_name(), |ui| {
+        let inner_res = ui.menu_button(self.full_name(), |ui| {
             let mut text_edit_response = TextEdit::singleline(&mut state.search_string).show(ui);
+
+            if state.focus_self {
+                state.focus_self = false;
+                text_edit_response.state.cursor.set_char_range(Some(CCursorRange {
+                    secondary: CCursor::new(0),
+                    primary: CCursor::new(state.search_string.len()),
+                }));
+                text_edit_response.state.clone().store(ui.ctx(), text_edit_response.response.id);
+                text_edit_response.response.request_focus();
+            }
 
             let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
             let mut scored_types = Self::all_known()
@@ -51,18 +63,25 @@ pub trait EnumEditor {
                 }).collect::<Vec<_>>();
             scored_types.sort_unstable_by_key(|(_, score)| -score);
 
-            ScrollArea::vertical().show(ui, |ui| {
-                scored_types.iter().for_each(|(t, _)| {
-                    if ui.selectable_label(
-                        *self == Self::from_known(t),
-                        Self::known_name(t))
-                        .on_hover_text(Self::known_hover_string(t))
-                        .clicked() {
-                        *self = Self::from_known(t);
-                        ui.close_menu();
+            ScrollArea::vertical()
+                .min_scrolled_height(200.0)
+                .max_height(200.0)
+                .show(ui, |ui| {
+                    if text_edit_response.response.changed() {
+                        ui.scroll_to_cursor(Some(Align::TOP));
                     }
+                    scored_types.iter().for_each(|(t, _)| {
+                        if ui.selectable_label(
+                            *self == Self::from_known(t),
+                            Self::known_name(t))
+                            .on_hover_text(Self::known_hover_string(t))
+                            .clicked() {
+                            *self = Self::from_known(t);
+                            text_edit_response.response.mark_changed();
+                            ui.close_menu();
+                        }
+                    });
                 });
-            });
 
             if text_edit_response.response.lost_focus() &&
                 ui.input(|i| i.key_pressed(Key::Enter)) {
@@ -77,14 +96,7 @@ pub trait EnumEditor {
             text_edit_response
         });
         if inner_res.response.clicked() {
-            if let Some(text_res) = &mut inner_res.inner {
-                text_res.state.cursor.set_char_range(Some(CCursorRange {
-                    secondary: CCursor::new(0),
-                    primary: CCursor::new(state.search_string.len()),
-                }));
-                text_res.state.clone().store(ui.ctx(), text_res.response.id);
-                text_res.response.request_focus();
-            }
+            state.focus_self = true;
         }
 
         if let Some(str) = self.hover_string() {

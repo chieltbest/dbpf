@@ -2,6 +2,7 @@
 
 // TODO add type filter
 // TODO add open with resource tgi arguments
+// TODO add resource
 
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -20,9 +21,10 @@ use egui_memory_editor::MemoryEditor;
 use egui_memory_editor::option_data::MemoryEditorOptions;
 use futures::channel::oneshot;
 use rfd::FileHandle;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tracing::error;
 use dbpf::{CompressionType, DBPFFile, IndexEntry};
+use dbpf::filetypes::DBPFFileType;
 use dbpf::internal_file::CompressionError;
 
 use dbpf_utils::editor::{DecodedFileEditorState, Editor, editor_supported};
@@ -99,6 +101,13 @@ impl Default for RootNodeState {
     }
 }
 
+fn file_type_ser<S>((ft, e): &(DBPFFileType, bool), ser: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    (ft.code(), e).serialize(ser)
+}
+fn file_type_deser<'de, D>(deser: D) -> Result<(DBPFFileType, bool), D::Error> where D: Deserializer<'de> {
+    <(u32, bool)>::deserialize(deser).map(|(ft, e)| (ft.into(), e))
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct YaPeAppData {
     #[serde(default)]
@@ -109,6 +118,11 @@ struct YaPeAppData {
 
     #[serde(default)]
     highlight_index: Option<usize>,
+
+    #[serde(default, serialize_with = "file_type_ser", deserialize_with = "file_type_deser")]
+    type_filter: (DBPFFileType, bool),
+    #[serde(skip)]
+    type_filter_state: <DBPFFileType as Editor>::EditorState,
 
     #[serde(skip)]
     open_file: Option<(Cursor<Vec<u8>>, BinResult<DBPFFile>, Vec<Rc<RefCell<IndexEntry>>>)>,
@@ -271,9 +285,16 @@ impl YaPeAppData {
                     }
                 };
 
+                let filtered_entries = entries.iter()
+                    .enumerate()
+                    .filter(|(_i, e)| {
+                        !self.type_filter.1 || (*e).borrow().type_id == self.type_filter.0
+                }).collect::<Vec<_>>();
+                let filtered_count = filtered_entries.len();
+
                 egui_extras::TableBuilder::new(ui)
                     .striped(true)
-                    .column(Column::auto())
+                    .column(Column::exact(20.0))
                     .column(Column::auto()
                         .at_least(100.0)
                         .clip(true))
@@ -288,17 +309,27 @@ impl YaPeAppData {
                         .clip(true))
                     .min_scrolled_height(100.0)
                     .max_scroll_height(f32::MAX)
-                    .header(30.0, |mut row| {
+                    .header(40.0, |mut row| {
                         row.col(|_ui| {});
-                        row.col(|ui| { ui.label("Type"); });
+                        row.col(|ui| {
+                            let (t, e) = &mut self.type_filter;
+                            ui.horizontal(|ui| {
+                                ui.label("Type");
+                                ui.checkbox(e, "")
+                                    .on_hover_text("type filter enabled");
+                            });
+                            if t.show_editor(&mut self.type_filter_state, ui).changed() {
+                                *e = true;
+                            }
+                        });
                         row.col(|ui| { ui.label("Group"); });
                         row.col(|ui| { ui.label("Instance"); });
                         row.col(|ui| { ui.label("Compression"); });
                     })
                     .body(|body| {
-                        body.rows(button_height, entries.len(),
+                        body.rows(button_height, filtered_count,
                                   |mut row| {
-                                      let i = row.index();
+                                      let (i, entry_rc) = filtered_entries[row.index()];
 
                                       let mut sense_fun = |ui: &mut Ui, res: Response, clicked: bool| {
                                           let interact_res = ui.interact(
@@ -326,7 +357,7 @@ impl YaPeAppData {
                                           });
                                       });
 
-                                      let mut entry = entries[i].borrow_mut();
+                                      let mut entry = entry_rc.borrow_mut();
                                       row.col(|ui| {
                                           let t = entry.type_id;
                                           let res = ui.horizontal_centered(|ui| {
