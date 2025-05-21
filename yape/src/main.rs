@@ -344,6 +344,7 @@ impl YaPeAppData {
                                           (res | interact_res).context_menu(|ui| {
                                               if ui.button("Filter on type").clicked() {
                                                   self.type_filter = (entry.type_id, true);
+                                                  ui.close_menu();
                                               }
                                               if ui.button("Open hex editor").clicked() {
                                                   open_hex_index = Some(i);
