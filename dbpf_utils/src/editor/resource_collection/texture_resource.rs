@@ -79,24 +79,23 @@ impl Editor for TextureResource {
             });
 
             if ui.add_enabled(!top_is_lifo,
-                              Button::new("Recalculate all mipmaps")).clicked() {
-                self.remove_smaller_mip_levels();
+                              Button::new("Recalculate all mipmaps"))
+                .clicked() {
                 state.original_texture.remove_smaller_mip_levels();
-                self.add_max_mip_levels();
                 state.original_texture.add_max_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
             if ui.add_enabled(self.mip_levels() < self.max_mip_levels() && !bottom_is_lifo,
-                              Button::new("Add missing mipmaps")).clicked() {
-                self.add_max_mip_levels();
+                              Button::new("Add missing mipmaps"))
+                .clicked() {
                 state.original_texture.add_max_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
             if ui.add_enabled(self.mip_levels() > 1,
-                              Button::new("Remove all mipmaps")).clicked() {
-                self.remove_smaller_mip_levels();
+                              Button::new("Remove all mipmaps"))
+                .clicked() {
                 state.original_texture.remove_smaller_mip_levels();
                 res.mark_changed();
                 update_images = true;
@@ -105,7 +104,6 @@ impl Editor for TextureResource {
                               Button::new("Remove largest texture"))
                 .on_hover_text("Deletes the biggest image from the list of mipmaps, effectively halving the image size")
                 .clicked() {
-                self.remove_largest_mip_levels(1);
                 state.original_texture.remove_largest_mip_levels(1);
                 res.mark_changed();
                 update_images = true;
@@ -133,18 +131,18 @@ impl Editor for TextureResource {
                 }
             });
         if current_format != prev_format {
+            update_images = true;
+        }
+
+        if update_images {
             if let Ok(mut new) = state.original_texture.recompress_with_format(current_format) {
                 new.file_name = std::mem::take(&mut self.file_name);
                 new.file_name_repeat = std::mem::take(&mut self.file_name_repeat);
                 new.purpose = self.purpose;
                 new.unknown = self.unknown;
                 *self = new;
-                update_images = true;
+                state.textures = load_textures(self, ui.ctx());
             }
-        }
-
-        if update_images {
-            state.textures = load_textures(self, ui.ctx());
             update_images = false;
         }
 
