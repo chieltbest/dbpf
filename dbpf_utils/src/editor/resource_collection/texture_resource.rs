@@ -50,7 +50,7 @@ impl TextureResourceEditorState {
     fn refresh_textures_from(&mut self, res: &TextureResource, context: &egui::Context) {
         self.textures = Self::load_textures(res, context);
         self.zoom_state.resize(self.textures.len(), (egui::Rect::ZERO, 0));
-        let mip_levels = res.mip_levels();
+        let mip_levels = res.mip_levels() - 1;
         self.zoom_state.iter_mut()
             .for_each(|(_r, mip)| *mip = min(*mip, mip_levels))
     }
