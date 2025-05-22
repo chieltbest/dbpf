@@ -314,9 +314,15 @@ impl DecodedTexture {
                     let a_total = a0 + a1;
 
                     for c in 0..3 {
+                        let (a0, a1, a_total) = if a_total == 0 {
+                            (1, 1, 4)
+                        } else {
+                            (a0, a1, a_total)
+                        };
+                        
                         let new_c = ((self.data[c + orig_i] as u32 * a0) +
                             (self.data[c + orig_i + pixel_offset] as u32 * a1))
-                            / max(a_total, 1);
+                            / a_total;
                         self.data[c + new_i] = new_c as u8;
                     }
 
