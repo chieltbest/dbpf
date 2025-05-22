@@ -308,18 +308,18 @@ impl DecodedTexture {
                 for i in 0..new_dim {
                     let orig_i = i * pixel_offset * 2;
                     let new_i = i * pixel_offset;
-                    
+
                     let a0 = self.data[3 + orig_i] as u32;
                     let a1 = self.data[3 + orig_i + pixel_offset] as u32;
                     let a_total = a0 + a1;
-                    
+
                     for c in 0..3 {
                         let new_c = ((self.data[c + orig_i] as u32 * a0) +
-                            (self.data[c + orig_i + pixel_offset] as u32 * a1)) 
+                            (self.data[c + orig_i + pixel_offset] as u32 * a1))
                             / max(a_total, 1);
                         self.data[c + new_i] = new_c as u8;
                     }
-                    
+
                     self.data[3 + new_i] = (a_total / 2) as u8;
                 }
                 self.data.truncate(new_dim * pixel_offset);
@@ -336,8 +336,13 @@ impl DecodedTexture {
                         let a2 = self.data[3 + orig_i + orig_row_offset] as u32;
                         let a3 = self.data[3 + orig_i + orig_row_offset + pixel_offset] as u32;
                         let a_total = a0 + a1 + a2 + a3;
-
+                        
                         for c in 0..3 {
+                            let (a0, a1, a2, a3, a_total) = if a_total == 0 {
+                                (1, 1, 1, 1, 4)
+                            } else {
+                                (a0, a1, a2, a3, a_total)
+                            };
                             let o = c;
                             // makes a rainbow effect yayyy
                             /*let o = if c < 3 {
@@ -350,7 +355,7 @@ impl DecodedTexture {
                                 (self.data[o + orig_i + pixel_offset] as u32 * a1) +
                                 (self.data[o + orig_i + orig_row_offset] as u32 * a2) +
                                 (self.data[o + orig_i + orig_row_offset + pixel_offset] as u32 * a3)) 
-                                / max(a_total, 1);
+                                / a_total;
                             self.data[c + new_i] = new_c as u8;
                         }
                         // alpha
