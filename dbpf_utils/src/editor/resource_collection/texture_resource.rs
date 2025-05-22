@@ -10,7 +10,7 @@ use crate::editor::Editor;
 #[derive(Default)]
 pub struct TextureResourceEditorState {
     textures: Vec<Vec<Option<egui::TextureHandle>>>,
-    original_texture: TextureResource,
+    original_texture_bgra: TextureResource,
 }
 
 impl Debug for TextureResourceEditorState {
@@ -50,7 +50,7 @@ impl Editor for TextureResource {
     fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
         Self::EditorState {
             textures: load_textures(self, context),
-            original_texture: self.clone(),
+            original_texture_bgra: self.recompress_with_format(TextureFormat::RawBGRA).unwrap(),
         }
     }
 
@@ -81,22 +81,22 @@ impl Editor for TextureResource {
             if ui.add_enabled(!top_is_lifo,
                               Button::new("Recalculate all mipmaps"))
                 .clicked() {
-                state.original_texture.remove_smaller_mip_levels();
-                state.original_texture.add_max_mip_levels();
+                state.original_texture_bgra.remove_smaller_mip_levels();
+                state.original_texture_bgra.add_max_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
             if ui.add_enabled(self.mip_levels() < self.max_mip_levels() && !bottom_is_lifo,
                               Button::new("Add missing mipmaps"))
                 .clicked() {
-                state.original_texture.add_max_mip_levels();
+                state.original_texture_bgra.add_max_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
             if ui.add_enabled(self.mip_levels() > 1,
                               Button::new("Remove all mipmaps"))
                 .clicked() {
-                state.original_texture.remove_smaller_mip_levels();
+                state.original_texture_bgra.remove_smaller_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
@@ -104,7 +104,7 @@ impl Editor for TextureResource {
                               Button::new("Remove largest texture"))
                 .on_hover_text("Deletes the biggest image from the list of mipmaps, effectively halving the image size")
                 .clicked() {
-                state.original_texture.remove_largest_mip_levels(1);
+                state.original_texture_bgra.remove_largest_mip_levels(1);
                 res.mark_changed();
                 update_images = true;
             }
@@ -135,7 +135,7 @@ impl Editor for TextureResource {
         }
 
         if update_images {
-            if let Ok(mut new) = state.original_texture.recompress_with_format(current_format) {
+            if let Ok(mut new) = state.original_texture_bgra.recompress_with_format(current_format) {
                 new.file_name = std::mem::take(&mut self.file_name);
                 new.file_name_repeat = std::mem::take(&mut self.file_name_repeat);
                 new.purpose = self.purpose;
@@ -208,7 +208,7 @@ impl Editor for TextureResource {
                         data: image.into_rgba8().to_vec(),
                     }, Some(TextureFormat::RawBGRA));
 
-                    state.original_texture = self.clone();
+                    state.original_texture_bgra = self.clone();
 
                     if has_mip {
                         self.add_max_mip_levels();
