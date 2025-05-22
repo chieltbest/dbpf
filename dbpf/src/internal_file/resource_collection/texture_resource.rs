@@ -319,7 +319,7 @@ impl DecodedTexture {
                         } else {
                             (a0, a1, a_total)
                         };
-                        
+
                         let new_c = ((self.data[c + orig_i] as u32 * a0) +
                             (self.data[c + orig_i + pixel_offset] as u32 * a1))
                             / a_total;
@@ -342,7 +342,7 @@ impl DecodedTexture {
                         let a2 = self.data[3 + orig_i + orig_row_offset] as u32;
                         let a3 = self.data[3 + orig_i + orig_row_offset + pixel_offset] as u32;
                         let a_total = a0 + a1 + a2 + a3;
-                        
+
                         for c in 0..3 {
                             let (a0, a1, a2, a3, a_total) = if a_total == 0 {
                                 (1, 1, 1, 1, 4)
@@ -380,7 +380,7 @@ impl DecodedTexture {
 
 impl TextureResource {
     /// guess the best matching size for the given mipmap level
-    fn mip_size(&self, mip_level: usize) -> (usize, usize) {
+    pub fn mip_size(&self, mip_level: usize) -> (usize, usize) {
         let width = max(self.width >> mip_level, 1) as usize;
         let height = max(self.height >> mip_level, 1) as usize;
         (width, height)

@@ -1,15 +1,17 @@
+use crate::editor::Editor;
+use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureFormat, TextureResource, TextureResourceData};
+use eframe::egui;
+use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Response, TextureOptions, Ui};
+use image::ImageReader;
+use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
-use eframe::egui;
-use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Response, ScrollArea, TextureOptions, Ui};
-use image::ImageReader;
 use tracing::error;
-use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureFormat, TextureResource, TextureResourceData};
-use crate::editor::Editor;
 
 #[derive(Default)]
 pub struct TextureResourceEditorState {
     textures: Vec<Vec<Option<egui::TextureHandle>>>,
+    zoom_state: Vec<(egui::Rect, usize)>,
     original_texture_bgra: TextureResource,
 }
 
@@ -27,31 +29,43 @@ impl Debug for TextureResourceEditorState {
     }
 }
 
-fn load_textures(res: &TextureResource, context: &egui::Context) -> Vec<Vec<Option<egui::TextureHandle>>> {
-    res.decompress_all().into_iter().enumerate().map(|(tex_num, texture)| {
-        texture.into_iter().enumerate().rev().map(|(mip_num, mip)| {
-            mip.inspect_err(|err| error!(?err))
-                .ok().map(|decoded| {
-                context.load_texture(
-                    format!("texture{tex_num}_mip{mip_num}"),
-                    ColorImage::from_rgba_unmultiplied(
-                        [decoded.width, decoded.height],
-                        &decoded.data),
-                    TextureOptions::NEAREST,
-                )
-            })
+impl TextureResourceEditorState {
+    fn load_textures(res: &TextureResource, context: &egui::Context) -> Vec<Vec<Option<egui::TextureHandle>>> {
+        res.decompress_all().into_iter().enumerate().map(|(tex_num, texture)| {
+            texture.into_iter().enumerate().rev().map(|(mip_num, mip)| {
+                mip.inspect_err(|err| error!(?err))
+                    .ok().map(|decoded| {
+                    context.load_texture(
+                        format!("texture{tex_num}_mip{mip_num}"),
+                        ColorImage::from_rgba_unmultiplied(
+                            [decoded.width, decoded.height],
+                            &decoded.data),
+                        TextureOptions::NEAREST,
+                    )
+                })
+            }).collect()
         }).collect()
-    }).collect()
+    }
+
+    fn refresh_textures_from(&mut self, res: &TextureResource, context: &egui::Context) {
+        self.textures = Self::load_textures(res, context);
+        self.zoom_state.resize(self.textures.len(), (egui::Rect::ZERO, 0));
+        let mip_levels = res.mip_levels();
+        self.zoom_state.iter_mut()
+            .for_each(|(_r, mip)| *mip = min(*mip, mip_levels))
+    }
 }
 
 impl Editor for TextureResource {
     type EditorState = TextureResourceEditorState;
 
     fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
-        Self::EditorState {
-            textures: load_textures(self, context),
+        let mut new = Self::EditorState {
             original_texture_bgra: self.recompress_with_format(TextureFormat::RawBGRA).unwrap(),
-        }
+            ..Default::default()
+        };
+        new.refresh_textures_from(self, context);
+        new
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
@@ -141,7 +155,7 @@ impl Editor for TextureResource {
                 new.purpose = self.purpose;
                 new.unknown = self.unknown;
                 *self = new;
-                state.textures = load_textures(self, ui.ctx());
+                state.refresh_textures_from(self, ui.ctx());
             }
             update_images = false;
         }
@@ -153,7 +167,15 @@ impl Editor for TextureResource {
             ui.radio_value(&mut self.purpose, 3.0, "Interface");
         });
 
-        for (texture_num, texture) in self.textures.iter_mut().enumerate() {
+        let mip_level_names = (0..self.mip_levels()).map(|mip| {
+            let (w, h) = self.mip_size(mip);
+            format!("{w}x{h}")
+        }).enumerate().collect::<Vec<_>>();
+        let original_size = self.mip_size(0);
+
+        for (texture_num, (texture, (zoom, cur_selected_mip_level))) in self.textures.iter_mut()
+            .zip(&mut state.zoom_state)
+            .enumerate() {
             ui.separator();
 
             ui.horizontal(|ui| {
@@ -164,13 +186,29 @@ impl Editor for TextureResource {
                     If the texture has not been uploaded to online services the creator ID will be either \
                     FF000000 or FFFFFFFF");
 
-            ScrollArea::horizontal().show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    for (mip_num, mip_level) in texture.entries.iter().enumerate() {
+            ui.horizontal(|ui| {
+                if ui.button("Reset zoom").clicked() {
+                    *zoom = egui::Rect::ZERO;
+                }
+                for (mip_i, name) in mip_level_names.clone() {
+                    ui.radio_value(cur_selected_mip_level, mip_i, name);
+                }
+            });
+
+            egui::Scene::new()
+                .zoom_range(0.1..=16.0)
+                .show(ui, zoom, |ui| {
+                    // for (mip_num, mip_level) in texture.entries.iter().enumerate() {
+                    if let Some(mip_level) = texture.entries.get(*cur_selected_mip_level) {
                         match mip_level {
                             TextureResourceData::Embedded(_) => {
-                                if let Some(image) = state.textures[texture_num][mip_num].as_ref() {
-                                    ui.image(image);
+                                if let Some(image) = state.textures[texture_num][*cur_selected_mip_level].as_ref() {
+                                    ui.add(egui::Image::new(image)
+                                        .fit_to_exact_size(
+                                            egui::Vec2::new(
+                                                original_size.0 as f32,
+                                                original_size.1 as f32)));
+                                    // ui.image(image);
                                 }
                             }
                             TextureResourceData::LIFOFile { file_name } => {
@@ -181,7 +219,6 @@ impl Editor for TextureResource {
                         }
                     }
                 });
-            });
         }
 
         ui.input_mut(|i| {
@@ -225,7 +262,7 @@ impl Editor for TextureResource {
         });
 
         if update_images {
-            state.textures = load_textures(self, ui.ctx());
+            state.refresh_textures_from(&self, ui.ctx());
         }
 
         res
