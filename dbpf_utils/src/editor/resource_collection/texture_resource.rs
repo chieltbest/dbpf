@@ -195,29 +195,30 @@ impl Editor for TextureResource {
                 }
             });
 
-            egui::Scene::new()
-                .zoom_range(0.1..=16.0)
-                .show(ui, zoom, |ui| {
-                    // for (mip_num, mip_level) in texture.entries.iter().enumerate() {
-                    if let Some(mip_level) = texture.entries.get(*cur_selected_mip_level) {
-                        match mip_level {
-                            TextureResourceData::Embedded(_) => {
-                                if let Some(image) = state.textures[texture_num][*cur_selected_mip_level].as_ref() {
-                                    ui.add(egui::Image::new(image)
-                                        .fit_to_exact_size(
-                                            egui::Vec2::new(
-                                                original_size.0 as f32,
-                                                original_size.1 as f32)));
-                                    // ui.image(image);
+            egui::Frame::canvas(ui.style())
+                .show(ui, |ui| {
+                    egui::Scene::new()
+                        .zoom_range(0.1..=16.0)
+                        .show(ui, zoom, |ui| {
+                            if let Some(mip_level) = texture.entries.get(*cur_selected_mip_level) {
+                                match mip_level {
+                                    TextureResourceData::Embedded(_) => {
+                                        if let Some(image) = state.textures[texture_num][*cur_selected_mip_level].as_ref() {
+                                            ui.add(egui::Image::new(image)
+                                                .fit_to_exact_size(
+                                                    egui::Vec2::new(
+                                                        original_size.0 as f32,
+                                                        original_size.1 as f32)));
+                                        }
+                                    }
+                                    TextureResourceData::LIFOFile { file_name } => {
+                                        ui.end_row();
+                                        ui.label(format!("file: {}",
+                                                         String::from_utf8_lossy(&file_name.data)));
+                                    }
                                 }
                             }
-                            TextureResourceData::LIFOFile { file_name } => {
-                                ui.end_row();
-                                ui.label(format!("file: {}",
-                                                 String::from_utf8_lossy(&file_name.data)));
-                            }
-                        }
-                    }
+                        });
                 });
         }
 
