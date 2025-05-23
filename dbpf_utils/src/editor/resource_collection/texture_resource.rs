@@ -78,7 +78,7 @@ impl Editor for TextureResource {
             res |= ui.add_enabled(false, DragValue::new(&mut self.height));
             ui.label("height");
         });
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             res |= ui.add_enabled(false, DragValue::new(
                 &mut self.textures.first()
                     .map(|t| t.entries.len())
@@ -119,6 +119,10 @@ impl Editor for TextureResource {
                 .on_hover_text("Deletes the biggest image from the list of mipmaps, effectively halving the image size")
                 .clicked() {
                 state.original_texture_bgra.remove_largest_mip_levels(1);
+                for (zoom, mip_i) in &mut state.zoom_state {
+                    *zoom = *zoom / 2.0;
+                    *mip_i = mip_i.saturating_sub(1);
+                }
                 res.mark_changed();
                 update_images = true;
             }
@@ -186,7 +190,7 @@ impl Editor for TextureResource {
                     If the texture has not been uploaded to online services the creator ID will be either \
                     FF000000 or FFFFFFFF");
 
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if ui.button("Reset zoom").clicked() {
                     *zoom = egui::Rect::ZERO;
                 }
