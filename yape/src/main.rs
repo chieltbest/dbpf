@@ -1,33 +1,32 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// TODO add type filter
 // TODO add open with resource tgi arguments
 // TODO add resource
 
+use binrw::{BinRead, BinResult};
+use clap::Parser;
+use dbpf::filetypes::DBPFFileType;
+use dbpf::internal_file::CompressionError;
+use dbpf::{CompressionType, DBPFFile, IndexEntry};
+use eframe::egui::{Button, Color32, Context, DragValue, Id, Label, Rect, Response, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
+use eframe::{egui, App, Frame, Storage};
+use egui_dock::{DockState, Node, NodeIndex, Split, TabIndex, TabViewer};
+use egui_extras::Column;
+use egui_memory_editor::option_data::MemoryEditorOptions;
+use egui_memory_editor::MemoryEditor;
+use futures::channel::oneshot;
+use rfd::FileHandle;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::fs;
 use std::future::Future;
-use binrw::{BinRead, BinResult};
 use std::io::{Cursor, Read, Seek, Write};
 use std::path::PathBuf;
 use std::rc::{Rc, Weak};
-use clap::Parser;
-use eframe::{App, egui, Frame, Storage};
-use eframe::egui::{Align, Button, Color32, Context, DragValue, Id, Label, Layout, Rect, Response, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
-use egui_dock::{DockState, Node, NodeIndex, Split, TabIndex, TabViewer};
-use egui_extras::Column;
-use egui_memory_editor::MemoryEditor;
-use egui_memory_editor::option_data::MemoryEditorOptions;
-use futures::channel::oneshot;
-use rfd::FileHandle;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tracing::error;
-use dbpf::{CompressionType, DBPFFile, IndexEntry};
-use dbpf::filetypes::DBPFFileType;
-use dbpf::internal_file::CompressionError;
 
-use dbpf_utils::editor::{DecodedFileEditorState, Editor, editor_supported};
+use dbpf_utils::editor::{editor_supported, DecodedFileEditorState, Editor};
 use dbpf_utils::graphical_application_main;
 
 enum EditorType {
@@ -101,10 +100,16 @@ impl Default for RootNodeState {
     }
 }
 
-fn file_type_ser<S>((ft, e): &(DBPFFileType, bool), ser: S) -> Result<S::Ok, S::Error> where S: Serializer {
+fn file_type_ser<S>((ft, e): &(DBPFFileType, bool), ser: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
     (ft.code(), e).serialize(ser)
 }
-fn file_type_deser<'de, D>(deser: D) -> Result<(DBPFFileType, bool), D::Error> where D: Deserializer<'de> {
+fn file_type_deser<'de, D>(deser: D) -> Result<(DBPFFileType, bool), D::Error>
+where
+    D: Deserializer<'de>,
+{
     <(u32, bool)>::deserialize(deser).map(|(ft, e)| (ft.into(), e))
 }
 
@@ -289,7 +294,7 @@ impl YaPeAppData {
                     .enumerate()
                     .filter(|(_i, e)| {
                         !self.type_filter.1 || (*e).borrow().type_id == self.type_filter.0
-                }).collect::<Vec<_>>();
+                    }).collect::<Vec<_>>();
                 let filtered_count = filtered_entries.len();
 
                 egui_extras::TableBuilder::new(ui)
@@ -426,7 +431,13 @@ impl TabViewer for YaPeAppData {
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
         match tab {
-            YaPeTab::File => "Index".into(),
+            YaPeTab::File => {
+                self.open_file_path
+                    .as_ref()
+                    .and_then(|p| p.file_name())
+                    .map(|p| p.to_string_lossy().into())
+                    .unwrap_or("Index".to_string()).into()
+            },
             YaPeTab::Entry(entry) => {
                 if let Some(index) = entry.data.upgrade() {
                     index.borrow().type_id.full_name().into()
@@ -454,6 +465,14 @@ impl TabViewer for YaPeAppData {
             YaPeTab::File => id,
             YaPeTab::Entry(e) => {
                 id.with(e.id)
+            }
+        }
+    }
+
+    fn on_tab_button(&mut self, _tab: &mut Self::Tab, response: &Response) {
+        if matches!(_tab, Self::Tab::File) {
+            if let Some(p) = &self.open_file_path {
+                response.clone().on_hover_text(p.to_string_lossy());
             }
         }
     }
@@ -606,7 +625,7 @@ impl YaPeApp {
                                 (t.data.ptr_eq(&Rc::downgrade(search_rc)) &&
                                     t.is_hex_editor == hex_editor)
                                     .then_some((surf_i, NodeIndex(node_i), TabIndex(tab_i)))
-                            },
+                            }
                             YaPeTab::File => None,
                         }
                     })
@@ -811,13 +830,6 @@ impl App for YaPeApp {
                     } else {
                         ui.add_enabled(false, Button::new("💾"));
                         ui.add_enabled(false, Button::new("💾✏"));
-                    }
-
-                    if let Some(path) = &self.data.open_file_path {
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            ui.add(Label::new(path.to_string_lossy())
-                                .wrap());
-                        });
                     }
                 });
             });
