@@ -199,7 +199,7 @@ impl Editor for TextureResource {
                 }
             });
 
-            egui::Frame::canvas(ui.style())
+            egui::Frame::group(ui.style())
                 .show(ui, |ui| {
                     egui::Scene::new()
                         .zoom_range(0.1..=16.0)
