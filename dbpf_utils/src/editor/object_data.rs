@@ -149,7 +149,7 @@ impl Editor for ObjectData {
                 }
 
                 ui.label("filename");
-                let mut res = file_name.name.show_editor(&mut (), ui);
+                let mut res = file_name.name.show_editor(&mut 500.0, ui);
                 ui.end_row();
 
                 ui.label("version");
@@ -316,7 +316,7 @@ impl Editor for ObjectData {
                 res |= drag!("unknown 0x6A", unused6);
 
                 ui.label("filename 2");
-                res |= file_name_2.show_editor(&mut (), ui);
+                res |= file_name_2.show_editor(&mut 500.0, ui);
                 ui.end_row();
 
                 res

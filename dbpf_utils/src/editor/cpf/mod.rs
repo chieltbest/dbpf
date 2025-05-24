@@ -19,10 +19,10 @@ impl Editor for Item {
                 if ui.button("Bool").clicked() { self.data = Data::Bool(false); }
                 if ui.button("String").clicked() { self.data = Data::String("".into()); }
             }).response;
-        res |= self.name.show_editor(&mut (), ui);
+        res |= self.name.show_editor(&mut 300.0, ui);
         res | match &mut self.data {
             Data::UInt(n) => ui.add(DragValue::new(n).hexadecimal(1, false, false)),
-            Data::String(s) => s.show_editor(&mut (), ui),
+            Data::String(s) => s.show_editor(&mut 300.0, ui),
             Data::Float(n) => ui.add(DragValue::new(n)),
             Data::Bool(b) => ui.checkbox(b, ""),
             Data::Int(n) => ui.add(DragValue::new(n)),

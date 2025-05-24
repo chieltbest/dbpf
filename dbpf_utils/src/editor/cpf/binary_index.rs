@@ -26,7 +26,7 @@ impl Editor for BinaryIndex {
                     ($name:ident) => {
                         {
                             ui.label(stringify!($name));
-                            let res = $name.show_editor(&mut (), ui);
+                            let res = $name.show_editor(&mut 300.0, ui);
                             ui.end_row();
                             res
                         }

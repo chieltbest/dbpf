@@ -71,7 +71,7 @@ impl Editor for TextureResource {
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut update_images = false;
 
-        let mut res = self.file_name.name.show_editor(&mut (), ui);
+        let mut res = self.file_name.name.show_editor(&mut 500.0, ui);
         ui.horizontal_wrapped(|ui| {
             res |= ui.add_enabled(false, DragValue::new(&mut self.width));
             ui.label("width");

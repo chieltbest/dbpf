@@ -6,7 +6,7 @@ use eframe::egui::{Response, TextEdit, Ui, Vec2};
 
 trait StringEditor: TryInto<String> + From<String> + Clone {}
 
-impl<T: StringEditor> Editor for T {
+impl<T: ?Sized + StringEditor> Editor for T {
     type EditorState = f32;
 
     fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {

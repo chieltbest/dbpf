@@ -15,7 +15,7 @@ impl Editor for Override {
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = ui.add(DragValue::new(&mut self.shape)).on_hover_text("shape");
         res |= reference_edit_fn("", &mut self.resource, ui);
-        res | self.subset.show_editor(&mut (), ui)
+        res | self.subset.show_editor(&mut 300.0, ui)
     }
 }
 
@@ -47,7 +47,7 @@ impl Editor for PropertySet {
                     ($name:ident) => {
                         {
                             ui.label(stringify!($name));
-                            let res = self.$name.show_editor(&mut (), ui);
+                            let res = self.$name.show_editor(&mut 300.0, ui);
                             ui.end_row();
                             res
                         }
@@ -76,7 +76,7 @@ impl Editor for PropertySet {
 
                 // type is a builtin keyword, so use a different name
                 ui.label("type");
-                res |= self.type_.show_editor(&mut (), ui);
+                res |= self.type_.show_editor(&mut 300.0, ui);
                 ui.end_row();
 
                 res |= string!(skintone);

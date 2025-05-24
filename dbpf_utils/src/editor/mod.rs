@@ -135,7 +135,7 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum VecEditorStateStorage<T: Editor>
 where
     T::EditorState: Clone + Debug,
@@ -144,10 +144,10 @@ where
     Shared(T::EditorState),
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VecEditorState<T: Editor>
 where
-    T::EditorState: Clone + Debug + Hash + Eq + PartialEq,
+    T::EditorState: Clone + Debug + PartialEq,
 {
     /// number of columns (besides the delete button) that the editor for a single element will create
     columns: usize,
@@ -156,7 +156,7 @@ where
 
 impl<T: Editor> Default for VecEditorState<T>
 where
-    T::EditorState: Clone + Debug + Hash + Eq + PartialEq,
+    T::EditorState: Clone + Debug + PartialEq,
 {
     fn default() -> Self {
         Self {
@@ -168,7 +168,7 @@ where
 
 impl<T: Editor + Default> Editor for Vec<T>
 where
-    T::EditorState: Clone + Debug + Hash + Eq + PartialEq,
+    T::EditorState: Clone + Debug + PartialEq,
 {
     type EditorState = VecEditorState<T>;
 

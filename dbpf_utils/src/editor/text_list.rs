@@ -13,8 +13,8 @@ impl Editor for TaggedString {
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = self.language_code.show_editor(state, ui);
-        res |= self.value.show_editor(&mut (), ui);
-        res | self.description.show_editor(&mut (), ui)
+        res |= self.value.show_editor(&mut 300.0, ui);
+        res | self.description.show_editor(&mut 300.0, ui)
     }
 }
 
@@ -22,7 +22,7 @@ impl Editor for UntaggedString {
     type EditorState = ();
 
     fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-        self.value.show_editor(&mut (), ui)
+        self.value.show_editor(&mut 500.0, ui)
     }
 }
 
@@ -39,7 +39,7 @@ impl Editor for TextList {
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let res = ui.horizontal_wrapped(|ui| {
             ui.label("file name") |
-                self.file_name.name.show_editor(&mut (), ui)
+                self.file_name.name.show_editor(&mut 500.0, ui)
         });
 
         let mut cur_version = match self.data {
