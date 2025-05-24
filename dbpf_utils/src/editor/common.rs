@@ -7,16 +7,18 @@ use eframe::egui::{Response, TextEdit, Ui, Vec2};
 trait StringEditor: TryInto<String> + From<String> + Clone {}
 
 impl<T: StringEditor> Editor for T {
-    type EditorState = ();
+    type EditorState = f32;
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {}
+    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
+        300.0
+    }
     
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let string_res = self.clone().try_into();
         match string_res {
             Ok(mut str) => {
                 let text_edit = TextEdit::singleline(&mut str)
-                    .min_size(Vec2::new(300.0, 0.0));
+                    .min_size(Vec2::new(*state, 0.0));
                 let res = text_edit.show(ui).response;
                 if res.changed() {
                     *self = str.into();
