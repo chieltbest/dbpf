@@ -250,11 +250,12 @@ impl Editor for TextureResource {
                         data: image.into_rgba8().to_vec(),
                     }, Some(TextureFormat::RawBGRA));
 
-                    state.original_texture_bgra = self.clone();
-
                     if has_mip {
                         self.add_max_mip_levels();
                     }
+
+                    state.original_texture_bgra = self.clone();
+
                     if let Ok(new) = self.recompress_with_format(orig_format) {
                         *self = new;
                     }
