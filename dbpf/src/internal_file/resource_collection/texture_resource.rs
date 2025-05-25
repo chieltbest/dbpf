@@ -1,7 +1,10 @@
 use std::cmp::max;
 use std::fmt::Debug;
+use std::io::{Read, Write};
 use binrw::{args, BinResult, binrw, Error};
+use ddsfile::{D3DFormat, Dds, DxgiFormat};
 use log::error;
+use thiserror::Error;
 use crate::common::BigString;
 use crate::internal_file::resource_collection::{FileName, ResourceBlockVersion};
 
@@ -10,6 +13,10 @@ const TEXPRESSO_PARAMS: texpresso::Params = texpresso::Params {
     weights: texpresso::COLOUR_WEIGHTS_PERCEPTUAL,
     weigh_colour_by_alpha: true,
 };
+
+pub const PURPOSE_OBJECT: f32 = 1.0;
+pub const PURPOSE_OUTFIT: f32 = 2.0;
+pub const PURPOSE_INTERFACE: f32 = 3.0;
 
 #[binrw]
 #[brw(repr = u32)]
@@ -292,7 +299,7 @@ pub struct DecodedTexture {
 
 impl DecodedTexture {
     /// halves the image in both dimensions, combining the value of groups of four pixels into a single pixel
-    fn shrink(&mut self) -> bool {
+    fn shrink(&mut self, preserve_alpha_test: Option<u8>) -> bool {
         if (self.width > 1 && self.width % 2 == 1) ||
             (self.height > 1 && self.height % 2 == 1) ||
             (self.width == 1 && self.height == 1) {
@@ -365,7 +372,20 @@ impl DecodedTexture {
                             self.data[c + new_i] = new_c as u8;
                         }
                         // alpha
-                        self.data[3 + new_i] = (a_total / 4) as u8;
+                        if let Some(preserve_alpha) = preserve_alpha_test {
+                            let preserve_alpha = preserve_alpha as u32;
+                            let preserve_alpha_inv = 255 - preserve_alpha;
+
+                            let new_c = (
+                                a0 * (a0 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
+                                    a1 * (a1 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
+                                    a2 * (a2 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
+                                    a3 * (a3 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv))
+                                / ((a_total * preserve_alpha) + (preserve_alpha_inv * preserve_alpha_inv * 4));
+                            self.data[3 + new_i] = new_c as u8;
+                        } else {
+                            self.data[3 + new_i] = (a_total / 4) as u8;
+                        }
                     }
                 }
                 self.data.truncate(new_width * new_height * pixel_offset);
@@ -378,12 +398,111 @@ impl DecodedTexture {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum DdsFormat {
+    D3DFormat(D3DFormat),
+    DxgiFormat(DxgiFormat),
+}
+
+#[derive(Debug, Error)]
+pub enum DdsError {
+    #[error(transparent)]
+    DdsFile(#[from] ddsfile::Error),
+    #[error("Unsupported format {0:?}")]
+    UnsupportedFormat(Option<DdsFormat>),
+}
+
 impl TextureResource {
     /// guess the best matching size for the given mipmap level
     pub fn mip_size(&self, mip_level: usize) -> (usize, usize) {
         let width = max(self.width >> mip_level, 1) as usize;
         let height = max(self.height >> mip_level, 1) as usize;
         (width, height)
+    }
+
+    fn dds_to_txtr_format(dds: &Dds) -> Result<TextureFormat, DdsError> {
+        match dds.get_d3d_format() {
+            Some(format) => {
+                Ok(match format {
+                    D3DFormat::A8B8G8R8 => todo!("convert"),
+                    D3DFormat::A8R8G8B8 => todo!("convert"),
+                    D3DFormat::R8G8B8 => todo!("convert"),
+                    D3DFormat::A8 => TextureFormat::Alpha,
+                    D3DFormat::L8 => TextureFormat::Grayscale,
+                    D3DFormat::DXT1 => TextureFormat::DXT1,
+                    D3DFormat::DXT3 => TextureFormat::DXT3,
+                    D3DFormat::DXT5 => TextureFormat::DXT5,
+                    _ => Err(DdsError::UnsupportedFormat(Some(DdsFormat::D3DFormat(format))))?,
+                })
+            },
+            _ => {
+                match dds.get_dxgi_format() {
+                    Some(format) => {
+                        Ok(match format {
+                            DxgiFormat::R8G8B8A8_Typeless |
+                            DxgiFormat::R8G8B8A8_UNorm |
+                            DxgiFormat::R8G8B8A8_UNorm_sRGB |
+                            DxgiFormat::R8G8B8A8_UInt |
+                            DxgiFormat::R8G8B8A8_SNorm |
+                            DxgiFormat::R8G8B8A8_SInt => todo!("convert"),
+                            DxgiFormat::R8_Typeless |
+                            DxgiFormat::R8_UNorm |
+                            DxgiFormat::R8_UInt |
+                            DxgiFormat::R8_SNorm |
+                            DxgiFormat::R8_SInt => TextureFormat::Grayscale,
+                            DxgiFormat::A8_UNorm => TextureFormat::Alpha,
+                            DxgiFormat::BC1_Typeless |
+                            DxgiFormat::BC1_UNorm |
+                            DxgiFormat::BC1_UNorm_sRGB => TextureFormat::DXT1,
+                            DxgiFormat::BC2_Typeless |
+                            DxgiFormat::BC2_UNorm |
+                            DxgiFormat::BC2_UNorm_sRGB => TextureFormat::DXT3,
+                            DxgiFormat::BC3_Typeless |
+                            DxgiFormat::BC3_UNorm |
+                            DxgiFormat::BC3_UNorm_sRGB => TextureFormat::DXT5,
+                            DxgiFormat::B8G8R8A8_Typeless |
+                            DxgiFormat::B8G8R8A8_UNorm |
+                            DxgiFormat::B8G8R8A8_UNorm_sRGB => TextureFormat::RawBGRA,
+                            DxgiFormat::B8G8R8X8_Typeless |
+                            DxgiFormat::B8G8R8X8_UNorm |
+                            DxgiFormat::B8G8R8X8_UNorm_sRGB => TextureFormat::AltBGRA,
+                            _ => Err(DdsError::UnsupportedFormat(Some(DdsFormat::DxgiFormat(format))))?,
+                        })
+                    }
+                    None => Err(DdsError::UnsupportedFormat(None)),
+                }
+            }
+        }
+    }
+
+    pub fn import_dds<R: Read>(reader: R) -> Result<Self, DdsError> {
+        let dds = Dds::read(reader)?;
+
+        let width = dds.header.width;
+        let height = dds.header.height;
+
+        let format = Self::dds_to_txtr_format(&dds)?;
+
+        let mut texture = Self {
+            file_name: Default::default(),
+            width,
+            height,
+            format,
+            purpose: PURPOSE_OBJECT,
+            unknown: 0,
+            file_name_repeat: Default::default(),
+            textures: vec![],
+        };
+
+        for mip_i in 0..dds.header.mip_map_count.unwrap_or(1) {
+            todo!()
+        }
+
+        Ok(texture)
+    }
+
+    pub fn export_dds<W: Write>(&self, writer: W) {
+
     }
 
     /// decompress a single texture given by its texture and mip index
@@ -492,7 +611,7 @@ impl TextureResource {
     }
 
     /// attempt to do a certain number of mipmap additions in one go, returns the actual amount added
-    pub fn add_extra_mip_levels(&mut self, mip_levels: usize) -> usize {
+    pub fn add_extra_mip_levels(&mut self, mip_levels: usize, preserve_alpha: Option<u8>) -> usize {
         assert!(mip_levels >= 1);
         let cur_mip_levels = self.mip_levels();
         let (smallest_width, smallest_height) = self.mip_size(cur_mip_levels - 1);
@@ -520,7 +639,7 @@ impl TextureResource {
 
         for i in 0..mip_levels {
             if cur_textures.iter_mut().try_for_each(|tex| {
-                if tex.shrink() {
+                if tex.shrink(preserve_alpha) {
                     Ok(())
                 } else {
                     Err(())
@@ -542,12 +661,12 @@ impl TextureResource {
         mip_levels
     }
 
-    pub fn add_max_mip_levels(&mut self) {
+    pub fn add_max_mip_levels(&mut self, preserve_alpha: Option<u8>) {
         let max = self.max_mip_levels();
         let cur = self.mip_levels();
         let extra = max - cur;
         if extra > 0 {
-            self.add_extra_mip_levels(extra);
+            self.add_extra_mip_levels(extra, preserve_alpha);
         }
     }
 

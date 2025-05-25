@@ -1,7 +1,7 @@
 use crate::editor::Editor;
 use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureFormat, TextureResource, TextureResourceData};
 use eframe::egui;
-use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Response, TextureOptions, Ui};
+use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Response, Slider, TextureOptions, Ui};
 use image::ImageReader;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
@@ -13,6 +13,7 @@ pub struct TextureResourceEditorState {
     textures: Vec<Vec<Option<egui::TextureHandle>>>,
     zoom_state: Vec<(egui::Rect, usize)>,
     original_texture_bgra: TextureResource,
+    preserve_transparency: u8,
 }
 
 impl Debug for TextureResourceEditorState {
@@ -85,6 +86,22 @@ impl Editor for TextureResource {
                     .unwrap_or(0)));
             ui.label("Mip levels");
 
+            ui.horizontal(|ui| {
+                ui.add(Slider::new(&mut state.preserve_transparency, 0..=255)) |
+                    ui.label("Preserve transparency")
+            }).inner.on_hover_text("makes sure that thin objects with transparency also show up correctly in mipmaps\n\
+            This option is intended for textures that use alpha testing, NOT for textures that have AlphaBlendMode set to \"blend\".\n\n\
+            To use this option, set the texture format to DXT1 and have a look at the mipmaps; does the texture show up correctly in all mipmaps? \
+            If not try adjusting this value, click \"Recalculate all mipmaps\" and look again.\n\
+            Don't forget to set the format back to DXT5 after you're done!");
+        });
+        let preserve_transparency = if state.preserve_transparency > 0 {
+            Some(state.preserve_transparency)
+        } else {
+            None
+        };
+
+        ui.horizontal_wrapped(|ui| {
             let top_is_lifo = self.textures.iter().any(|tex| {
                 matches!(tex.entries.last(), Some(TextureResourceData::LIFOFile { .. }))
             });
@@ -96,14 +113,14 @@ impl Editor for TextureResource {
                               Button::new("Recalculate all mipmaps"))
                 .clicked() {
                 state.original_texture_bgra.remove_smaller_mip_levels();
-                state.original_texture_bgra.add_max_mip_levels();
+                state.original_texture_bgra.add_max_mip_levels(preserve_transparency);
                 res.mark_changed();
                 update_images = true;
             }
             if ui.add_enabled(self.mip_levels() < self.max_mip_levels() && !bottom_is_lifo,
                               Button::new("Add missing mipmaps"))
                 .clicked() {
-                state.original_texture_bgra.add_max_mip_levels();
+                state.original_texture_bgra.add_max_mip_levels(preserve_transparency);
                 res.mark_changed();
                 update_images = true;
             }
@@ -251,7 +268,7 @@ impl Editor for TextureResource {
                     }, Some(TextureFormat::RawBGRA));
 
                     if has_mip {
-                        self.add_max_mip_levels();
+                        self.add_max_mip_levels(preserve_transparency);
                     }
 
                     state.original_texture_bgra = self.clone();
