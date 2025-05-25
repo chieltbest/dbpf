@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
 use binrw::{args, BinResult, binrw, Error};
-use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
+use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormat, PixelFormatFlags};
 use log::error;
 use thiserror::Error;
 use crate::common::BigString;
@@ -559,29 +559,35 @@ impl TextureResource {
         Ok(texture)
     }
 
-    fn txtr_format_to_dds(texture_format: TextureFormat) -> D3DFormat {
+    fn txtr_format_to_dds(texture_format: TextureFormat) -> (D3DFormat, Option<PixelFormatFlags>) {
         match texture_format {
-            TextureFormat::RawBGRA => D3DFormat::A8R8G8B8,
-            TextureFormat::RawBGR => D3DFormat::R8G8B8,
-            TextureFormat::Alpha => D3DFormat::A8,
-            TextureFormat::DXT1 => D3DFormat::DXT1,
-            TextureFormat::DXT3 => D3DFormat::DXT3,
-            TextureFormat::Grayscale => D3DFormat::L8,
-            TextureFormat::AltBGRA => D3DFormat::A8R8G8B8,
-            TextureFormat::DXT5 => D3DFormat::DXT5,
-            TextureFormat::AltBGR => D3DFormat::R8G8B8,
+            TextureFormat::RawBGRA => (D3DFormat::A8R8G8B8, None),
+            TextureFormat::RawBGR => (D3DFormat::R8G8B8, None),
+            TextureFormat::Alpha => (D3DFormat::A8, Some(PixelFormatFlags::ALPHA)),
+            TextureFormat::DXT1 => (D3DFormat::DXT1, None),
+            TextureFormat::DXT3 => (D3DFormat::DXT3, None),
+            TextureFormat::Grayscale => (D3DFormat::L8, Some(PixelFormatFlags::LUMINANCE)),
+            TextureFormat::AltBGRA => (D3DFormat::A8R8G8B8, None),
+            TextureFormat::DXT5 => (D3DFormat::DXT5, None),
+            TextureFormat::AltBGR => (D3DFormat::R8G8B8, None),
         }
     }
 
     pub fn export_dds<W: Write>(&self, writer: &mut W) -> Result<(), DdsError> {
+        let (format, pixelformat) = Self::txtr_format_to_dds(self.format);
+
         let mut dds = Dds::new_d3d(NewD3dParams {
             height: self.height,
             width: self.width,
             depth: Some(self.textures.len() as u32),
-            format: Self::txtr_format_to_dds(self.format),
+            format,
             mipmap_levels: Some(self.mip_levels() as u32),
             caps2: None,
         })?;
+
+        if let Some(pxformat) = pixelformat {
+            dds.header.spf.flags = pxformat;
+        }
 
         for (i, texture) in self.textures.iter().enumerate() {
             let mut dds_data = Cursor::new(dds.get_mut_data(i as u32)?);
