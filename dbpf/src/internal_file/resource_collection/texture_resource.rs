@@ -388,7 +388,7 @@ impl DecodedTexture {
                                     a1 * (a1 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
                                     a2 * (a2 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
                                     a3 * (a3 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv))
-                                / ((a_total * preserve_alpha) + (preserve_alpha_inv * preserve_alpha_inv * 4));
+                                / max((a_total * preserve_alpha) + (preserve_alpha_inv * preserve_alpha_inv * 4), 1);
                             self.data[3 + new_i] = new_c as u8;
                         } else {
                             self.data[3 + new_i] = (a_total / 4) as u8;
