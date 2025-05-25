@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
 use binrw::{args, BinResult, binrw, Error};
-use ddsfile::{D3DFormat, Dds, DxgiFormat};
+use ddsfile::{D3DFormat, Dds, DxgiFormat, PixelFormatFlags};
 use log::error;
 use thiserror::Error;
 use crate::common::BigString;
@@ -374,7 +374,7 @@ impl DecodedTexture {
                             let new_c = ((self.data[o + orig_i] as u32 * a0) +
                                 (self.data[o + orig_i + pixel_offset] as u32 * a1) +
                                 (self.data[o + orig_i + orig_row_offset] as u32 * a2) +
-                                (self.data[o + orig_i + orig_row_offset + pixel_offset] as u32 * a3)) 
+                                (self.data[o + orig_i + orig_row_offset + pixel_offset] as u32 * a3))
                                 / a_total;
                             self.data[c + new_i] = new_c as u8;
                         }
@@ -429,21 +429,44 @@ impl TextureResource {
         (width, height)
     }
 
-    fn dds_to_txtr_format(dds: &Dds) -> Result<TextureFormat, DdsError> {
+    fn dds_to_txtr_format(dds: &Dds) -> Result<(TextureFormat, fn(Vec<u8>) -> Vec<u8>), DdsError> {
+        let identity = |data| data;
         match dds.get_d3d_format() {
             Some(format) => {
                 Ok(match format {
-                    D3DFormat::A8B8G8R8 => todo!("convert"),
-                    D3DFormat::A8R8G8B8 => todo!("convert"),
-                    D3DFormat::R8G8B8 => todo!("convert"),
-                    D3DFormat::A8 => TextureFormat::Alpha,
-                    D3DFormat::L8 => TextureFormat::Grayscale,
-                    D3DFormat::DXT1 => TextureFormat::DXT1,
-                    D3DFormat::DXT3 => TextureFormat::DXT3,
-                    D3DFormat::DXT5 => TextureFormat::DXT5,
+                    D3DFormat::A8B8G8R8 => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                        data.chunks_exact(4)
+                            .flat_map(|c| {
+                                [c[2], c[1], c[0], c[3]]
+                            }).collect()
+                    }),
+                    D3DFormat::A8R8G8B8 => (TextureFormat::RawBGRA, identity),
+                    D3DFormat::R8G8B8 => (TextureFormat::RawBGR, |data: Vec<u8>| {
+                        data.chunks_exact(3)
+                            .flat_map(|c| {
+                                [c[0], c[1], c[2]]
+                            }).collect()
+                    }),
+                    D3DFormat::X8B8G8R8 => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                        data.chunks_exact(4)
+                            .flat_map(|c| {
+                                [c[2], c[1], c[0], 0xFF]
+                            }).collect()
+                    }),
+                    D3DFormat::X8R8G8B8 => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                        data.chunks_exact(4)
+                            .flat_map(|c| {
+                                [c[0], c[1], c[2], 0xFF]
+                            }).collect()
+                    }),
+                    D3DFormat::A8 => (TextureFormat::Alpha, identity),
+                    D3DFormat::L8 => (TextureFormat::Grayscale, identity),
+                    D3DFormat::DXT1 => (TextureFormat::DXT1, identity),
+                    D3DFormat::DXT3 => (TextureFormat::DXT3, identity),
+                    D3DFormat::DXT5 => (TextureFormat::DXT5, identity),
                     _ => Err(DdsError::UnsupportedFormat(Some(DdsFormat::D3DFormat(format))))?,
                 })
-            },
+            }
             _ => {
                 match dds.get_dxgi_format() {
                     Some(format) => {
@@ -453,32 +476,45 @@ impl TextureResource {
                             DxgiFormat::R8G8B8A8_UNorm_sRGB |
                             DxgiFormat::R8G8B8A8_UInt |
                             DxgiFormat::R8G8B8A8_SNorm |
-                            DxgiFormat::R8G8B8A8_SInt => todo!("convert"),
+                            DxgiFormat::R8G8B8A8_SInt => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                                data.chunks_exact(4)
+                                    .flat_map(|c| {
+                                        [c[1], c[2], c[3], c[0]]
+                                    }).collect()
+                            }),
                             DxgiFormat::R8_Typeless |
                             DxgiFormat::R8_UNorm |
                             DxgiFormat::R8_UInt |
                             DxgiFormat::R8_SNorm |
-                            DxgiFormat::R8_SInt => TextureFormat::Grayscale,
-                            DxgiFormat::A8_UNorm => TextureFormat::Alpha,
+                            DxgiFormat::R8_SInt => (TextureFormat::Grayscale, identity),
+                            DxgiFormat::A8_UNorm => (TextureFormat::Alpha, identity),
                             DxgiFormat::BC1_Typeless |
                             DxgiFormat::BC1_UNorm |
-                            DxgiFormat::BC1_UNorm_sRGB => TextureFormat::DXT1,
+                            DxgiFormat::BC1_UNorm_sRGB => (TextureFormat::DXT1, identity),
                             DxgiFormat::BC2_Typeless |
                             DxgiFormat::BC2_UNorm |
-                            DxgiFormat::BC2_UNorm_sRGB => TextureFormat::DXT3,
+                            DxgiFormat::BC2_UNorm_sRGB => (TextureFormat::DXT3, identity),
                             DxgiFormat::BC3_Typeless |
                             DxgiFormat::BC3_UNorm |
-                            DxgiFormat::BC3_UNorm_sRGB => TextureFormat::DXT5,
+                            DxgiFormat::BC3_UNorm_sRGB => (TextureFormat::DXT5, identity),
                             DxgiFormat::B8G8R8A8_Typeless |
                             DxgiFormat::B8G8R8A8_UNorm |
-                            DxgiFormat::B8G8R8A8_UNorm_sRGB => TextureFormat::RawBGRA,
+                            DxgiFormat::B8G8R8A8_UNorm_sRGB => (TextureFormat::RawBGRA, identity),
                             DxgiFormat::B8G8R8X8_Typeless |
                             DxgiFormat::B8G8R8X8_UNorm |
-                            DxgiFormat::B8G8R8X8_UNorm_sRGB => TextureFormat::AltBGRA,
+                            DxgiFormat::B8G8R8X8_UNorm_sRGB => (TextureFormat::AltBGRA, identity),
                             _ => Err(DdsError::UnsupportedFormat(Some(DdsFormat::DxgiFormat(format))))?,
                         })
                     }
-                    None => Err(DdsError::UnsupportedFormat(None)),
+                    _ => {
+                        match dds.header.spf.flags {
+                            PixelFormatFlags::ALPHA if dds.header.spf.rgb_bit_count.unwrap_or(8) == 8
+                            => Ok((TextureFormat::Alpha, identity)),
+                            PixelFormatFlags::LUMINANCE if dds.header.spf.rgb_bit_count.unwrap_or(8) == 8
+                            => Ok((TextureFormat::Grayscale, identity)),
+                            _ => Err(DdsError::UnsupportedFormat(None)),
+                        }
+                    }
                 }
             }
         }
@@ -486,11 +522,10 @@ impl TextureResource {
 
     pub fn import_dds<R: Read>(reader: R) -> Result<Self, DdsError> {
         let dds = Dds::read(reader)?;
-
         let width = dds.header.width;
         let height = dds.header.height;
 
-        let format = Self::dds_to_txtr_format(&dds)?;
+        let (format, post_process_fn) = Self::dds_to_txtr_format(&dds)?;
 
         let mut texture = Self {
             file_name: Default::default(),
@@ -503,8 +538,6 @@ impl TextureResource {
             textures: vec![],
         };
 
-        let mut textures = vec![];
-
         for i in 0..dds.header.depth.unwrap_or(1) {
             let mut cur = Cursor::new(dds.get_data(i)?);
             let mut entries = vec![];
@@ -516,11 +549,11 @@ impl TextureResource {
                 cur.read_exact(&mut data)?;
 
                 entries.insert(0, TextureResourceData::Embedded(EmbeddedTextureResourceMipLevel {
-                    data,
+                    data: post_process_fn(data),
                 }))
             }
 
-            textures.push(TextureResourceTexture {
+            texture.textures.push(TextureResourceTexture {
                 entries,
                 creator_id: 0xFFFFFFFF,
             });
@@ -707,7 +740,7 @@ impl TextureResource {
         let mut height = self.height;
         assert!(width > 0 && height > 0);
         let mut i = 1;
-        while (width > 1) || (height > 1)  {
+        while (width > 1) || (height > 1) {
             if (width > 1 && width % 2 == 1) ||
                 (height > 1 && height % 2 == 1) {
                 return 1;
