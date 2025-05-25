@@ -245,6 +245,44 @@ impl Editor for TextureResource {
 
         ui.input_mut(|i| {
             if let Some(file) = i.raw.dropped_files.first().cloned() {
+                if file.name.ends_with(".dds") ||
+                    file.path.as_ref().is_some_and(|p| p.extension() == Some("dds".as_ref())) {
+                    match if let Some(path) = file.path {
+                        match std::fs::read(path) {
+                            Err(e) => {
+                                error!(?e);
+                                None
+                            },
+                            Ok(bytes) => {
+                                let mut cur = Cursor::new(bytes);
+                                Some(TextureResource::import_dds(&mut cur))
+                            }
+                        }
+                    } else if let Some(bytes) = file.bytes {
+                        let mut cur = Cursor::new(&bytes);
+                        Some(TextureResource::import_dds(&mut cur))
+                    } else {
+                        None
+                    } {
+                        Some(Err(e)) => error!(?e),
+                        Some(Ok(mut texture)) => {
+                            texture.file_name = self.file_name.clone();
+                            texture.unknown = self.unknown;
+                            texture.purpose = self.purpose;
+                            texture.file_name_repeat = self.file_name_repeat.clone();
+
+                            if let Ok(bgra) = texture.recompress_with_format(TextureFormat::RawBGRA) {
+                                state.original_texture_bgra = bgra;
+                            }
+                            *self = texture;
+                            update_images = true;
+                        }
+                        _ => {}
+                    }
+                    i.raw.dropped_files.clear();
+                    return;
+                }
+
                 let image = if let Some(path) = file.path {
                     ImageReader::open(path)
                         .ok().map(|i| i.decode())
