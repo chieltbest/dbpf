@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
 use binrw::{args, BinResult, binrw, Error};
-use ddsfile::{D3DFormat, Dds, DxgiFormat, PixelFormatFlags};
+use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
 use log::error;
 use thiserror::Error;
 use crate::common::BigString;
@@ -419,6 +419,8 @@ pub enum DdsError {
     UnsupportedFormat(Option<DdsFormat>),
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    #[error("Tried to export a texture with lifo mipmaps")]
+    LifoExport,
 }
 
 impl TextureResource {
@@ -441,12 +443,7 @@ impl TextureResource {
                             }).collect()
                     }),
                     D3DFormat::A8R8G8B8 => (TextureFormat::RawBGRA, identity),
-                    D3DFormat::R8G8B8 => (TextureFormat::RawBGR, |data: Vec<u8>| {
-                        data.chunks_exact(3)
-                            .flat_map(|c| {
-                                [c[0], c[1], c[2]]
-                            }).collect()
-                    }),
+                    D3DFormat::R8G8B8 => (TextureFormat::RawBGR, identity),
                     D3DFormat::X8B8G8R8 => (TextureFormat::RawBGRA, |data: Vec<u8>| {
                         data.chunks_exact(4)
                             .flat_map(|c| {
@@ -562,8 +559,43 @@ impl TextureResource {
         Ok(texture)
     }
 
-    pub fn export_dds<W: Write>(&self, writer: W) {
-        todo!()
+    fn txtr_format_to_dds(texture_format: TextureFormat) -> D3DFormat {
+        match texture_format {
+            TextureFormat::RawBGRA => D3DFormat::A8R8G8B8,
+            TextureFormat::RawBGR => D3DFormat::R8G8B8,
+            TextureFormat::Alpha => D3DFormat::A8,
+            TextureFormat::DXT1 => D3DFormat::DXT1,
+            TextureFormat::DXT3 => D3DFormat::DXT3,
+            TextureFormat::Grayscale => D3DFormat::L8,
+            TextureFormat::AltBGRA => D3DFormat::A8R8G8B8,
+            TextureFormat::DXT5 => D3DFormat::DXT5,
+            TextureFormat::AltBGR => D3DFormat::R8G8B8,
+        }
+    }
+
+    pub fn export_dds<W: Write>(&self, writer: &mut W) -> Result<(), DdsError> {
+        let mut dds = Dds::new_d3d(NewD3dParams {
+            height: self.height,
+            width: self.width,
+            depth: Some(self.textures.len() as u32),
+            format: Self::txtr_format_to_dds(self.format),
+            mipmap_levels: Some(self.mip_levels() as u32),
+            caps2: None,
+        })?;
+
+        for texture in &self.textures {
+            for mip in texture.entries.iter().rev() {
+                match mip {
+                    TextureResourceData::Embedded(e) => {
+                        dds.data.extend_from_slice(&e.data);
+                    }
+                    TextureResourceData::LIFOFile { .. } => return Err(DdsError::LifoExport),
+                }
+            }
+        }
+
+        dds.write(writer)?;
+        Ok(())
     }
 
     /// decompress a single texture given by its texture and mip index
