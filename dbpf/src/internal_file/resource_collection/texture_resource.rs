@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
 use binrw::{args, BinResult, binrw, Error};
-use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormat, PixelFormatFlags};
+use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
 use log::error;
 use thiserror::Error;
 use crate::common::BigString;

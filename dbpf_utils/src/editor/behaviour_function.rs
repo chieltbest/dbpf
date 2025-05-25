@@ -1,9 +1,8 @@
 use eframe::egui::{ComboBox, Context, DragValue, Grid, Pos2, Response, Ui};
 use egui_snarl::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
 use egui_snarl::ui::{PinInfo, SnarlPin, SnarlStyle, SnarlViewer, WireStyle};
-use tracing_subscriber::fmt::FormatFields;
 use dbpf::internal_file::behaviour::behaviour_function::{BehaviourFunction, Goto, Instruction, Signature};
-use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
+use crate::editor::Editor;
 use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 
 impl EnumEditor for Goto {
@@ -89,13 +88,12 @@ impl Editor for Instruction {
 #[derive(Debug, Default)]
 pub struct BhavEditorState {
     snarl: Snarl<Instruction>,
-    vec_editor_state: VecEditorState<Instruction>,
     enum_editor_state: EnumEditorState,
 }
 
 #[derive(Debug)]
 struct BhavViewer<'a, 'b> {
-    bhav: &'a mut BehaviourFunction,
+    _bhav: &'a mut BehaviourFunction,
     enum_editor_state: &'b mut EnumEditorState,
 }
 
@@ -112,7 +110,7 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
         PinInfo::square()
     }
 
-    fn outputs(&mut self, node: &Instruction) -> usize {
+    fn outputs(&mut self, _node: &Instruction) -> usize {
         2
     }
 
@@ -125,11 +123,11 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
         PinInfo::square()
     }
 
-    fn has_body(&mut self, node: &Instruction) -> bool {
+    fn has_body(&mut self, _node: &Instruction) -> bool {
         true
     }
 
-    fn show_body(&mut self, node: NodeId, inputs: &[InPin], outputs: &[OutPin], ui: &mut Ui, scale: f32, snarl: &mut Snarl<Instruction>) {
+    fn show_body(&mut self, node: NodeId, _inputs: &[InPin], _outputs: &[OutPin], ui: &mut Ui, scale: f32, snarl: &mut Snarl<Instruction>) {
         let instr = &mut snarl[node];
         ui.vertical_centered(|ui| {
             ui.horizontal(|ui| {
@@ -160,8 +158,8 @@ impl Editor for BehaviourFunction {
     fn new_editor(&self, _context: &Context) -> Self::EditorState {
         let mut snarl = Snarl::new();
 
-        for instr in &self.instructions {
-            snarl.insert_node(Pos2::new(0.0, 0.0), instr.clone());
+        for (i, instr) in self.instructions.iter().enumerate() {
+            snarl.insert_node(Pos2::new(0.0, 100.0 * i as f32), instr.clone());
         }
 
         for (i, instr) in self.instructions.iter().enumerate() {
@@ -177,7 +175,7 @@ impl Editor for BehaviourFunction {
             if let Goto::Instr(target) = instr.false_target {
                 snarl.connect(OutPinId {
                     node: NodeId(i),
-                    output: 0,
+                    output: 1,
                 }, InPinId {
                     node: NodeId(target as usize),
                     input: 0,
@@ -187,10 +185,6 @@ impl Editor for BehaviourFunction {
 
         BhavEditorState {
             snarl,
-            vec_editor_state: VecEditorState {
-                columns: 5,
-                storage: VecEditorStateStorage::Shared(Default::default()),
-            },
             enum_editor_state: EnumEditorState::default(),
         }
     }
@@ -248,7 +242,7 @@ impl Editor for BehaviourFunction {
         });
 
         state.snarl.show(&mut BhavViewer {
-            bhav: self,
+            _bhav: self,
             enum_editor_state: &mut state.enum_editor_state,
         }, &snarl_style, "bhav snarl", ui);
 
