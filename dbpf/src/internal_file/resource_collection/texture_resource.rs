@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
 use binrw::{args, BinResult, binrw, Error};
-use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
+use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
 use log::error;
 use thiserror::Error;
 use crate::common::BigString;
@@ -583,11 +583,12 @@ impl TextureResource {
             caps2: None,
         })?;
 
-        for texture in &self.textures {
+        for (i, texture) in self.textures.iter().enumerate() {
+            let mut dds_data = Cursor::new(dds.get_mut_data(i as u32)?);
             for mip in texture.entries.iter().rev() {
                 match mip {
                     TextureResourceData::Embedded(e) => {
-                        dds.data.extend_from_slice(&e.data);
+                        dds_data.write_all(&e.data)?;
                     }
                     TextureResourceData::LIFOFile { .. } => return Err(DdsError::LifoExport),
                 }
