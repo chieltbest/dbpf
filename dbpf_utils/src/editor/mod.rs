@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::hash::Hash;
 use eframe::egui;
 use eframe::egui::{Align, DragValue, Grid, Response, Ui};
 use eframe::emath::Numeric;

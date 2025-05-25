@@ -6,7 +6,10 @@ use image::ImageReader;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
+use futures::channel::oneshot;
+use rfd::FileHandle;
 use tracing::error;
+use crate::async_execute;
 
 #[derive(Default)]
 pub struct TextureResourceEditorState {
@@ -14,6 +17,7 @@ pub struct TextureResourceEditorState {
     zoom_state: Vec<(egui::Rect, usize)>,
     original_texture_bgra: TextureResource,
     preserve_transparency: u8,
+    save_file_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
 }
 
 impl Debug for TextureResourceEditorState {
@@ -70,6 +74,21 @@ impl Editor for TextureResource {
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        if let Some(picker) = &mut state.save_file_picker {
+            if let Ok(Some(handle)) = picker.try_recv() {
+                state.save_file_picker = None;
+                if let Some(handle) = handle {
+                    let mut cur = Cursor::new(vec![]);
+                    if let Ok(()) = self.export_dds(&mut cur) {
+                        let res = futures::executor::block_on(handle.write(&cur.into_inner()));
+                        if let Err(e) = res {
+                            error!(?e);
+                        }
+                    }
+                }
+            }
+        }
+
         let mut update_images = false;
 
         let mut res = self.file_name.name.show_editor(&mut 500.0, ui);
@@ -187,6 +206,24 @@ impl Editor for TextureResource {
             ui.radio_value(&mut self.purpose, 2.0, "Outfit");
             ui.radio_value(&mut self.purpose, 3.0, "Interface");
         });
+
+        if ui.button("Export DDS").clicked() &&
+            state.save_file_picker.is_none() {
+            let (tx, rx) = oneshot::channel();
+            let dialog = rfd::AsyncFileDialog::new()
+                .add_filter("DirectDraw Surface", &["dds"]);
+            // TODO global options open file path set directory
+            let dialog = dialog.save_file();
+            async_execute(async move {
+                let file = dialog.await;
+                let _ = if let Some(handle) = file {
+                    tx.send(Some(handle))
+                } else {
+                    tx.send(None)
+                };
+            });
+            state.save_file_picker = Some(rx);
+        }
 
         let mip_level_names = (0..self.mip_levels()).map(|mip| {
             let (w, h) = self.mip_size(mip);
@@ -323,7 +360,7 @@ impl Editor for TextureResource {
         });
 
         if update_images {
-            state.refresh_textures_from(&self, ui.ctx());
+            state.refresh_textures_from(self, ui.ctx());
         }
 
         res

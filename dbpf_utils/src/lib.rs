@@ -1,3 +1,4 @@
+use std::future::Future;
 use eframe::AppCreator;
 use std::io::Cursor;
 use tracing_panic::panic_hook;
@@ -93,4 +94,18 @@ pub fn graphical_application_main(
         })?;
 
     Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn async_execute<F: Future<Output=()> + Send + 'static>(f: F) {
+    // this is stupid... use any executor of your choice instead
+    std::thread::spawn(move || futures::executor::block_on(f));
+}
+#[cfg(target_arch = "wasm32")]
+pub fn async_execute<F: Future<Output=()> + 'static>(f: F) {
+    use wasm_bindgen_futures::wasm_bindgen::JsValue;
+    let _ = wasm_bindgen_futures::future_to_promise(async {
+        f.await;
+        Ok::<JsValue, JsValue>(JsValue::undefined())
+    });
 }

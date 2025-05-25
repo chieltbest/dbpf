@@ -20,14 +20,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::fs;
-use std::future::Future;
 use std::io::{Cursor, Read, Seek, Write};
 use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use tracing::error;
 
 use dbpf_utils::editor::{editor_supported, DecodedFileEditorState, Editor};
-use dbpf_utils::graphical_application_main;
+use dbpf_utils::{async_execute, graphical_application_main};
 
 enum EditorType {
     HexEditor(MemoryEditor),
@@ -686,20 +685,6 @@ async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
 #[cfg(target_arch = "wasm32")]
 async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
     (handle.read().await, PathBuf::default())
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn async_execute<F: Future<Output=()> + Send + 'static>(f: F) {
-    // this is stupid... use any executor of your choice instead
-    std::thread::spawn(move || futures::executor::block_on(f));
-}
-#[cfg(target_arch = "wasm32")]
-fn async_execute<F: Future<Output=()> + 'static>(f: F) {
-    use wasm_bindgen_futures::wasm_bindgen::JsValue;
-    let _ = wasm_bindgen_futures::future_to_promise(async {
-        f.await;
-        Ok::<JsValue, JsValue>(JsValue::undefined())
-    });
 }
 
 impl App for YaPeApp {
