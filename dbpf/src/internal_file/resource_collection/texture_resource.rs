@@ -1,6 +1,6 @@
 use std::cmp::max;
 use std::fmt::Debug;
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use binrw::{args, BinResult, binrw, Error};
 use ddsfile::{D3DFormat, Dds, DxgiFormat};
 use log::error;
@@ -245,6 +245,11 @@ pub enum TextureResourceData {
 }
 
 #[binrw]
+#[brw(magic = 10f32)]
+#[derive(Default)]
+struct FormatFlag;
+
+#[binrw]
 #[brw(import{version: ResourceBlockVersion, mip_levels: u32})]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TextureResourceTexture {
@@ -260,7 +265,9 @@ pub struct TextureResourceTexture {
     // 0xFF000000 or 0xFFFFFFFF when not uploaded online
     pub creator_id: u32,
     #[brw(if (matches ! (version, ResourceBlockVersion::V9)))]
-    pub format_flag: u32,
+    #[br(temp)]
+    #[bw(calc = FormatFlag)]
+    format_flag: FormatFlag,
 }
 
 #[binrw]
@@ -410,6 +417,8 @@ pub enum DdsError {
     DdsFile(#[from] ddsfile::Error),
     #[error("Unsupported format {0:?}")]
     UnsupportedFormat(Option<DdsFormat>),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
 }
 
 impl TextureResource {
@@ -494,15 +503,34 @@ impl TextureResource {
             textures: vec![],
         };
 
-        for mip_i in 0..dds.header.mip_map_count.unwrap_or(1) {
-            todo!()
+        let mut textures = vec![];
+
+        for i in 0..dds.header.depth.unwrap_or(1) {
+            let mut cur = Cursor::new(dds.get_data(i)?);
+            let mut entries = vec![];
+
+            for mip_i in 0..dds.header.mip_map_count.unwrap_or(1) {
+                let (width, height) = texture.mip_size(mip_i as usize);
+                let data_size = format.compressed_size(width, height);
+                let mut data = vec![0; data_size];
+                cur.read_exact(&mut data)?;
+
+                entries.insert(0, TextureResourceData::Embedded(EmbeddedTextureResourceMipLevel {
+                    data,
+                }))
+            }
+
+            textures.push(TextureResourceTexture {
+                entries,
+                creator_id: 0xFFFFFFFF,
+            });
         }
 
         Ok(texture)
     }
 
     pub fn export_dds<W: Write>(&self, writer: W) {
-
+        todo!()
     }
 
     /// decompress a single texture given by its texture and mip index
@@ -527,8 +555,8 @@ impl TextureResource {
     }
 
     pub fn decompress_all(&self) -> Vec<Vec<BinResult<DecodedTexture>>> {
-        (0..self.textures.len()).into_iter().map(|texture_index| {
-            (0..self.textures[texture_index].entries.len()).into_iter().map(|mip_index| {
+        (0..self.textures.len()).map(|texture_index| {
+            (0..self.textures[texture_index].entries.len()).map(|mip_index| {
                 self.decompress(texture_index, mip_index)
             }).collect()
         }).collect()

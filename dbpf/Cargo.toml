@@ -16,6 +16,7 @@ enum-iterator = "2.1"
 derive_more = { version = "2.0", features = ["try_from", "from", "try_into", "display", "deref", "deref_mut"] }
 # temporary workaround until 2.0.2 comes out for https://github.com/jansol/texpresso/pull/9
 texpresso = { git = "https://github.com/jansol/texpresso.git" }
+ddsfile = "0.5"
 miniz_oxide = { version = "0.7.4", features = ["simd"] }
 xmltree = "0.11"
 log = "0.4.27"
