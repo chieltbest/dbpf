@@ -1,8 +1,10 @@
-use eframe::egui::{ComboBox, Context, DragValue, Grid, Response, Ui};
+use eframe::egui::{ComboBox, Context, DragValue, Grid, Pos2, Response, Ui};
+use egui_snarl::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
+use egui_snarl::ui::{PinInfo, SnarlPin, SnarlStyle, SnarlViewer, WireStyle};
+use tracing_subscriber::fmt::FormatFields;
 use dbpf::internal_file::behaviour::behaviour_function::{BehaviourFunction, Goto, Instruction, Signature};
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use crate::editor::r#enum::{EnumEditor, EnumEditorState};
-
 
 impl EnumEditor for Goto {
     type KnownEnum = Goto;
@@ -84,13 +86,112 @@ impl Editor for Instruction {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct BhavEditorState {
+    snarl: Snarl<Instruction>,
+    vec_editor_state: VecEditorState<Instruction>,
+    enum_editor_state: EnumEditorState,
+}
+
+#[derive(Debug)]
+struct BhavViewer<'a, 'b> {
+    bhav: &'a mut BehaviourFunction,
+    enum_editor_state: &'b mut EnumEditorState,
+}
+
+impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
+    fn title(&mut self, _node: &Instruction) -> String {
+        "Instruction".to_string()
+    }
+
+    fn inputs(&mut self, _node: &Instruction) -> usize {
+        1
+    }
+
+    fn show_input(&mut self, _pin: &InPin, _ui: &mut Ui, _scale: f32, _snarl: &mut Snarl<Instruction>) -> impl SnarlPin + 'static {
+        PinInfo::square()
+    }
+
+    fn outputs(&mut self, node: &Instruction) -> usize {
+        2
+    }
+
+    fn show_output(&mut self, pin: &OutPin, ui: &mut Ui, _scale: f32, snarl: &mut Snarl<Instruction>) -> impl SnarlPin + 'static {
+        if pin.id.output == 0 {
+            &mut snarl[pin.id.node].true_target
+        } else {
+            &mut snarl[pin.id.node].false_target
+        }.show_editor(self.enum_editor_state, ui);
+        PinInfo::square()
+    }
+
+    fn has_body(&mut self, node: &Instruction) -> bool {
+        true
+    }
+
+    fn show_body(&mut self, node: NodeId, inputs: &[InPin], outputs: &[OutPin], ui: &mut Ui, scale: f32, snarl: &mut Snarl<Instruction>) {
+        let instr = &mut snarl[node];
+        ui.vertical_centered(|ui| {
+            ui.horizontal(|ui| {
+                ui.label("opcode");
+                ui.add(DragValue::new(&mut instr.opcode).hexadecimal(1, false, false));
+                ui.label("version");
+                ui.add(DragValue::new(&mut instr.node_version).hexadecimal(1, false, false));
+            });
+
+            ui.style_mut().spacing.interact_size.x = 25.0 * scale;
+            ui.horizontal(|ui| {
+                for u in &mut instr.operands[..8] {
+                    ui.add(DragValue::new(u).hexadecimal(2, false, false));
+                }
+            });
+            ui.horizontal(|ui| {
+                for u in &mut instr.operands[8..] {
+                    ui.add(DragValue::new(u).hexadecimal(2, false, false));
+                }
+            });
+        });
+    }
+}
+
 impl Editor for BehaviourFunction {
-    type EditorState = VecEditorState<Instruction>;
+    type EditorState = BhavEditorState;
 
     fn new_editor(&self, _context: &Context) -> Self::EditorState {
-        VecEditorState {
-            columns: 5,
-            storage: VecEditorStateStorage::Shared(Default::default()),
+        let mut snarl = Snarl::new();
+
+        for instr in &self.instructions {
+            snarl.insert_node(Pos2::new(0.0, 0.0), instr.clone());
+        }
+
+        for (i, instr) in self.instructions.iter().enumerate() {
+            if let Goto::Instr(target) = instr.true_target {
+                snarl.connect(OutPinId {
+                    node: NodeId(i),
+                    output: 0,
+                }, InPinId {
+                    node: NodeId(target as usize),
+                    input: 0,
+                });
+            }
+            if let Goto::Instr(target) = instr.false_target {
+                snarl.connect(OutPinId {
+                    node: NodeId(i),
+                    output: 0,
+                }, InPinId {
+                    node: NodeId(target as usize),
+                    input: 0,
+                });
+            }
+        }
+
+        BhavEditorState {
+            snarl,
+            vec_editor_state: VecEditorState {
+                columns: 5,
+                storage: VecEditorStateStorage::Shared(Default::default()),
+            },
+            enum_editor_state: EnumEditorState::default(),
         }
     }
 
@@ -99,7 +200,7 @@ impl Editor for BehaviourFunction {
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("filename");
-                let mut res = self.name.name.show_editor(&mut (), ui);
+                let mut res = self.name.name.show_editor(&mut 500.0, ui);
                 ui.end_row();
 
                 ui.label("signature");
@@ -139,6 +240,18 @@ impl Editor for BehaviourFunction {
                 res
             }).inner;
 
-        res | self.instructions.show_editor(state, ui)
+        // let res = res | self.instructions.show_editor(&mut state.vec_editor_state, ui);
+
+        let mut snarl_style = SnarlStyle::new();
+        snarl_style.wire_style = Some(WireStyle::AxisAligned {
+            corner_radius: 10.0,
+        });
+
+        state.snarl.show(&mut BhavViewer {
+            bhav: self,
+            enum_editor_state: &mut state.enum_editor_state,
+        }, &snarl_style, "bhav snarl", ui);
+
+        res
     }
 }
