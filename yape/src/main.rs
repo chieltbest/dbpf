@@ -822,7 +822,9 @@ impl App for YaPeApp {
                 });
             });
 
-        let style = egui_dock::Style::from_egui(ctx.style().as_ref());
+        let mut style = egui_dock::Style::from_egui(ctx.style().as_ref());
+        style.separator.extra_interact_width = 8.0;
+        style.separator.color_hovered = Color32::GRAY;
         egui_dock::DockArea::new(&mut self.dock_state)
             .style(style)
             .show(ctx, &mut self.data);
