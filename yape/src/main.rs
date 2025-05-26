@@ -5,7 +5,7 @@
 
 use binrw::{BinRead, BinResult};
 use clap::Parser;
-use dbpf::filetypes::DBPFFileType;
+use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::CompressionError;
 use dbpf::{CompressionType, DBPFFile, IndexEntry};
 use eframe::egui::{Button, Color32, Context, DragValue, Id, Label, Rect, Response, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
@@ -111,6 +111,9 @@ where
 {
     <(u32, bool)>::deserialize(deser).map(|(ft, e)| (ft.into(), e))
 }
+fn file_type_default() -> (DBPFFileType, bool) {
+    (DBPFFileType::Known(KnownDBPFFileType::TextureResource), false)
+}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct YaPeAppData {
@@ -123,7 +126,7 @@ struct YaPeAppData {
     #[serde(default)]
     highlight_index: Option<usize>,
 
-    #[serde(default, serialize_with = "file_type_ser", deserialize_with = "file_type_deser")]
+    #[serde(default = "file_type_default", serialize_with = "file_type_ser", deserialize_with = "file_type_deser")]
     type_filter: (DBPFFileType, bool),
     #[serde(skip)]
     type_filter_state: <DBPFFileType as Editor>::EditorState,
