@@ -322,7 +322,7 @@ impl YaPeAppData {
                             let (t, e) = &mut self.type_filter;
                             ui.horizontal(|ui| {
                                 ui.label("Type");
-                                ui.checkbox(e, "")
+                                ui.checkbox(e, "filter")
                                     .on_hover_text("type filter enabled");
                             });
                             if t.show_editor(&mut self.type_filter_state, ui).changed() {
