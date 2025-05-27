@@ -66,7 +66,7 @@ impl Editor for TextureResource {
 
     fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
         let mut new = Self::EditorState {
-            original_texture_bgra: self.recompress_with_format(TextureFormat::RawBGRA).unwrap(),
+            original_texture_bgra: self.recompress_with_format(TextureFormat::RawARGB32).unwrap(),
             ..Default::default()
         };
         new.refresh_textures_from(self, context);
@@ -170,10 +170,10 @@ impl Editor for TextureResource {
             TextureFormat::DXT1,
             TextureFormat::Alpha,
             TextureFormat::Grayscale,
-            TextureFormat::RawBGRA,
-            TextureFormat::RawBGR,
-            TextureFormat::AltBGRA,
-            TextureFormat::AltBGR,
+            TextureFormat::RawARGB32,
+            TextureFormat::RawRGB24,
+            TextureFormat::AltARGB32,
+            TextureFormat::AltRGB24,
         ];
         let mut current_format = self.get_format();
         let prev_format = current_format;
@@ -308,7 +308,7 @@ impl Editor for TextureResource {
                             texture.purpose = self.purpose;
                             texture.file_name_repeat = self.file_name_repeat.clone();
 
-                            if let Ok(bgra) = texture.recompress_with_format(TextureFormat::RawBGRA) {
+                            if let Ok(bgra) = texture.recompress_with_format(TextureFormat::RawARGB32) {
                                 state.original_texture_bgra = bgra;
                             }
                             *self = texture;
@@ -340,7 +340,7 @@ impl Editor for TextureResource {
                         width: image.width() as usize,
                         height: image.height() as usize,
                         data: image.into_rgba8().to_vec(),
-                    }, Some(TextureFormat::RawBGRA));
+                    }, Some(TextureFormat::RawARGB32));
 
                     if has_mip {
                         self.add_max_mip_levels(preserve_transparency);

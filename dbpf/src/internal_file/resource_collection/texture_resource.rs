@@ -22,26 +22,26 @@ pub const PURPOSE_INTERFACE: f32 = 3.0;
 #[brw(repr = u32)]
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum TextureFormat {
-    RawBGRA = 1,
-    RawBGR = 2,
+    RawARGB32 = 1,
+    RawRGB24 = 2,
     Alpha = 3,
     DXT1 = 4,
     #[default]
     DXT3 = 5,
     Grayscale = 6,
-    AltBGRA = 7,
+    AltARGB32 = 7,
     DXT5 = 8,
-    AltBGR = 9,
+    AltRGB24 = 9,
 }
 
 impl TextureFormat {
     /// get the size that a texture will be in memory when encoded in this texture format
     pub fn compressed_size(&self, width: usize, height: usize) -> usize {
         match self {
-            TextureFormat::RawBGRA |
-            TextureFormat::AltBGRA => width * height * 4,
-            TextureFormat::RawBGR |
-            TextureFormat::AltBGR => width * height * 3,
+            TextureFormat::RawARGB32 |
+            TextureFormat::AltARGB32 => width * height * 4,
+            TextureFormat::RawRGB24 |
+            TextureFormat::AltRGB24 => width * height * 3,
             TextureFormat::Grayscale |
             TextureFormat::Alpha => width * height,
             TextureFormat::DXT1 => texpresso::Format::Bc1.compressed_size(width, height),
@@ -52,8 +52,8 @@ impl TextureFormat {
 
     pub fn decompress(&self, data: &[u8], width: usize, height: usize, output: &mut [u8]) {
         match self {
-            TextureFormat::RawBGRA |
-            TextureFormat::AltBGRA => {
+            TextureFormat::RawARGB32 |
+            TextureFormat::AltARGB32 => {
                 output.copy_from_slice(
                     data.chunks_exact(4)
                         .map(|px| {
@@ -63,8 +63,8 @@ impl TextureFormat {
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
-            TextureFormat::RawBGR |
-            TextureFormat::AltBGR => {
+            TextureFormat::RawRGB24 |
+            TextureFormat::AltRGB24 => {
                 output.copy_from_slice(
                     data.chunks_exact(3)
                         .map(|px| {
@@ -103,8 +103,8 @@ impl TextureFormat {
 
     pub fn compress(&self, data: &[u8], width: usize, height: usize, output: &mut [u8]) {
         match self {
-            TextureFormat::RawBGRA |
-            TextureFormat::AltBGRA => {
+            TextureFormat::RawARGB32 |
+            TextureFormat::AltARGB32 => {
                 output.copy_from_slice(
                     data.chunks_exact(4)
                         .map(|px| {
@@ -114,8 +114,8 @@ impl TextureFormat {
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
-            TextureFormat::RawBGR |
-            TextureFormat::AltBGR => {
+            TextureFormat::RawRGB24 |
+            TextureFormat::AltRGB24 => {
                 output.copy_from_slice(
                     data.chunks_exact(4)
                         .map(|px| {
@@ -436,21 +436,21 @@ impl TextureResource {
         match dds.get_d3d_format() {
             Some(format) => {
                 Ok(match format {
-                    D3DFormat::A8B8G8R8 => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                    D3DFormat::A8B8G8R8 => (TextureFormat::RawARGB32, |data: Vec<u8>| {
                         data.chunks_exact(4)
                             .flat_map(|c| {
                                 [c[2], c[1], c[0], c[3]]
                             }).collect()
                     }),
-                    D3DFormat::A8R8G8B8 => (TextureFormat::RawBGRA, identity),
-                    D3DFormat::R8G8B8 => (TextureFormat::RawBGR, identity),
-                    D3DFormat::X8B8G8R8 => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                    D3DFormat::A8R8G8B8 => (TextureFormat::RawARGB32, identity),
+                    D3DFormat::R8G8B8 => (TextureFormat::RawRGB24, identity),
+                    D3DFormat::X8B8G8R8 => (TextureFormat::RawARGB32, |data: Vec<u8>| {
                         data.chunks_exact(4)
                             .flat_map(|c| {
                                 [c[2], c[1], c[0], 0xFF]
                             }).collect()
                     }),
-                    D3DFormat::X8R8G8B8 => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                    D3DFormat::X8R8G8B8 => (TextureFormat::RawARGB32, |data: Vec<u8>| {
                         data.chunks_exact(4)
                             .flat_map(|c| {
                                 [c[0], c[1], c[2], 0xFF]
@@ -473,7 +473,7 @@ impl TextureResource {
                             DxgiFormat::R8G8B8A8_UNorm_sRGB |
                             DxgiFormat::R8G8B8A8_UInt |
                             DxgiFormat::R8G8B8A8_SNorm |
-                            DxgiFormat::R8G8B8A8_SInt => (TextureFormat::RawBGRA, |data: Vec<u8>| {
+                            DxgiFormat::R8G8B8A8_SInt => (TextureFormat::RawARGB32, |data: Vec<u8>| {
                                 data.chunks_exact(4)
                                     .flat_map(|c| {
                                         [c[1], c[2], c[3], c[0]]
@@ -496,10 +496,10 @@ impl TextureResource {
                             DxgiFormat::BC3_UNorm_sRGB => (TextureFormat::DXT5, identity),
                             DxgiFormat::B8G8R8A8_Typeless |
                             DxgiFormat::B8G8R8A8_UNorm |
-                            DxgiFormat::B8G8R8A8_UNorm_sRGB => (TextureFormat::RawBGRA, identity),
+                            DxgiFormat::B8G8R8A8_UNorm_sRGB => (TextureFormat::RawARGB32, identity),
                             DxgiFormat::B8G8R8X8_Typeless |
                             DxgiFormat::B8G8R8X8_UNorm |
-                            DxgiFormat::B8G8R8X8_UNorm_sRGB => (TextureFormat::AltBGRA, identity),
+                            DxgiFormat::B8G8R8X8_UNorm_sRGB => (TextureFormat::AltARGB32, identity),
                             _ => Err(DdsError::UnsupportedFormat(Some(DdsFormat::DxgiFormat(format))))?,
                         })
                     }
@@ -561,15 +561,15 @@ impl TextureResource {
 
     fn txtr_format_to_dds(texture_format: TextureFormat) -> (D3DFormat, Option<PixelFormatFlags>) {
         match texture_format {
-            TextureFormat::RawBGRA => (D3DFormat::A8R8G8B8, None),
-            TextureFormat::RawBGR => (D3DFormat::R8G8B8, None),
+            TextureFormat::RawARGB32 => (D3DFormat::A8R8G8B8, None),
+            TextureFormat::RawRGB24 => (D3DFormat::R8G8B8, None),
             TextureFormat::Alpha => (D3DFormat::A8, Some(PixelFormatFlags::ALPHA)),
             TextureFormat::DXT1 => (D3DFormat::DXT1, None),
             TextureFormat::DXT3 => (D3DFormat::DXT3, None),
             TextureFormat::Grayscale => (D3DFormat::L8, Some(PixelFormatFlags::LUMINANCE)),
-            TextureFormat::AltBGRA => (D3DFormat::A8R8G8B8, None),
+            TextureFormat::AltARGB32 => (D3DFormat::A8R8G8B8, None),
             TextureFormat::DXT5 => (D3DFormat::DXT5, None),
-            TextureFormat::AltBGR => (D3DFormat::R8G8B8, None),
+            TextureFormat::AltRGB24 => (D3DFormat::R8G8B8, None),
         }
     }
 

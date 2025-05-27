@@ -170,10 +170,10 @@ impl Editor for TextureFilterOperation {
                 1 => *self = Self::Height(ComparisonType::Greater, 512),
                 2 => *self = Self::Memory(ComparisonType::Greater, 1_000_000),
                 3 => *self = Self::Format(BTreeSet::from([
-                    TextureFormat::RawBGR,
-                    TextureFormat::RawBGRA,
-                    TextureFormat::AltBGR,
-                    TextureFormat::AltBGRA,
+                    TextureFormat::RawRGB24,
+                    TextureFormat::RawARGB32,
+                    TextureFormat::AltRGB24,
+                    TextureFormat::AltARGB32,
                 ])),
                 _ => *self = Self::Mip(ComparisonType::Greater, 1),
             }
@@ -217,10 +217,10 @@ impl Editor for TextureFilterOperation {
                 let res = ui.menu_button("choose", |ui| {
                     let res = [TextureFormat::Alpha,
                         TextureFormat::Grayscale,
-                        TextureFormat::RawBGR,
-                        TextureFormat::RawBGRA,
-                        TextureFormat::AltBGR,
-                        TextureFormat::AltBGRA,
+                        TextureFormat::RawRGB24,
+                        TextureFormat::RawARGB32,
+                        TextureFormat::AltRGB24,
+                        TextureFormat::AltARGB32,
                         TextureFormat::DXT1,
                         TextureFormat::DXT3,
                         TextureFormat::DXT5].iter().map(|tf| {
