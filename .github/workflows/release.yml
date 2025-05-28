@@ -106,8 +106,6 @@ jobs:
             > Prepare for any packages you edit with them to be potentially broken.
             > Make proper backups accordingly.
             
-            ${{ needs.generate-changelog.outputs.release_body }}
-            
             # Download/Run
             
             ## Windows [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2F${{ needs.generate-changelog.outputs.release_version }}/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-windows.zip)
@@ -117,6 +115,8 @@ jobs:
             
             ## Linux [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2F${{ needs.generate-changelog.outputs.release_version }}/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-linux.zip)
             Download the .zip archive, extract it, then click on the .AppImage file to run it.
+            
+            ${{ needs.generate-changelog.outputs.release_body }}
           files: |
             target/distrib/*.zip
       - name: Update latest release
@@ -134,8 +134,6 @@ jobs:
             > Prepare for any packages you edit with them to be potentially broken.
             > Make proper backups accordingly.
             
-            ${{ needs.generate-changelog.outputs.release_body }}
-            
             # Download/Run
             
             ## Windows [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-windows.zip)
@@ -145,5 +143,7 @@ jobs:
             
             ## Linux [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-linux.zip)
             Download the .zip archive, extract it, then click on the .AppImage file to run it.
+            
+            ${{ needs.generate-changelog.outputs.release_body }}
           files: |
             target/distrib/*.zip
