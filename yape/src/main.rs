@@ -8,7 +8,7 @@ use clap::Parser;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::CompressionError;
 use dbpf::{CompressionType, DBPFFile, IndexEntry};
-use eframe::egui::{Button, Color32, Context, DragValue, Id, Label, Rect, Response, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
+use eframe::egui::{Button, Color32, Context, DragValue, Id, Label, Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
 use eframe::{egui, App, Frame, Storage};
 use egui_dock::{DockState, Node, NodeIndex, Split, TabIndex, TabViewer};
 use egui_extras::Column;
@@ -59,7 +59,7 @@ struct EntryEditorTab {
     #[serde(skip)]
     state: EditorType,
     #[serde(skip)]
-    data: Weak<RefCell<IndexEntry>>,
+    data: Weak<RefCell<OpenResource>>,
 
     #[serde(skip)]
     id: usize,
@@ -115,6 +115,19 @@ fn file_type_default() -> (DBPFFileType, bool) {
     (DBPFFileType::Known(KnownDBPFFileType::TextureResource), false)
 }
 
+#[derive(Debug)]
+struct OpenResource {
+    ui_deleted: bool,
+    data: IndexEntry,
+}
+
+#[derive(Debug)]
+struct OpenFileState {
+    bytes: Cursor<Vec<u8>>,
+    header: BinResult<DBPFFile>,
+    resources: Vec<Rc<RefCell<OpenResource>>>,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct YaPeAppData {
     #[serde(default)]
@@ -132,7 +145,7 @@ struct YaPeAppData {
     type_filter_state: <DBPFFileType as Editor>::EditorState,
 
     #[serde(skip)]
-    open_file: Option<(Cursor<Vec<u8>>, BinResult<DBPFFile>, Vec<Rc<RefCell<IndexEntry>>>)>,
+    open_file: Option<OpenFileState>,
 
     #[serde(skip)]
     open_new_tab_index: Option<usize>,
@@ -187,40 +200,42 @@ impl Default for YaPeApp {
 impl EntryEditorTab {
     fn show<R: Read + Seek>(&mut self, ui: &mut Ui, reader: &mut R) {
         if let Some(data) = self.data.upgrade() {
-            match &mut self.state {
-                EditorType::Error(err) => {
-                    ScrollArea::vertical().show(ui, |ui| {
-                        ui.label(format!("{err:?}"));
-                    });
-                }
-                EditorType::HexEditor(editor) => {
-                    let mut data_ref = data.borrow_mut();
-                    let data = data_ref.data(reader).unwrap().decompressed().unwrap();
-                    if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-                        if !self.is_hex_editor {
-                            ui.centered_and_justified(|ui|
-                                ScrollArea::vertical().show(ui, |ui| {
-                                    if ui.code_editor(&mut str).changed() {
-                                        data.data = str.into_bytes();
-                                    }
-                                })
+            let mut data_ref = data.borrow_mut();
+            ui.add_enabled_ui(!data_ref.ui_deleted,
+                |ui| {
+                    match &mut self.state {
+                        EditorType::Error(err) => {
+                            ScrollArea::vertical().show(ui, |ui| {
+                                ui.label(format!("{err:?}"));
+                            });
+                        }
+                        EditorType::HexEditor(editor) => {
+                            let data = data_ref.data.data(reader).unwrap().decompressed().unwrap();
+                            if let Ok(mut str) = String::from_utf8(data.data.clone()) {
+                                if !self.is_hex_editor {
+                                    ui.centered_and_justified(|ui|
+                                        ScrollArea::vertical().show(ui, |ui| {
+                                            if ui.code_editor(&mut str).changed() {
+                                                data.data = str.into_bytes();
+                                            }
+                                        })
+                                    );
+                                    return;
+                                }
+                            }
+                            editor.draw_editor_contents(
+                                ui,
+                                data,
+                                |mem, addr| Some(mem.data[addr]),
+                                |mem, addr, byte| mem.data[addr] = byte,
                             );
-                            return;
+                        }
+                        EditorType::DecodedEditor(state) => {
+                            let decoded = data_ref.data.data(reader).unwrap().decoded().unwrap().unwrap();
+                            decoded.show_editor(state, ui);
                         }
                     }
-                    editor.draw_editor_contents(
-                        ui,
-                        data,
-                        |mem, addr| Some(mem.data[addr]),
-                        |mem, addr, byte| mem.data[addr] = byte,
-                    );
-                }
-                EditorType::DecodedEditor(state) => {
-                    let mut data_ref = data.borrow_mut();
-                    let decoded = data_ref.data(reader).unwrap().decoded().unwrap().unwrap();
-                    decoded.show_editor(state, ui);
-                }
-            }
+                });
         }
     }
 }
@@ -230,198 +245,215 @@ impl YaPeAppData {
         let mut open_index = None;
         let mut open_hex_index = None;
 
-        match &mut self.open_file {
-            None => {}
-            Some((_, Err(err), _entries)) => {
-                ui.colored_label(Color32::RED, err.to_string());
-            }
-            Some((_, Ok(file), entries)) => {
-                ui.collapsing("header", |ui| {
-                    let header = &mut file.header;
-                    egui::Grid::new("header grid")
-                        .num_columns(2)
-                        .show(ui, |ui| {
-                            ui.label("version");
-                            header.version.show_editor(&mut (), ui);
-                            ui.end_row();
+        if let Some(open_file) = &mut self.open_file {
+            match &mut open_file.header {
+                Err(err) => {
+                    ui.colored_label(Color32::RED, err.to_string());
+                }
+                Ok(file) => {
+                    ui.collapsing("header", |ui| {
+                        let header = &mut file.header;
+                        egui::Grid::new("header grid")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("version");
+                                header.version.show_editor(&mut (), ui);
+                                ui.end_row();
 
-                            ui.label("index version");
-                            header.index_version.show_editor(&mut (), ui);
-                            ui.end_row();
+                                ui.label("index version");
+                                header.index_version.show_editor(&mut (), ui);
+                                ui.end_row();
 
-                            ui.label("user version");
-                            header.user_version.show_editor(&mut (), ui);
-                            ui.end_row();
+                                ui.label("user version");
+                                header.user_version.show_editor(&mut (), ui);
+                                ui.end_row();
 
-                            ui.label("flags");
-                            ui.add(egui::DragValue::new(&mut header.flags).hexadecimal(1, false, false));
-                            ui.end_row();
+                                ui.label("flags");
+                                ui.add(egui::DragValue::new(&mut header.flags).hexadecimal(1, false, false));
+                                ui.end_row();
 
-                            ui.label("created");
-                            ui.push_id("created", |ui| {
-                                header.created.show_editor(&mut (), ui);
+                                ui.label("created");
+                                ui.push_id("created", |ui| {
+                                    header.created.show_editor(&mut (), ui);
+                                });
+                                ui.end_row();
+
+                                ui.label("modified");
+                                ui.push_id("modified", |ui| {
+                                    header.modified.show_editor(&mut (), ui);
+                                });
+                                ui.end_row();
                             });
-                            ui.end_row();
-
-                            ui.label("modified");
-                            ui.push_id("modified", |ui| {
-                                header.modified.show_editor(&mut (), ui);
-                            });
-                            ui.end_row();
-                        });
-                });
-
-                let mut delete_index = None;
-
-                let style_mut = ui.style_mut();
-                let button_height = style_mut.spacing.interact_size.y;
-                style_mut.visuals.selection.bg_fill = if style_mut.visuals.dark_mode {
-                    Color32::from_gray(16)
-                } else {
-                    Color32::LIGHT_GRAY
-                };
-                style_mut.visuals.selection.stroke = if style_mut.visuals.dark_mode {
-                    Stroke {
-                        color: Color32::WHITE,
-                        ..Default::default()
-                    }
-                } else {
-                    Stroke {
-                        color: Color32::BLACK,
-                        ..Default::default()
-                    }
-                };
-
-                let filtered_entries = entries.iter()
-                    .enumerate()
-                    .filter(|(_i, e)| {
-                        !self.type_filter.1 || (*e).borrow().type_id == self.type_filter.0
-                    }).collect::<Vec<_>>();
-                let filtered_count = filtered_entries.len();
-
-                egui_extras::TableBuilder::new(ui)
-                    .striped(true)
-                    .column(Column::exact(20.0))
-                    .column(Column::auto()
-                        .at_least(100.0)
-                        .clip(true))
-                    .column(Column::auto()
-                        .at_least(80.0)
-                        .clip(true))
-                    .column(Column::auto()
-                        .at_least(150.0)
-                        .clip(true))
-                    .column(Column::remainder()
-                        .at_least(100.0)
-                        .clip(true))
-                    .min_scrolled_height(100.0)
-                    .max_scroll_height(f32::MAX)
-                    .header(40.0, |mut row| {
-                        row.col(|_ui| {});
-                        row.col(|ui| {
-                            let (t, e) = &mut self.type_filter;
-                            ui.horizontal(|ui| {
-                                ui.label("Type");
-                                ui.checkbox(e, "filter")
-                                    .on_hover_text("type filter enabled");
-                            });
-                            if t.show_editor(&mut self.type_filter_state, ui).changed() {
-                                *e = true;
-                            }
-                        });
-                        row.col(|ui| { ui.label("Group"); });
-                        row.col(|ui| { ui.label("Instance"); });
-                        row.col(|ui| { ui.label("Compression"); });
-                    })
-                    .body(|body| {
-                        body.rows(button_height, filtered_count,
-                                  |mut row| {
-                                      let (i, entry_rc) = filtered_entries[row.index()];
-                                      let mut entry = entry_rc.borrow_mut();
-
-                                      let mut sense_fun = |ui: &mut Ui, res: Response, clicked: bool, entry: &IndexEntry| {
-                                          let interact_res = ui.interact(
-                                              Rect::everything_right_of(res.rect.right()),
-                                              Id::from(format!("row_interact_{i}")),
-                                              Sense::click(),
-                                          );
-                                          if interact_res.clicked() || (clicked && res.clicked()) {
-                                              open_index = Some(i);
-                                          }
-                                          (res | interact_res).context_menu(|ui| {
-                                              if ui.button("Filter on type").clicked() {
-                                                  self.type_filter = (entry.type_id, true);
-                                                  ui.close_menu();
-                                              }
-                                              if ui.button("Open hex editor").clicked() {
-                                                  open_hex_index = Some(i);
-                                                  ui.close_menu();
-                                              }
-                                          });
-                                      };
-
-                                      let selected = self.highlight_index.is_some_and(|hi| hi == i);
-                                      row.set_selected(selected);
-
-                                      row.col(|ui| {
-                                          ui.button("🗑").clicked().then(|| {
-                                              delete_index = Some(i);
-                                          });
-                                      });
-                                      row.col(|ui| {
-                                          let t = entry.type_id;
-                                          let res = ui.horizontal_centered(|ui| {
-                                              ui.add(Label::new(t.properties().map_or_else(
-                                                  || format!("{:08X}", t.code()),
-                                                  |prop| prop.abbreviation.to_string()))
-                                                  .sense(Sense::click())
-                                                  .selectable(false))
-                                                  .on_hover_text(format!(
-                                                      "{}\n{:08X}",
-                                                      t.full_name(),
-                                                      t.code()))
-                                          });
-                                          sense_fun(ui, res.inner, true, &entry);
-                                      });
-                                      row.col(|ui| {
-                                          let res = ui.add(DragValue::new(&mut entry.group_id)
-                                              .hexadecimal(8, false, true));
-                                          sense_fun(ui, res, false, &entry);
-                                      });
-                                      row.col(|ui| {
-                                          let res = ui.add(DragValue::new(&mut entry.instance_id)
-                                              .hexadecimal(8, false, true));
-                                          sense_fun(ui, res, false, &entry);
-                                      });
-                                      row.col(|ui| {
-                                          let res = egui::ComboBox::from_id_salt(
-                                              format!("{:?}{}{}", entry.type_id, entry.group_id, entry.instance_id))
-                                              .selected_text(format!("{:?}", entry.compression))
-                                              .width(110.0)
-                                              .show_ui(ui, |ui| {
-                                                  ui.selectable_value(&mut entry.compression, CompressionType::Uncompressed, "Uncompressed");
-                                                  ui.selectable_value(&mut entry.compression, CompressionType::RefPack, "RefPack");
-                                                  ui.selectable_value(&mut entry.compression, CompressionType::ZLib, "ZLib");
-                                                  ui.selectable_value(&mut entry.compression, CompressionType::Streamable, "Streamable");
-                                                  ui.selectable_value(&mut entry.compression, CompressionType::Deleted, "Deleted");
-                                              });
-                                          sense_fun(ui, res.response, false, &entry);
-                                      });
-                                  });
                     });
 
-                self.open_new_tab_index = open_index;
-                if open_index.is_some() {
-                    self.highlight_index = open_index;
-                }
-                self.open_new_hex_tab_index = open_hex_index;
-                if open_hex_index.is_some() {
-                    self.highlight_index = open_hex_index;
-                }
+                    let style_mut = ui.style_mut();
+                    let button_height = style_mut.spacing.interact_size.y;
+                    style_mut.visuals.selection.bg_fill = if style_mut.visuals.dark_mode {
+                        Color32::from_gray(16)
+                    } else {
+                        Color32::LIGHT_GRAY
+                    };
+                    style_mut.visuals.selection.stroke = if style_mut.visuals.dark_mode {
+                        Stroke {
+                            color: Color32::WHITE,
+                            ..Default::default()
+                        }
+                    } else {
+                        Stroke {
+                            color: Color32::BLACK,
+                            ..Default::default()
+                        }
+                    };
 
-                if let Some(delete_i) = delete_index {
-                    entries.remove(delete_i);
-                    self.highlight_index = None;
+                    let filtered_entries = open_file.resources.iter_mut()
+                        .enumerate()
+                        .filter(|(_i, e)| {
+                            !self.type_filter.1 || (*e).borrow().data.type_id == self.type_filter.0
+                        }).collect::<Vec<_>>();
+                    let filtered_count = filtered_entries.len();
+
+                    egui_extras::TableBuilder::new(ui)
+                        .striped(true)
+                        .column(Column::exact(20.0))
+                        .column(Column::auto()
+                            .at_least(100.0)
+                            .clip(true))
+                        .column(Column::auto()
+                            .at_least(80.0)
+                            .clip(true))
+                        .column(Column::auto()
+                            .at_least(150.0)
+                            .clip(true))
+                        .column(Column::remainder()
+                            .at_least(100.0)
+                            .clip(true))
+                        .min_scrolled_height(100.0)
+                        .max_scroll_height(f32::MAX)
+                        .header(40.0, |mut row| {
+                            row.col(|_ui| {});
+                            row.col(|ui| {
+                                let (t, e) = &mut self.type_filter;
+                                ui.horizontal(|ui| {
+                                    ui.label("Type");
+                                    ui.checkbox(e, "filter")
+                                        .on_hover_text("type filter enabled");
+                                });
+                                if t.show_editor(&mut self.type_filter_state, ui).changed() {
+                                    *e = true;
+                                }
+                            });
+                            row.col(|ui| { ui.label("Group"); });
+                            row.col(|ui| { ui.label("Instance"); });
+                            row.col(|ui| { ui.label("Compression"); });
+                        })
+                        .body(|body| {
+                            body.rows(
+                                button_height,
+                                filtered_count,
+                                |mut row| {
+                                    let (ref i, entry_rc) = &filtered_entries[row.index()];
+                                    let mut entry = entry_rc.borrow_mut();
+
+                                    let mut sense_fun = |ui: &mut Ui, res: Response, clicked: bool, entry: &IndexEntry| {
+                                        let interact_res = ui.interact(
+                                            Rect::everything_right_of(res.rect.right()),
+                                            Id::from(format!("row_interact_{i}")),
+                                            Sense::click(),
+                                        );
+                                        if interact_res.clicked() || (clicked && res.clicked()) {
+                                            open_index = Some(*i);
+                                        }
+                                        (res | interact_res).context_menu(|ui| {
+                                            if ui.button("Filter on type").clicked() {
+                                                self.type_filter = (entry.type_id, true);
+                                                ui.close_menu();
+                                            }
+                                            if ui.button("Open hex editor").clicked() {
+                                                open_hex_index = Some(*i);
+                                                ui.close_menu();
+                                            }
+                                        });
+                                    };
+
+                                    macro_rules! col {
+                                        ($ui:expr) => {
+                                            row.col(|r_ui| {
+                                                r_ui.add_enabled_ui(
+                                                    !entry.ui_deleted,
+                                                    $ui);
+                                            });
+                                        };
+                                    }
+
+                                    let selected = self.highlight_index.is_some_and(|hi| hi == *i);
+                                    row.set_selected(selected);
+
+                                    row.col(|ui| {
+                                        if entry.ui_deleted {
+                                            if ui.button("↩").clicked() {
+                                                entry.ui_deleted = false;
+                                            }
+                                        } else if ui.button("🗑").clicked() {
+                                            entry.ui_deleted = true;
+                                        }
+                                    });
+                                    row.col(|ui| {
+                                        let t = entry.data.type_id;
+                                        let res = ui.horizontal_centered(|ui| {
+                                            let str = t.properties().map_or_else(
+                                                || format!("{:08X}", t.code()),
+                                                |prop| prop.abbreviation.to_string());
+                                            let text = if entry.ui_deleted {
+                                                RichText::new(str).strikethrough()
+                                            } else {
+                                                RichText::new(str)
+                                            };
+                                            ui.add(Label::new(text)
+                                                .sense(Sense::click())
+                                                .selectable(false))
+                                                .on_hover_text(format!(
+                                                    "{}\n{:08X}",
+                                                    t.full_name(),
+                                                    t.code()))
+                                        });
+                                        sense_fun(ui, res.inner, true, &entry.data);
+                                    });
+                                    col!(|ui| {
+                                        let res = ui.add(DragValue::new(&mut entry.data.group_id)
+                                            .hexadecimal(8, false, true));
+                                        sense_fun(ui, res, false, &entry.data);
+                                    });
+                                    col!(|ui| {
+                                        let res = ui.add(DragValue::new(&mut entry.data.instance_id)
+                                            .hexadecimal(8, false, true));
+                                        sense_fun(ui, res, false, &entry.data);
+                                    });
+                                    col!(|ui| {
+                                        let entry = &mut entry.data;
+                                        let res = egui::ComboBox::from_id_salt(
+                                            format!("{:?}{}{}", entry.type_id, entry.group_id, entry.instance_id))
+                                            .selected_text(format!("{:?}", entry.compression))
+                                            .width(110.0)
+                                            .show_ui(ui, |ui| {
+                                                ui.selectable_value(&mut entry.compression, CompressionType::Uncompressed, "Uncompressed");
+                                                ui.selectable_value(&mut entry.compression, CompressionType::RefPack, "RefPack");
+                                                ui.selectable_value(&mut entry.compression, CompressionType::ZLib, "ZLib");
+                                                ui.selectable_value(&mut entry.compression, CompressionType::Streamable, "Streamable");
+                                                ui.selectable_value(&mut entry.compression, CompressionType::Deleted, "Deleted");
+                                            });
+                                        sense_fun(ui, res.response, false, entry);
+                                    });
+                                });
+                        });
+
+                    self.open_new_tab_index = open_index;
+                    if open_index.is_some() {
+                        self.highlight_index = open_index;
+                    }
+                    self.open_new_hex_tab_index = open_hex_index;
+                    if open_hex_index.is_some() {
+                        self.highlight_index = open_hex_index;
+                    }
                 }
             }
         }
@@ -439,10 +471,15 @@ impl TabViewer for YaPeAppData {
                     .and_then(|p| p.file_name())
                     .map(|p| p.to_string_lossy().into())
                     .unwrap_or("Index".to_string()).into()
-            },
+            }
             YaPeTab::Entry(entry) => {
                 if let Some(index) = entry.data.upgrade() {
-                    index.borrow().type_id.full_name().into()
+                    if index.borrow().ui_deleted {
+                        RichText::new(index.borrow().data.type_id.full_name())
+                            .strikethrough().into()
+                    } else {
+                        index.borrow().data.type_id.full_name().into()
+                    }
                 } else {
                     "Unknown".into()
                 }
@@ -454,8 +491,8 @@ impl TabViewer for YaPeAppData {
         match tab {
             YaPeTab::File => self.show_index(ui),
             YaPeTab::Entry(entry) => {
-                if let Some((cur, _file, _entries)) = &mut self.open_file {
-                    entry.show(ui, cur);
+                if let Some(file) = &mut self.open_file {
+                    entry.show(ui, &mut file.bytes);
                 }
             }
         }
@@ -515,10 +552,10 @@ impl YaPeApp {
             } else if let Some(path) = new.data.open_file_path.clone() {
                 new.open_file(path);
 
-                if let Some((data, _file, rc_entries)) = &mut new.data.open_file {
+                if let Some(file) = &mut new.data.open_file {
                     // TODO clean up this mess
                     let id_rc = Rc::new(RefCell::from(&mut new.next_tab_id));
-                    let data_rc = Rc::new(RefCell::from(data));
+                    let data_rc = Rc::new(RefCell::from(&mut file.bytes));
 
                     new.dock_state = new.dock_state.filter_map_tabs(|tab| {
                         match tab {
@@ -526,7 +563,7 @@ impl YaPeApp {
                             YaPeTab::Entry(entry) => {
                                 let hex_editor = entry.is_hex_editor;
                                 entry.index.and_then(|i|
-                                    Self::open_index(*id_rc.borrow_mut(), *data_rc.borrow_mut(), rc_entries, i, hex_editor, &cc.egui_ctx)
+                                    Self::open_index(*id_rc.borrow_mut(), *data_rc.borrow_mut(), &file.resources, i, hex_editor, &cc.egui_ctx)
                                         .map(YaPeTab::Entry))
                             }
                         }
@@ -560,7 +597,10 @@ impl YaPeApp {
                 std::mem::take(&mut file.index)
                     .into_iter()
                     .map(|entry| {
-                        Rc::new(RefCell::new(entry))
+                        Rc::new(RefCell::new(OpenResource {
+                            data: entry,
+                            ui_deleted: false,
+                        }))
                     })
                     .collect()
             }
@@ -570,7 +610,11 @@ impl YaPeApp {
             }
         };
 
-        self.data.open_file = Some((cursor, parsed, rc_index));
+        self.data.open_file = Some(OpenFileState {
+            bytes: cursor,
+            header: parsed,
+            resources: rc_index,
+        });
 
         // self.dock_state = DockState::new(vec![YaPeTab::File]);
     }
@@ -585,11 +629,18 @@ impl YaPeApp {
     }
 
     #[must_use]
-    fn open_index<R: Read + Seek>(next_tab_id: &mut usize, reader: &mut R, rc_entries: &Vec<Rc<RefCell<IndexEntry>>>, index: usize, hex_editor: bool, ui_ctx: &Context) -> Option<EntryEditorTab> {
+    fn open_index<R: Read + Seek>(
+        next_tab_id: &mut usize,
+        reader: &mut R,
+        file_resources: &Vec<Rc<RefCell<OpenResource>>>,
+        index: usize,
+        hex_editor: bool,
+        ui_ctx: &Context,
+    ) -> Option<EntryEditorTab> {
         let id = *next_tab_id;
         *next_tab_id = next_tab_id.wrapping_add(1);
-        let index_entry = &rc_entries.get(index)?;
-        let mut entry_ref = index_entry.borrow_mut();
+        let index_entry = file_resources.get(index)?;
+        let entry_ref = &mut index_entry.borrow_mut().data;
         let file_type = entry_ref.type_id;
         let res = entry_ref.data(reader)
             .map_err(|err| CompressionError::BinResult(err))
@@ -608,7 +659,7 @@ impl YaPeApp {
 
         Some(EntryEditorTab {
             state: res.unwrap_or_else(|err| EditorType::Error(err)),
-            data: Rc::downgrade(index_entry),
+            data: Rc::downgrade(&index_entry),
             index: Some(index),
             is_hex_editor: hex_editor,
             id,
@@ -616,15 +667,15 @@ impl YaPeApp {
     }
 
     fn open_index_tab(&mut self, index: usize, hex_editor: bool, ui_ctx: &Context) {
-        if let Some((cur, _file, rc_entries)) = &mut self.data.open_file {
-            let search_rc = &rc_entries[index];
+        if let Some(file) = &mut self.data.open_file {
+            let search_rc = &file.resources[index];
             let open_found = self.dock_state.iter_all_nodes()
                 .enumerate()
                 .find_map(|(node_i, (surf_i, node))| {
                     node.iter_tabs().enumerate().find_map(|(tab_i, tab)| {
                         match tab {
                             YaPeTab::Entry(t) => {
-                                (t.data.ptr_eq(&Rc::downgrade(search_rc)) &&
+                                (t.data.ptr_eq(&Rc::downgrade(&search_rc)) &&
                                     t.is_hex_editor == hex_editor)
                                     .then_some((surf_i, NodeIndex(node_i), TabIndex(tab_i)))
                             }
@@ -639,7 +690,7 @@ impl YaPeApp {
                 return;
             }
 
-            let Some(tab) = Self::open_index(&mut self.next_tab_id, cur, rc_entries, index, hex_editor, ui_ctx) else { return; };
+            let Some(tab) = Self::open_index(&mut self.next_tab_id, &mut file.bytes, &file.resources, index, hex_editor, ui_ctx) else { return; };
             let leaf_pos = self.dock_state.iter_all_tabs().skip(1).last().map(|(pos, _tab)| pos);
             if let Some(pos) = leaf_pos {
                 if let Some((_i, node)) = self.dock_state.iter_all_nodes_mut().nth(pos.1.0) {
@@ -669,10 +720,13 @@ impl YaPeApp {
     }
 
     fn save_bytes<W: Write + Seek>(&mut self, writer: &mut W) -> Result<(), CompressionError> {
-        if let Some((cur, file, entries)) = &mut self.data.open_file {
-            if let Ok(file) = file {
-                file.index = entries.iter().map(|e| e.borrow().clone()).collect();
-                file.write(writer, cur)?;
+        if let Some(open_file) = &mut self.data.open_file {
+            if let Ok(file) = &mut open_file.header {
+                file.index = open_file.resources.iter().filter_map(|e| {
+                    let e = e.borrow();
+                    (!e.ui_deleted).then_some(e.data.clone())
+                }).collect();
+                file.write(writer, &mut open_file.bytes)?;
                 file.index = vec![];
             }
         }
@@ -801,7 +855,7 @@ impl App for YaPeApp {
                             let mut dialog = rfd::AsyncFileDialog::new()
                                 .add_filter("Sims 2/3 package files (.package)", &["package"]);
                             if let Some(path) = self.data.open_file_path.as_ref()
-                                .and_then(|p| p.parent()){
+                                .and_then(|p| p.parent()) {
                                 dialog = dialog.set_directory(path);
                             }
                             let dialog = dialog.save_file();
@@ -851,15 +905,15 @@ impl App for YaPeApp {
 
     fn save(&mut self, storage: &mut dyn Storage) {
         // save editor tab rc indices
-        if let Some((_data, _file, rc_entries)) = &self.data.open_file {
+        if let Some(file) = &self.data.open_file {
             self.dock_state.iter_all_tabs_mut().for_each(|(_i, tab)| {
                 match tab {
                     YaPeTab::File => {}
                     YaPeTab::Entry(entry) => {
-                        entry.index = rc_entries.iter()
+                        entry.index = file.resources.iter()
                             .enumerate()
                             .find_map(|(i, elem)| {
-                                if entry.data.ptr_eq(&Rc::downgrade(elem)) {
+                                if entry.data.ptr_eq(&Rc::downgrade(&elem)) {
                                     Some(i)
                                 } else {
                                     None
