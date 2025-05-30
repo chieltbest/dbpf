@@ -8,7 +8,7 @@ use clap::Parser;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::CompressionError;
 use dbpf::{CompressionType, DBPFFile, IndexEntry};
-use eframe::egui::{Button, Color32, Context, DragValue, Id, Label, Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText};
+use eframe::egui::{Button, Color32, ComboBox, Context, DragValue, Id, Key, KeyboardShortcut, Label, Modifiers, Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, TextWrapMode, Ui, Visuals, WidgetText};
 use eframe::{egui, App, Frame, Storage};
 use egui_dock::{DockState, Node, NodeIndex, Split, TabIndex, TabViewer};
 use egui_extras::Column;
@@ -20,11 +20,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::fs;
-use std::io::{Cursor, Read, Seek, Write};
-use std::path::PathBuf;
+use std::fs::File;
+use std::io::{BufWriter, Cursor, Error, Read, Seek, Write};
+use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use tracing::error;
-
 use dbpf_utils::editor::{editor_supported, DecodedFileEditorState, Editor};
 use dbpf_utils::{async_execute, graphical_application_main};
 
@@ -115,6 +115,10 @@ fn file_type_default() -> (DBPFFileType, bool) {
     (DBPFFileType::Known(KnownDBPFFileType::TextureResource), false)
 }
 
+fn true_default() -> bool {
+    true
+}
+
 #[derive(Debug)]
 struct OpenResource {
     ui_deleted: bool,
@@ -128,8 +132,22 @@ struct OpenFileState {
     resources: Vec<Rc<RefCell<OpenResource>>>,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
+enum BackupOverwritePreference {
+    #[default]
+    Keep,
+    Overwrite,
+    Numbered,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct YaPeAppData {
+    #[serde(default = "true_default")]
+    backup_on_save: bool,
+
+    #[serde(default)]
+    backup_overwrite_preference: BackupOverwritePreference,
+
     #[serde(default)]
     memory_editor_options: MemoryEditorOptions,
 
@@ -202,40 +220,40 @@ impl EntryEditorTab {
         if let Some(data) = self.data.upgrade() {
             let mut data_ref = data.borrow_mut();
             ui.add_enabled_ui(!data_ref.ui_deleted,
-                |ui| {
-                    match &mut self.state {
-                        EditorType::Error(err) => {
-                            ScrollArea::vertical().show(ui, |ui| {
-                                ui.label(format!("{err:?}"));
-                            });
-                        }
-                        EditorType::HexEditor(editor) => {
-                            let data = data_ref.data.data(reader).unwrap().decompressed().unwrap();
-                            if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-                                if !self.is_hex_editor {
-                                    ui.centered_and_justified(|ui|
-                                        ScrollArea::vertical().show(ui, |ui| {
-                                            if ui.code_editor(&mut str).changed() {
-                                                data.data = str.into_bytes();
-                                            }
-                                        })
-                                    );
-                                    return;
-                                }
-                            }
-                            editor.draw_editor_contents(
-                                ui,
-                                data,
-                                |mem, addr| Some(mem.data[addr]),
-                                |mem, addr, byte| mem.data[addr] = byte,
-                            );
-                        }
-                        EditorType::DecodedEditor(state) => {
-                            let decoded = data_ref.data.data(reader).unwrap().decoded().unwrap().unwrap();
-                            decoded.show_editor(state, ui);
-                        }
-                    }
-                });
+                              |ui| {
+                                  match &mut self.state {
+                                      EditorType::Error(err) => {
+                                          ScrollArea::vertical().show(ui, |ui| {
+                                              ui.label(format!("{err:?}"));
+                                          });
+                                      }
+                                      EditorType::HexEditor(editor) => {
+                                          let data = data_ref.data.data(reader).unwrap().decompressed().unwrap();
+                                          if let Ok(mut str) = String::from_utf8(data.data.clone()) {
+                                              if !self.is_hex_editor {
+                                                  ui.centered_and_justified(|ui|
+                                                      ScrollArea::vertical().show(ui, |ui| {
+                                                          if ui.code_editor(&mut str).changed() {
+                                                              data.data = str.into_bytes();
+                                                          }
+                                                      })
+                                                  );
+                                                  return;
+                                              }
+                                          }
+                                          editor.draw_editor_contents(
+                                              ui,
+                                              data,
+                                              |mem, addr| Some(mem.data[addr]),
+                                              |mem, addr, byte| mem.data[addr] = byte,
+                                          );
+                                      }
+                                      EditorType::DecodedEditor(state) => {
+                                          let decoded = data_ref.data.data(reader).unwrap().decoded().unwrap().unwrap();
+                                          decoded.show_editor(state, ui);
+                                      }
+                                  }
+                              });
         }
     }
 }
@@ -732,6 +750,32 @@ impl YaPeApp {
         }
         Ok(())
     }
+
+    /// get the backup filename according to the overwrite preferences
+    ///
+    /// returns none if a move should not be done, or the path that the original file should be moved to
+    fn backup_filename<P: AsRef<Path>>(path: P, overwrite_pref: BackupOverwritePreference) -> Result<Option<PathBuf>, Error> {
+        let mut base = path.as_ref().as_os_str().to_os_string();
+        base.push(".bak");
+        if fs::exists(Path::new(&base))? {
+            match overwrite_pref {
+                BackupOverwritePreference::Keep => Ok(None),
+                BackupOverwritePreference::Overwrite => Ok(Some(PathBuf::from(base))),
+                BackupOverwritePreference::Numbered => {
+                    let mut i = 0;
+                    let mut cur_path = base.clone();
+                    while fs::exists(Path::new(&cur_path))? {
+                        i += 1;
+                        cur_path = base.clone();
+                        cur_path.push(format!(".{i}"));
+                    }
+                    Ok(Some(PathBuf::from(cur_path)))
+                }
+            }
+        } else {
+            Ok(Some(PathBuf::from(base)))
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -757,7 +801,8 @@ impl App for YaPeApp {
         }
         if let Some(picker) = &mut self.save_file_picker {
             if let Ok(Some(handle)) = picker.try_recv() {
-                self.file_picker = None;
+                eprintln!("handle = {:#?}", handle);
+                self.save_file_picker = None;
                 if let Some(handle) = handle {
                     self.data.open_file_path = Some(handle.path().to_path_buf());
                     let mut buf = Cursor::new(Vec::new());
@@ -812,6 +857,32 @@ impl App for YaPeApp {
                         ui.label("UI Scale");
                     });
 
+                    ui.menu_button("⚙", |ui| {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            ui.checkbox(&mut self.data.backup_on_save, "create backup files")
+                                .on_hover_text("make a backup file every time you save a package");
+
+                            ui.add_enabled_ui(self.data.backup_on_save, |ui| {
+                                ComboBox::new("backup_overwrite_preference", "backups")
+                                    .width(0.0)
+                                    .wrap_mode(TextWrapMode::Extend)
+                                    .selected_text(format!("{:?}", self.data.backup_overwrite_preference))
+                                    .show_ui(ui, |ui| {
+                                        for pref in [
+                                            BackupOverwritePreference::Keep,
+                                            BackupOverwritePreference::Overwrite,
+                                            BackupOverwritePreference::Numbered,
+                                        ] {
+                                            ui.selectable_value(&mut self.data.backup_overwrite_preference, pref, format!("{pref:?}"));
+                                        }
+                                    });
+                            });
+
+                            ui.add_space(70.0);
+                        }
+                    });
+
                     if ui.button("🗁")
                         .on_hover_text("open file...")
                         .clicked() && self.file_picker.is_none() {
@@ -835,22 +906,53 @@ impl App for YaPeApp {
                     }
 
                     if let Some(path) = self.data.open_file_path.clone() {
+                        let save_as_pressed = ui.input_mut(|i| {
+                            i.consume_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::SHIFT, Key::S))
+                        });
+
                         if ui.button("💾")
                             .on_hover_text("save")
-                            .clicked() {
-                            let mut buf = Cursor::new(Vec::new());
-                            match self.save_bytes(&mut buf) {
-                                Err(e) => error!(?e),
-                                Ok(_) => {
-                                    if let Err(e) = fs::write(path, buf.into_inner()) {
-                                        error!(?e);
+                            .clicked() ||
+                            ui.input_mut(|i| {
+                                i.consume_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND, Key::S))
+                            }) {
+                            let mut backed_up = true;
+                            if self.data.backup_on_save {
+                                let r = fs::exists(&path).and_then(|e| {
+                                    if e {
+                                        Self::backup_filename(&path, self.data.backup_overwrite_preference)
+                                    } else {
+                                        Ok(None)
+                                    }
+                                }).and_then(|p| {
+                                    if let Some(new_path) = p {
+                                        fs::rename(&path, new_path)
+                                    } else {
+                                        Ok(())
+                                    }
+                                });
+                                if let Err(err) = r {
+                                    error!(?err);
+                                    backed_up = false;
+                                }
+                            }
+                            if backed_up {
+                                match File::create(path) {
+                                    Err(err) => error!(?err),
+                                    Ok(f) => {
+                                        let mut writer = BufWriter::new(f);
+                                        if let Err(err) = self.save_bytes(&mut writer) {
+                                            error!(?err);
+                                        }
                                     }
                                 }
                             }
                         }
-                        if ui.button("💾✏")
+                        if (ui.button("💾✏")
                             .on_hover_text("save as...")
-                            .clicked() && self.save_file_picker.is_none() {
+                            .clicked() ||
+                            save_as_pressed) &&
+                            self.save_file_picker.is_none() {
                             let (tx, rx) = oneshot::channel();
                             let mut dialog = rfd::AsyncFileDialog::new()
                                 .add_filter("Sims 2/3 package files (.package)", &["package"]);
@@ -864,6 +966,7 @@ impl App for YaPeApp {
                                 let _ = if let Some(handle) = file {
                                     tx.send(Some(handle))
                                 } else {
+                                    eprintln!("None");
                                     tx.send(None)
                                 };
                             });
