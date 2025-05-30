@@ -335,7 +335,7 @@ pub enum KnownLanguageCode {
     Hindi = 21,
     Arabic = 22,
     Bulgarian = 23,
-    Belarusian = 24,
+    Cyrillic = 24,
     Ukrainian = 25,
     Czech = 26,
     Greek = 27,
