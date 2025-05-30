@@ -176,17 +176,31 @@ impl Editor for TextureResource {
             TextureFormat::AltRGB24,
         ];
         let mut current_format = self.get_format();
-        let prev_format = current_format;
-        ComboBox::new("format", "Texture Format")
-            .selected_text(format!("{:?}", current_format))
-            .show_ui(ui, |ui| {
-                for format in formats {
-                    ui.selectable_value(&mut current_format, format, format!("{:?}", format));
+        ui.horizontal_wrapped(|ui| {
+            let cbres = ComboBox::new("format", "Texture Format")
+                .selected_text(format!("{:?}", current_format))
+                .show_ui(ui, |ui| {
+                    formats.map(|format|
+                        ui.selectable_value(&mut current_format, format, format!("{:?}", format)))
+                        .into_iter().reduce(|r1, r2| r1 | r2).unwrap()
+                });
+            if let Some(inner) = cbres.inner {
+                if inner.changed() {
+                    update_images = true;
                 }
-            });
-        if current_format != prev_format {
-            update_images = true;
-        }
+                res |= inner;
+            }
+
+            if ui.button("Replace original")
+                .on_hover_text("apply the change in texture format to the original texture\n\n\
+                YaPe will always remember the original texture so you can easily switch back to it. \
+                If you want to replace this texture with the currently visible one use this button.")
+                .clicked() {
+                if let Ok(argb) = self.recompress_with_format(TextureFormat::RawARGB32) {
+                    state.original_texture_bgra = argb;
+                }
+            }
+        });
 
         if update_images {
             if let Ok(mut new) = state.original_texture_bgra.recompress_with_format(current_format) {
@@ -207,7 +221,9 @@ impl Editor for TextureResource {
             ui.radio_value(&mut self.purpose, 3.0, "Interface");
         });
 
-        if ui.button("Export DDS").clicked() &&
+        if ui.button("Export DDS")
+            .on_hover_text("export the currently visible texture and all mipmaps to a .dds file")
+            .clicked() &&
             state.save_file_picker.is_none() {
             let (tx, rx) = oneshot::channel();
             let dialog = rfd::AsyncFileDialog::new()
@@ -289,7 +305,7 @@ impl Editor for TextureResource {
                             Err(e) => {
                                 error!(?e);
                                 None
-                            },
+                            }
                             Ok(bytes) => {
                                 let mut cur = Cursor::new(bytes);
                                 Some(TextureResource::import_dds(&mut cur))
