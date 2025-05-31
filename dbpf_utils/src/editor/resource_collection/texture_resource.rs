@@ -1,15 +1,72 @@
+use std::fmt::Write;
 use crate::editor::Editor;
-use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, TextureFormat, TextureResource, TextureResourceData};
+use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData};
 use eframe::egui;
 use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Response, Slider, TextureOptions, Ui};
 use image::ImageReader;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
+use binrw::BinRead;
+use enum_iterator::all;
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::error;
 use crate::async_execute;
+use crate::editor::r#enum::{EnumEditor, EnumEditorState};
+
+impl EnumEditor for Purpose {
+    type KnownEnum = KnownPurpose;
+
+    fn from_known(known_enum: &Self::KnownEnum) -> Self {
+        Self::Known(*known_enum)
+    }
+
+    fn from_string(string: &String) -> Option<Self>
+    where
+        Self: Sized
+    {
+        let f: f32 = string.parse().ok()?;
+        let bytes = f.to_le_bytes();
+        Purpose::read_le(&mut Cursor::new(&bytes)).ok()
+    }
+
+    fn known_name(known_enum: &Self::KnownEnum) -> String {
+        format!("{known_enum:?}")
+    }
+
+    fn full_name(&self) -> String {
+        match self {
+            Self::Known(known) => Self::known_name(known),
+            Self::Unknown(i) => format!("{i:?}"),
+        }
+    }
+
+    fn known_hover_string(known_enum: &Self::KnownEnum) -> String {
+        let mut str = String::new();
+        writeln!(str, "{:?}", known_enum).unwrap();
+        write!(str, "Id: {:?}", f32::from(*known_enum)).unwrap();
+        str
+    }
+
+    fn hover_string(&self) -> Option<String> {
+        match self {
+            Self::Known(known) => {
+                Some(Self::known_hover_string(known))
+            }
+            Self::Unknown(_) => None,
+        }
+    }
+
+    fn search_strings(known_enum: &Self::KnownEnum) -> Vec<String> {
+        vec![format!("{known_enum:?}"),
+             format!("{}", f32::from(*known_enum))]
+    }
+
+    fn all_known() -> impl Iterator<Item=Self::KnownEnum> {
+        all::<KnownPurpose>()
+    }
+}
 
 #[derive(Default)]
 pub struct TextureResourceEditorState {
@@ -18,6 +75,7 @@ pub struct TextureResourceEditorState {
     original_texture_bgra: TextureResource,
     preserve_transparency: u8,
     save_file_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
+    enum_editor_state: EnumEditorState,
 }
 
 impl Debug for TextureResourceEditorState {
@@ -215,10 +273,8 @@ impl Editor for TextureResource {
         }
 
         ui.horizontal(|ui| {
-            ui.add(DragValue::new(&mut self.purpose));
-            ui.radio_value(&mut self.purpose, 1.0, "Object");
-            ui.radio_value(&mut self.purpose, 2.0, "Outfit");
-            ui.radio_value(&mut self.purpose, 3.0, "Interface");
+            self.purpose.show_enum_editor(&mut state.enum_editor_state, ui);
+            ui.label("Purpose");
         });
 
         if ui.button("Export DDS")

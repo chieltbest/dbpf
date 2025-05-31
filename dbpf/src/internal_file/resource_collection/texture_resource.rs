@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
 use binrw::{args, BinResult, binrw, Error};
 use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
+use enum_iterator::Sequence;
 use log::error;
 use thiserror::Error;
 use crate::common::BigString;
@@ -13,10 +14,6 @@ const TEXPRESSO_PARAMS: texpresso::Params = texpresso::Params {
     weights: texpresso::COLOUR_WEIGHTS_PERCEPTUAL,
     weigh_colour_by_alpha: true,
 };
-
-pub const PURPOSE_OBJECT: f32 = 1.0;
-pub const PURPOSE_OUTFIT: f32 = 2.0;
-pub const PURPOSE_INTERFACE: f32 = 3.0;
 
 #[binrw]
 #[brw(repr = u32)]
@@ -271,6 +268,41 @@ pub struct TextureResourceTexture {
 }
 
 #[binrw]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Sequence)]
+pub enum KnownPurpose {
+    #[default]
+    #[brw(magic = 1.0f32)]
+    Object,
+    #[brw(magic = 2.0f32)]
+    Outfit,
+    #[brw(magic = 3.0f32)]
+    Interface,
+}
+
+impl From<KnownPurpose> for f32 {
+    fn from(value: KnownPurpose) -> Self {
+        match value {
+            KnownPurpose::Object => 1.0,
+            KnownPurpose::Outfit => 2.0,
+            KnownPurpose::Interface => 3.0,
+        }
+    }
+}
+
+#[binrw]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Purpose {
+    Known(KnownPurpose),
+    Unknown(f32),
+}
+
+impl Default for Purpose {
+    fn default() -> Self {
+        Self::Known(KnownPurpose::default())
+    }
+}
+
+#[binrw]
 #[brw(import{version: ResourceBlockVersion})]
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TextureResource {
@@ -283,7 +315,7 @@ pub struct TextureResource {
     #[br(temp)]
     #[bw(calc = self.mip_levels() as u32)]
     mip_levels: u32,
-    pub purpose: f32,
+    pub purpose: Purpose,
     #[br(temp)]
     #[bw(calc = textures.len() as u32)]
     num_textures: u32,
@@ -525,14 +557,12 @@ impl TextureResource {
         let (format, post_process_fn) = Self::dds_to_txtr_format(&dds)?;
 
         let mut texture = Self {
-            file_name: Default::default(),
             width,
             height,
             format,
-            purpose: PURPOSE_OBJECT,
             unknown: 0,
-            file_name_repeat: Default::default(),
             textures: vec![],
+            ..Default::default()
         };
 
         for i in 0..dds.header.depth.unwrap_or(1) {

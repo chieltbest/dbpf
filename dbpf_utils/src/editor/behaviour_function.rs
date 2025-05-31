@@ -12,7 +12,7 @@ impl EnumEditor for Goto {
         *known_enum
     }
 
-    fn from_int_string(string: &String) -> Option<Self>
+    fn from_string(string: &String) -> Option<Self>
     where
         Self: Sized,
     {

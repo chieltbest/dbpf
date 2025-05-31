@@ -16,7 +16,7 @@ pub trait EnumEditor {
 
     fn from_known(known_enum: &Self::KnownEnum) -> Self;
 
-    fn from_int_string(string: &String) -> Option<Self>
+    fn from_string(string: &String) -> Option<Self>
     where
         Self: Sized;
 
@@ -87,7 +87,7 @@ pub trait EnumEditor {
                 ui.input(|i| i.key_pressed(Key::Enter)) {
                 if let Some((t, _score)) = scored_types.first() {
                     *self = Self::from_known(t);
-                } else if let Some(new) = Self::from_int_string(&state.search_string) {
+                } else if let Some(new) = Self::from_string(&state.search_string) {
                     *self = new;
                 }
                 ui.close_menu();

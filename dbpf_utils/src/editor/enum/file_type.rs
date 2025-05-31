@@ -11,7 +11,7 @@ impl EnumEditor for DBPFFileType {
         Self::Known(*known_enum)
     }
 
-    fn from_int_string(string: &String) -> Option<Self> {
+    fn from_string(string: &String) -> Option<Self> {
         u32::from_str_radix(string.trim_start_matches("0x"), 16)
             .map(|i| DBPFFileType::from(i))
             .ok()
