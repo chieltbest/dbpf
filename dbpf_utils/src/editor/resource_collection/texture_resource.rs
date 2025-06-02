@@ -1,8 +1,8 @@
 use std::fmt::Write;
 use crate::editor::Editor;
-use dbpf::internal_file::resource_collection::texture_resource::{DecodedTexture, KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData};
+use dbpf::internal_file::resource_collection::texture_resource::{KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData};
 use eframe::egui;
-use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Response, Slider, TextureOptions, Ui};
+use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Pos2, Rect, Response, Slider, TextureOptions, Ui};
 use image::ImageReader;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
@@ -12,6 +12,7 @@ use enum_iterator::all;
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::error;
+use dbpf::internal_file::resource_collection::texture_resource::decoded_texture::{DecodedTexture, ShrinkDirection};
 use crate::async_execute;
 use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 
@@ -219,6 +220,34 @@ impl Editor for TextureResource {
                 }
                 res.mark_changed();
                 update_images = true;
+            }
+        });
+
+        ui.horizontal_wrapped(|ui| {
+            for (shrink_direction, text, tooltip) in [
+                (ShrinkDirection::Both, "Shrink", "Shrink the texture in both dimensions by 2x"),
+                (ShrinkDirection::Horizontal, "Shrink horizontally", "Shrink the texture horizontally by 2x"),
+                (ShrinkDirection::Vertical, "Shrink vertically", "Shrink the texture vertically by 2x")] {
+                if ui.add_enabled(self.can_shrink(shrink_direction),
+                                  Button::new(text))
+                    .on_hover_text(tooltip)
+                    .clicked() {
+                    let _ = state.original_texture_bgra.shrink(preserve_transparency, shrink_direction);
+                    for (zoom, mip_i) in &mut state.zoom_state {
+                        *zoom = match shrink_direction {
+                            ShrinkDirection::Both => *zoom / 2.0,
+                            ShrinkDirection::Horizontal => Rect::from_min_max(
+                                Pos2::new(zoom.min.x / 2.0, zoom.min.y),
+                                Pos2::new(zoom.max.x / 2.0, zoom.max.y)),
+                            ShrinkDirection::Vertical => Rect::from_min_max(
+                                Pos2::new(zoom.min.x, zoom.min.y / 2.0),
+                                Pos2::new(zoom.max.x, zoom.max.y / 2.0)),
+                        };
+                        *mip_i = min(*mip_i, state.original_texture_bgra.mip_levels());
+                    }
+                    res.mark_changed();
+                    update_images = true;
+                }
             }
         });
 

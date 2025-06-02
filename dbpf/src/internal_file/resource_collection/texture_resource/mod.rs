@@ -1,13 +1,17 @@
+pub mod decoded_texture;
+
 use std::cmp::max;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
-use binrw::{args, BinResult, binrw, Error};
+use binrw::{args, binrw, BinResult, Error};
 use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
 use enum_iterator::Sequence;
 use log::error;
 use thiserror::Error;
+use decoded_texture::DecodedTexture;
 use crate::common::BigString;
 use crate::internal_file::resource_collection::{FileName, ResourceBlockVersion};
+use crate::internal_file::resource_collection::texture_resource::decoded_texture::{ShrinkDirection, ShrinkResult};
 
 const TEXPRESSO_PARAMS: texpresso::Params = texpresso::Params {
     algorithm: texpresso::Algorithm::IterativeClusterFit,
@@ -329,114 +333,6 @@ pub struct TextureResource {
     pub textures: Vec<TextureResourceTexture>,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct DecodedTexture {
-    pub width: usize,
-    pub height: usize,
-    pub data: Vec<u8>,
-}
-
-impl DecodedTexture {
-    /// halves the image in both dimensions, combining the value of groups of four pixels into a single pixel
-    fn shrink(&mut self, preserve_alpha_test: Option<u8>) -> bool {
-        if (self.width > 1 && self.width % 2 == 1) ||
-            (self.height > 1 && self.height % 2 == 1) ||
-            (self.width == 1 && self.height == 1) {
-            return false;
-        }
-        let pixel_offset = 4;
-        let new_width = max(self.width / 2, 1);
-        let new_height = max(self.height / 2, 1);
-        match (self.width, self.height) {
-            (w, h) if w == 1 || h == 1 => {
-                let pixel_offset = 4;
-                let new_dim = new_width * new_height;
-                for i in 0..new_dim {
-                    let orig_i = i * pixel_offset * 2;
-                    let new_i = i * pixel_offset;
-
-                    let a0 = self.data[3 + orig_i] as u32;
-                    let a1 = self.data[3 + orig_i + pixel_offset] as u32;
-                    let a_total = a0 + a1;
-
-                    for c in 0..3 {
-                        let (a0, a1, a_total) = if a_total == 0 {
-                            (1, 1, 4)
-                        } else {
-                            (a0, a1, a_total)
-                        };
-
-                        let new_c = ((self.data[c + orig_i] as u32 * a0) +
-                            (self.data[c + orig_i + pixel_offset] as u32 * a1))
-                            / a_total;
-                        self.data[c + new_i] = new_c as u8;
-                    }
-
-                    self.data[3 + new_i] = (a_total / 2) as u8;
-                }
-                self.data.truncate(new_dim * pixel_offset);
-            }
-            (w, h) => {
-                for y in 0..new_height {
-                    for x in 0..new_width {
-                        let orig_row_offset = pixel_offset * self.width;
-                        let orig_i = (x * pixel_offset * 2) + (y * orig_row_offset * 2);
-                        let new_i = (x * pixel_offset) + (y * pixel_offset * new_width);
-
-                        let a0 = self.data[3 + orig_i] as u32;
-                        let a1 = self.data[3 + orig_i + pixel_offset] as u32;
-                        let a2 = self.data[3 + orig_i + orig_row_offset] as u32;
-                        let a3 = self.data[3 + orig_i + orig_row_offset + pixel_offset] as u32;
-                        let a_total = a0 + a1 + a2 + a3;
-
-                        for c in 0..3 {
-                            let (a0, a1, a2, a3, a_total) = if a_total == 0 {
-                                (1, 1, 1, 1, 4)
-                            } else {
-                                (a0, a1, a2, a3, a_total)
-                            };
-                            let o = c;
-                            // makes a rainbow effect yayyy
-                            /*let o = if c < 3 {
-                                (c + 1) % 3
-                            } else {
-                                c
-                            };*/
-                            // weigh color by the alpha channel
-                            let new_c = ((self.data[o + orig_i] as u32 * a0) +
-                                (self.data[o + orig_i + pixel_offset] as u32 * a1) +
-                                (self.data[o + orig_i + orig_row_offset] as u32 * a2) +
-                                (self.data[o + orig_i + orig_row_offset + pixel_offset] as u32 * a3))
-                                / a_total;
-                            self.data[c + new_i] = new_c as u8;
-                        }
-                        // alpha
-                        if let Some(preserve_alpha) = preserve_alpha_test {
-                            let preserve_alpha = preserve_alpha as u32;
-                            let preserve_alpha_inv = 255 - preserve_alpha;
-
-                            let new_c = (
-                                a0 * (a0 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
-                                    a1 * (a1 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
-                                    a2 * (a2 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv) +
-                                    a3 * (a3 * preserve_alpha + preserve_alpha_inv * preserve_alpha_inv))
-                                / max((a_total * preserve_alpha) + (preserve_alpha_inv * preserve_alpha_inv * 4), 1);
-                            self.data[3 + new_i] = new_c as u8;
-                        } else {
-                            self.data[3 + new_i] = (a_total / 4) as u8;
-                        }
-                    }
-                }
-                self.data.truncate(new_width * new_height * pixel_offset);
-            }
-        }
-        self.data.shrink_to_fit();
-        self.width = new_width;
-        self.height = new_height;
-        true
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum DdsFormat {
     D3DFormat(D3DFormat),
@@ -745,12 +641,7 @@ impl TextureResource {
         assert!(mip_levels >= 1);
         let cur_mip_levels = self.mip_levels();
         let (smallest_width, smallest_height) = self.mip_size(cur_mip_levels - 1);
-        if (smallest_width > 1 && smallest_width % 2 == 1) ||
-            (smallest_height > 1 && smallest_height % 2 == 1) ||
-            (smallest_width == 1 && smallest_height == 1) {
-            return 0;
-        }
-        let cur_smallest_textures = self.textures.iter_mut().map(|tex| {
+        let cur_smallest_textures = self.textures.iter().map(|tex| {
             let smallest_mipmap = tex.entries.first().cloned();
             match smallest_mipmap {
                 Some(TextureResourceData::Embedded(e)) => {
@@ -769,7 +660,7 @@ impl TextureResource {
 
         for i in 0..mip_levels {
             if cur_textures.iter_mut().try_for_each(|tex| {
-                if tex.shrink(preserve_alpha) {
+                if matches!(tex.shrink(preserve_alpha, ShrinkDirection::Both), ShrinkResult::Ok) {
                     Ok(())
                 } else {
                     Err(())
@@ -807,11 +698,13 @@ impl TextureResource {
     pub fn max_mip_levels(&self) -> usize {
         let mut width = self.width;
         let mut height = self.height;
-        assert!(width > 0 && height > 0);
+        if width == 0 || height == 0 {
+            return 0;
+        }
         let mut i = 1;
         while (width > 1) || (height > 1) {
-            if (width > 1 && width % 2 == 1) ||
-                (height > 1 && height % 2 == 1) {
+            if DecodedTexture::can_shrink_dimensions(width as usize, height as usize, ShrinkDirection::Both)
+                == ShrinkResult::Unable {
                 return 1;
             }
             i += 1;
@@ -819,5 +712,67 @@ impl TextureResource {
             height = max(height >> 1, 1);
         }
         i
+    }
+
+    fn any_lifo(&self) -> bool {
+        self.textures.iter().any(|t| {
+            t.entries.iter().any(|e| matches!(e, TextureResourceData::LIFOFile { .. }))
+        })
+    }
+
+    pub fn can_shrink(&self, shrink_direction: ShrinkDirection) -> bool {
+        let mut results = self.textures.iter()
+            .map(|t| {
+                let (mip_width, mip_height) = self.mip_size(t.entries.len());
+                DecodedTexture::can_shrink_dimensions(mip_width, mip_height, shrink_direction)
+            });
+        !results.any(|r| r == ShrinkResult::Unable) &&
+            DecodedTexture::can_shrink_dimensions(self.width as usize, self.height as usize, shrink_direction)
+                != ShrinkResult::Small &&
+            !self.any_lifo()
+    }
+
+    pub fn shrink(&mut self, preserve_alpha: Option<u8>, shrink_direction: ShrinkDirection) -> BinResult<bool> {
+        if !self.can_shrink(shrink_direction) {
+            return Ok(false);
+        }
+
+        let format = self.format;
+        for texture in 0..self.textures.len() {
+            let num_mip = self.textures[texture].entries.len();
+            for i in 0..num_mip {
+                let mip_level = num_mip - i - 1;
+                let (mip_width, mip_height) = self.mip_size(mip_level);
+                let texture = &mut self.textures[texture];
+                if let TextureResourceData::Embedded(mip) = &mut texture.entries[i] {
+                    let mut decoded = DecodedTexture {
+                        data: mip.decompress(mip_width, mip_height, format)?,
+                        width: mip_width,
+                        height: mip_height,
+                    };
+                    decoded.shrink(preserve_alpha, shrink_direction);
+                    mip.compress(decoded.width, decoded.height, format, &decoded.data);
+                }
+            }
+        }
+
+        let old_width = self.width;
+        let old_height = self.height;
+        if shrink_direction != ShrinkDirection::Vertical {
+            self.width /= 2;
+        }
+        if shrink_direction != ShrinkDirection::Horizontal {
+            self.height /= 2;
+        }
+
+        let mut mip_removed = false;
+        let max_mip = self.max_mip_levels();
+        for texture in &mut self.textures {
+            if texture.entries.len() > max_mip {
+                texture.entries.remove(0);
+                mip_removed = true;
+            }
+        }
+        Ok(mip_removed)
     }
 }
