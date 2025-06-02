@@ -37,7 +37,10 @@ pub trait EnumEditor {
         Self: PartialEq,
         Self: Sized,
     {
-        let inner_res = ui.menu_button(self.full_name(), |ui| {
+        let inner_res = ui.menu_button(
+            self.full_name() + " ⏷",
+            |ui| {
+
             let mut text_edit_response = TextEdit::singleline(&mut state.search_string).show(ui);
 
             if state.focus_self {
