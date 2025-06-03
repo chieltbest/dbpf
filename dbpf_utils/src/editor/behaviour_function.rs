@@ -104,6 +104,11 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
         "Instruction".to_string()
     }
 
+    fn show_header(&mut self, node: NodeId, _inputs: &[InPin], _outputs: &[OutPin], ui: &mut Ui, _scale: f32, snarl: &mut Snarl<Instruction>) {
+        ui.label("Instruction");
+        ui.add(DragValue::new(&mut snarl[node].opcode).hexadecimal(1, false, false));
+    }
+
     fn inputs(&mut self, _node: &Instruction) -> usize {
         1
     }
@@ -134,22 +139,23 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
         let instr = &mut snarl[node];
         ui.vertical_centered(|ui| {
             ui.horizontal(|ui| {
-                ui.label("opcode");
-                ui.add(DragValue::new(&mut instr.opcode).hexadecimal(1, false, false));
                 ui.label("version");
                 ui.add(DragValue::new(&mut instr.node_version).hexadecimal(1, false, false));
             });
 
-            ui.style_mut().spacing.interact_size.x = 25.0 * scale;
-            ui.horizontal(|ui| {
-                for u in &mut instr.operands[..8] {
-                    ui.add(DragValue::new(u).hexadecimal(2, false, false));
-                }
-            });
-            ui.horizontal(|ui| {
-                for u in &mut instr.operands[8..] {
-                    ui.add(DragValue::new(u).hexadecimal(2, false, false));
-                }
+            ui.collapsing("parameters", |ui| {
+                ui.style_mut().spacing.interact_size.x = 25.0 * scale;
+                ui.style_mut().spacing.item_spacing.x = 5.0 * scale;
+                ui.horizontal(|ui| {
+                    for u in &mut instr.operands[..8] {
+                        ui.add(DragValue::new(u).hexadecimal(2, false, false));
+                    }
+                });
+                ui.horizontal(|ui| {
+                    for u in &mut instr.operands[8..] {
+                        ui.add(DragValue::new(u).hexadecimal(2, false, false));
+                    }
+                });
             });
         });
     }
@@ -219,7 +225,7 @@ impl Editor for BehaviourFunction {
                 occupied_cells.insert((x - 1, y));
                 occupied_cells.insert((x, y));
                 occupied_cells.insert((x + 1, y));
-                node_positons[id] = Pos2::new(200.0 * x as f32, 150.0 * y as f32);
+                node_positons[id] = Pos2::new(120.0 * x as f32, 100.0 * y as f32);
 
                 max_position = max(max_position, x + 2)
             }
