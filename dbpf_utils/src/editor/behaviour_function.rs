@@ -1,6 +1,8 @@
-use eframe::egui::{ComboBox, Context, DragValue, Grid, Pos2, Response, Ui};
+use std::cmp::max;
+use std::collections::{BTreeSet, VecDeque};
+use eframe::egui::{Color32, ComboBox, Context, DragValue, Grid, Pos2, Response, Ui};
 use egui_snarl::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
-use egui_snarl::ui::{PinInfo, SnarlPin, SnarlStyle, SnarlViewer, WireStyle};
+use egui_snarl::ui::{PinInfo, PinPlacement, SnarlPin, SnarlStyle, SnarlViewer, WireLayer, WireStyle};
 use dbpf::internal_file::behaviour::behaviour_function::{BehaviourFunction, Goto, Instruction, Signature};
 use crate::editor::Editor;
 use crate::editor::r#enum::{EnumEditor, EnumEditorState};
@@ -107,7 +109,7 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
     }
 
     fn show_input(&mut self, _pin: &InPin, _ui: &mut Ui, _scale: f32, _snarl: &mut Snarl<Instruction>) -> impl SnarlPin + 'static {
-        PinInfo::square()
+        PinInfo::circle()
     }
 
     fn outputs(&mut self, _node: &Instruction) -> usize {
@@ -115,12 +117,13 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
     }
 
     fn show_output(&mut self, pin: &OutPin, ui: &mut Ui, _scale: f32, snarl: &mut Snarl<Instruction>) -> impl SnarlPin + 'static {
-        if pin.id.output == 0 {
-            &mut snarl[pin.id.node].true_target
+        let (target, color) = if pin.id.output == 0 {
+            (&mut snarl[pin.id.node].true_target, Color32::GREEN)
         } else {
-            &mut snarl[pin.id.node].false_target
-        }.show_editor(self.enum_editor_state, ui);
-        PinInfo::square()
+            (&mut snarl[pin.id.node].false_target, Color32::RED)
+        };
+        target.show_editor(self.enum_editor_state, ui);
+        PinInfo::circle().with_fill(color).with_wire_color(color)
     }
 
     fn has_body(&mut self, _node: &Instruction) -> bool {
@@ -158,8 +161,73 @@ impl Editor for BehaviourFunction {
     fn new_editor(&self, _context: &Context) -> Self::EditorState {
         let mut snarl = Snarl::new();
 
-        for (i, instr) in self.instructions.iter().enumerate() {
-            snarl.insert_node(Pos2::new(0.0, 100.0 * i as f32), instr.clone());
+        let mut unopened: BTreeSet<usize> = (0..self.instructions.len()).collect();
+
+        let mut sorted_instr_groups = vec![];
+
+        while let Some(first) = unopened.pop_first() {
+            let mut open_list = VecDeque::from([(first, 0, 0)]);
+            let mut sorted_instr_ids = vec![];
+
+            while let Some((id, x, y)) = open_list.pop_back() {
+                sorted_instr_ids.push((id, x, y));
+
+                let instruction = &self.instructions[id];
+
+                let targets = [instruction.true_target, instruction.false_target]
+                    .map(|t| match t {
+                        Goto::Instr(i) => unopened
+                            .remove(&(i as usize))
+                            .then_some(i as usize),
+                        _ => None,
+                    });
+                match targets {
+                    [Some(t), Some(f)] => {
+                        open_list.push_back((t, x + 1, y + 1));
+                        open_list.push_back((f, x - 1, y + 1));
+                    }
+                    [Some(i), _] | [_, Some(i)] => {
+                        open_list.push_back((i, x, y + 1));
+                    }
+                    _ => {}
+                }
+            }
+
+            sorted_instr_groups.push(sorted_instr_ids);
+        }
+
+        let mut occupied_cells = BTreeSet::new();
+        let mut node_positons = self.instructions.iter()
+            .map(|_i| Pos2::new(0.0, 0.0))
+            .collect::<Vec<_>>();
+        let mut max_position = 0;
+
+        for group in sorted_instr_groups.into_iter() {
+            let group_min = group.iter()
+                .map(|(_, x, _)| x)
+                .min()
+                .unwrap();
+
+            let group_x_offset = max_position - group_min;
+
+            for (id, x, mut y) in group {
+                let x = x + group_x_offset;
+                while occupied_cells.contains(&(x, y)) {
+                    y += 1;
+                }
+
+                occupied_cells.insert((x - 1, y));
+                occupied_cells.insert((x, y));
+                occupied_cells.insert((x + 1, y));
+                node_positons[id] = Pos2::new(200.0 * x as f32, 150.0 * y as f32);
+
+                max_position = max(max_position, x + 2)
+            }
+        }
+
+        for (instr, pos) in self.instructions.iter()
+            .zip(node_positons) {
+            snarl.insert_node(pos, instr.clone());
         }
 
         for (i, instr) in self.instructions.iter().enumerate() {
@@ -234,12 +302,14 @@ impl Editor for BehaviourFunction {
                 res
             }).inner;
 
-        // let res = res | self.instructions.show_editor(&mut state.vec_editor_state, ui);
-
         let mut snarl_style = SnarlStyle::new();
-        snarl_style.wire_style = Some(WireStyle::AxisAligned {
-            corner_radius: 10.0,
-        });
+        snarl_style.wire_style = Some(WireStyle::Bezier5 {});
+        snarl_style.wire_layer = Some(WireLayer::BehindNodes);
+        snarl_style.wire_width = Some(5.0);
+        snarl_style.wire_frame_size = Some(50.0);
+        snarl_style.upscale_wire_frame = Some(true);
+        snarl_style.downscale_wire_frame = Some(true);
+        snarl_style.pin_placement = Some(PinPlacement::Edge {});
 
         state.snarl.show(&mut BhavViewer {
             _bhav: self,
