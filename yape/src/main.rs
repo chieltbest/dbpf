@@ -140,6 +140,13 @@ enum BackupOverwritePreference {
     Numbered,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
+enum DeletedRememberPreference {
+    #[default]
+    Forget,
+    Remember,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct YaPeAppData {
     #[serde(default = "true_default")]
@@ -147,6 +154,9 @@ struct YaPeAppData {
 
     #[serde(default)]
     backup_overwrite_preference: BackupOverwritePreference,
+
+    #[serde(default)]
+    deleted_remember_preference: DeletedRememberPreference,
 
     #[serde(default)]
     memory_editor_options: MemoryEditorOptions,
@@ -740,10 +750,20 @@ impl YaPeApp {
     fn save_bytes<W: Write + Seek>(&mut self, writer: &mut W) -> Result<(), CompressionError> {
         if let Some(open_file) = &mut self.data.open_file {
             if let Ok(file) = &mut open_file.header {
-                file.index = open_file.resources.iter().filter_map(|e| {
-                    let e = e.borrow();
-                    (!e.ui_deleted).then_some(e.data.clone())
-                }).collect();
+                match self.data.deleted_remember_preference {
+                    DeletedRememberPreference::Forget => {
+                        open_file.resources.retain(|e| !e.borrow().ui_deleted);
+                        file.index = open_file.resources.iter().map(|e| {
+                            e.borrow().data.clone()
+                        }).collect();
+                    }
+                    DeletedRememberPreference::Remember => {
+                        file.index = open_file.resources.iter().filter_map(|e| {
+                            let e = e.borrow();
+                            (!e.ui_deleted).then_some(e.data.clone())
+                        }).collect();
+                    }
+                }
                 file.write(writer, &mut open_file.bytes)?;
                 file.index = vec![];
             }
@@ -878,9 +898,20 @@ impl App for YaPeApp {
                                         }
                                     });
                             });
-
-                            ui.add_space(70.0);
                         }
+
+                        ComboBox::new("deleted_remember_preference", "deleted resources on saving")
+                            .selected_text(format!("{:?}", self.data.deleted_remember_preference))
+                            .width(0.0)
+                            .show_ui(ui, |ui| {
+                                for pref in [
+                                    DeletedRememberPreference::Forget,
+                                    DeletedRememberPreference::Remember] {
+                                    ui.selectable_value(&mut self.data.deleted_remember_preference, pref, format!("{pref:?}"));
+                                }
+                            });
+
+                        ui.add_space(50.0);
                     });
 
                     if ui.button("🗁")
