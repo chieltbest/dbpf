@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.1] - 2025-06-04
+
+### 🚀 Features
+
+- Make deleting resources a toggle
+- Add replace original button in texture editor
+- Add option to make backup files
+- Add bidirectional texture shrink function
+- Automatically lay out bhav nodes
+- Make option to remember/forget deleted resources on saving
+
+### 🐛 Bug Fixes
+
+- Rename Bulgarian -> Cyrillic
+
+### 🚜 Refactor
+
+- *(dbpf)* Change texture resource purpose to enum
+
+### 🎨 Styling
+
+- Add arrow to dropdown menu
+- Collapse bhav nodes to make them smaller
+
 ## [0.4.0] - 2025-05-28
 
 ### 🚀 Features
