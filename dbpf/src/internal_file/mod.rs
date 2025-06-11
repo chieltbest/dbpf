@@ -313,7 +313,8 @@ impl DecodedFile {
                 Some(SimOutfits::read(&mut cursor).map(|r| DecodedFile::SimOutfits(r)))
             }
             DBPFFileType::Known(KnownDBPFFileType::TextureResource |
-                                KnownDBPFFileType::MaterialDefinition) => {
+                                KnownDBPFFileType::MaterialDefinition |
+                                KnownDBPFFileType::GeometricDataContainer) => {
                 Some(ResourceCollection::read(&mut cursor).map(|r| DecodedFile::ResourceCollection(r)))
             }
             DBPFFileType::Known(KnownDBPFFileType::TextList |

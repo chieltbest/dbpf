@@ -32,6 +32,7 @@ impl Editor for ResourceCollection {
                     ResourceData::Material(_material) => {
                         ResourceEditorState::None
                     }
+                    ResourceData::Mesh(_) => todo!(),
                 }
             }).collect(),
         }
@@ -80,6 +81,7 @@ impl Editor for ResourceCollection {
                             }
                         }
                     }
+                    ResourceData::Mesh(_) => todo!(),
                 }
             }
             

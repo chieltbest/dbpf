@@ -1,11 +1,13 @@
 use binrw::{args, binrw};
 use crate::common::BigString;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
+use crate::internal_file::resource_collection::geometric_data_container::GeometricDataContainer;
 use crate::internal_file::resource_collection::material_definition::MaterialDefinition;
 use crate::internal_file::resource_collection::texture_resource::TextureResource;
 
 pub mod texture_resource;
 pub mod material_definition;
+pub mod geometric_data_container;
 
 #[binrw]
 #[brw(import {type_id: DBPFFileType, version: ResourceBlockVersion})]
@@ -15,6 +17,8 @@ pub enum ResourceData {
     Texture(#[brw(args {version: version.clone()})] TextureResource),
     #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::MaterialDefinition))))]
     Material(#[brw(args {version: version.clone()})] MaterialDefinition),
+    #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::GeometricDataContainer))))]
+    Mesh(#[brw(args {version: version.clone()})] GeometricDataContainer),
 }
 
 #[binrw]
@@ -39,9 +43,16 @@ pub struct ResourceVersion;
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 #[non_exhaustive]
 pub enum ResourceBlockVersion {
+    V0 = 0,
+    V1 = 1,
+    V2 = 2,
+    V3 = 3,
+    V4 = 4,
+    V5 = 5,
+    V6 = 6,
     V7 = 7,
     V8 = 8,
     #[default]
