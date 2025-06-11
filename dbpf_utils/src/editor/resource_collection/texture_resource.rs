@@ -192,6 +192,8 @@ impl Editor for TextureResource {
                 .clicked() {
                 state.original_texture_bgra.remove_smaller_mip_levels();
                 state.original_texture_bgra.add_max_mip_levels(preserve_transparency);
+                self.remove_smaller_mip_levels();
+                self.add_max_mip_levels(preserve_transparency);
                 res.mark_changed();
                 update_images = true;
             }
@@ -199,6 +201,7 @@ impl Editor for TextureResource {
                               Button::new("Add missing mipmaps"))
                 .clicked() {
                 state.original_texture_bgra.add_max_mip_levels(preserve_transparency);
+                self.add_max_mip_levels(preserve_transparency);
                 res.mark_changed();
                 update_images = true;
             }
@@ -206,6 +209,7 @@ impl Editor for TextureResource {
                               Button::new("Remove all mipmaps"))
                 .clicked() {
                 state.original_texture_bgra.remove_smaller_mip_levels();
+                self.remove_smaller_mip_levels();
                 res.mark_changed();
                 update_images = true;
             }
@@ -214,6 +218,7 @@ impl Editor for TextureResource {
                 .on_hover_text("Deletes the biggest image from the list of mipmaps, effectively halving the image size")
                 .clicked() {
                 state.original_texture_bgra.remove_largest_mip_levels(1);
+                self.remove_largest_mip_levels(1);
                 for (zoom, mip_i) in &mut state.zoom_state {
                     *zoom = *zoom / 2.0;
                     *mip_i = mip_i.saturating_sub(1);
@@ -233,6 +238,7 @@ impl Editor for TextureResource {
                     .on_hover_text(tooltip)
                     .clicked() {
                     let _ = state.original_texture_bgra.shrink(preserve_transparency, shrink_direction);
+                    let _ = self.shrink(preserve_transparency, shrink_direction);
                     for (zoom, mip_i) in &mut state.zoom_state {
                         *zoom = match shrink_direction {
                             ShrinkDirection::Both => *zoom / 2.0,
@@ -273,6 +279,13 @@ impl Editor for TextureResource {
                 });
             if let Some(inner) = cbres.inner {
                 if inner.changed() {
+                    if let Ok(mut new) = state.original_texture_bgra.recompress_with_format(current_format) {
+                        new.file_name = std::mem::take(&mut self.file_name);
+                        new.file_name_repeat = std::mem::take(&mut self.file_name_repeat);
+                        new.purpose = self.purpose;
+                        new.unknown = self.unknown;
+                        *self = new;
+                    }
                     update_images = true;
                 }
                 res |= inner;
@@ -290,14 +303,7 @@ impl Editor for TextureResource {
         });
 
         if update_images {
-            if let Ok(mut new) = state.original_texture_bgra.recompress_with_format(current_format) {
-                new.file_name = std::mem::take(&mut self.file_name);
-                new.file_name_repeat = std::mem::take(&mut self.file_name_repeat);
-                new.purpose = self.purpose;
-                new.unknown = self.unknown;
-                *self = new;
-                state.refresh_textures_from(self, ui.ctx());
-            }
+            state.refresh_textures_from(self, ui.ctx());
             update_images = false;
         }
 
