@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2] - 2025-06-12
+
+### 🚀 Features
+
+- *(dbpf)* Add GeometricDataContainer decoder
+
+### 🐛 Bug Fixes
+
+- Do not recompress textures during mipmap operations
+
 ## [0.4.1] - 2025-06-04
 
 ### 🚀 Features
