@@ -1,11 +1,13 @@
+use std::sync::Arc;
 use eframe::egui::{ComboBox, DragValue, Response, Ui};
+use eframe::glow;
 use dbpf::{IndexVersion, Timestamp, UserVersion, V1Minor, V2Minor, V3Minor, Version};
 use crate::editor::Editor;
 
 impl Editor for Version {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         ui.horizontal(|ui| {
             let mut cur_selected = match self {
                 Version::V1(_) => 0,
@@ -69,7 +71,7 @@ impl Editor for Version {
 impl Editor for IndexVersion {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         let res = ComboBox::from_id_salt("index version")
             .selected_text(format!("{self:?}"))
             .show_ui(ui, |ui| {
@@ -87,7 +89,7 @@ impl Editor for IndexVersion {
 impl Editor for UserVersion {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         ui.horizontal(|ui| {
             let res = ui.add(DragValue::new(&mut self.major).prefix("v"));
             res | ui.add(DragValue::new(&mut self.minor).prefix("."))
@@ -98,7 +100,7 @@ impl Editor for UserVersion {
 impl Editor for Timestamp {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         ui.horizontal(|ui| {
             let dres = ui.add(DragValue::new(&mut self.0));
 

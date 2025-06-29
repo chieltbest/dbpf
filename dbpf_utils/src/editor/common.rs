@@ -1,7 +1,8 @@
+use std::sync::Arc;
 use crate::editor::Editor;
 use binrw::NullWideString;
 use dbpf::common::{BigString, ByteString, NullString, PascalString};
-use eframe::egui;
+use eframe::{egui, glow};
 use eframe::egui::{Response, TextEdit, Ui, Vec2};
 
 trait StringEditor: TryInto<String> + From<String> + Clone {}
@@ -9,11 +10,11 @@ trait StringEditor: TryInto<String> + From<String> + Clone {}
 impl<T: ?Sized + StringEditor> Editor for T {
     type EditorState = f32;
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
+    fn new_editor(&self, _context: &egui::Context, _gl_context: &Option<Arc<glow::Context>>) -> Self::EditorState {
         300.0
     }
     
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         let string_res = self.clone().try_into();
         match string_res {
             Ok(mut str) => {

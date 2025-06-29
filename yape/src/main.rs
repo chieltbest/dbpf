@@ -9,7 +9,7 @@ use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::CompressionError;
 use dbpf::{CompressionType, DBPFFile, IndexEntry};
 use eframe::egui::{Button, Color32, ComboBox, Context, DragValue, Id, Key, KeyboardShortcut, Label, Modifiers, Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, TextWrapMode, Ui, Visuals, WidgetText};
-use eframe::{egui, App, Frame, Storage};
+use eframe::{egui, glow, App, Frame, Storage};
 use egui_dock::{DockState, Node, NodeIndex, Split, TabIndex, TabViewer};
 use egui_extras::Column;
 use egui_memory_editor::option_data::MemoryEditorOptions;
@@ -24,6 +24,7 @@ use std::fs::File;
 use std::io::{BufWriter, Cursor, Error, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 use tracing::error;
 use dbpf_utils::editor::{editor_supported, DecodedFileEditorState, Editor};
 use dbpf_utils::{async_execute, graphical_application_main};
@@ -179,6 +180,9 @@ struct YaPeAppData {
     open_new_tab_index: Option<usize>,
     #[serde(skip)]
     open_new_hex_tab_index: Option<usize>,
+
+    #[serde(skip)]
+    gl_context: Option<Arc<glow::Context>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -226,7 +230,7 @@ impl Default for YaPeApp {
 }
 
 impl EntryEditorTab {
-    fn show<R: Read + Seek>(&mut self, ui: &mut Ui, reader: &mut R) {
+    fn show<R: Read + Seek>(&mut self, ui: &mut Ui, gl: &Option<Arc<glow::Context>>, reader: &mut R) {
         if let Some(data) = self.data.upgrade() {
             let mut data_ref = data.borrow_mut();
             ui.add_enabled_ui(!data_ref.ui_deleted,
@@ -260,7 +264,7 @@ impl EntryEditorTab {
                                       }
                                       EditorType::DecodedEditor(state) => {
                                           let decoded = data_ref.data.data(reader).unwrap().decoded().unwrap().unwrap();
-                                          decoded.show_editor(state, ui);
+                                          decoded.show_editor(state, ui, gl);
                                       }
                                   }
                               });
@@ -269,7 +273,7 @@ impl EntryEditorTab {
 }
 
 impl YaPeAppData {
-    fn show_index(&mut self, ui: &mut Ui) {
+    fn show_index(&mut self, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) {
         let mut open_index = None;
         let mut open_hex_index = None;
 
@@ -285,15 +289,15 @@ impl YaPeAppData {
                             .num_columns(2)
                             .show(ui, |ui| {
                                 ui.label("version");
-                                header.version.show_editor(&mut (), ui);
+                                header.version.show_editor(&mut (), ui, gl);
                                 ui.end_row();
 
                                 ui.label("index version");
-                                header.index_version.show_editor(&mut (), ui);
+                                header.index_version.show_editor(&mut (), ui, gl);
                                 ui.end_row();
 
                                 ui.label("user version");
-                                header.user_version.show_editor(&mut (), ui);
+                                header.user_version.show_editor(&mut (), ui, gl);
                                 ui.end_row();
 
                                 ui.label("flags");
@@ -302,13 +306,13 @@ impl YaPeAppData {
 
                                 ui.label("created");
                                 ui.push_id("created", |ui| {
-                                    header.created.show_editor(&mut (), ui);
+                                    header.created.show_editor(&mut (), ui, gl);
                                 });
                                 ui.end_row();
 
                                 ui.label("modified");
                                 ui.push_id("modified", |ui| {
-                                    header.modified.show_editor(&mut (), ui);
+                                    header.modified.show_editor(&mut (), ui, gl);
                                 });
                                 ui.end_row();
                             });
@@ -366,7 +370,7 @@ impl YaPeAppData {
                                     ui.checkbox(e, "filter")
                                         .on_hover_text("type filter enabled");
                                 });
-                                if t.show_editor(&mut self.type_filter_state, ui).changed() {
+                                if t.show_editor(&mut self.type_filter_state, ui, gl).changed() {
                                     *e = true;
                                 }
                             });
@@ -517,10 +521,10 @@ impl TabViewer for YaPeAppData {
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         match tab {
-            YaPeTab::File => self.show_index(ui),
+            YaPeTab::File => self.show_index(ui, &self.gl_context.clone()),
             YaPeTab::Entry(entry) => {
                 if let Some(file) = &mut self.open_file {
-                    entry.show(ui, &mut file.bytes);
+                    entry.show(ui, &self.gl_context, &mut file.bytes);
                 }
             }
         }
@@ -591,7 +595,13 @@ impl YaPeApp {
                             YaPeTab::Entry(entry) => {
                                 let hex_editor = entry.is_hex_editor;
                                 entry.index.and_then(|i|
-                                    Self::open_index(*id_rc.borrow_mut(), *data_rc.borrow_mut(), &file.resources, i, hex_editor, &cc.egui_ctx)
+                                    Self::open_index(*id_rc.borrow_mut(),
+                                                     *data_rc.borrow_mut(),
+                                                     &file.resources,
+                                                     i,
+                                                     hex_editor,
+                                                     &cc.egui_ctx,
+                                                     &cc.gl)
                                         .map(YaPeTab::Entry))
                             }
                         }
@@ -599,10 +609,18 @@ impl YaPeApp {
                 }
             }
 
+            new.data.gl_context = cc.gl.clone();
+
             return new;
         }
 
-        Self::default()
+        Self {
+            data: YaPeAppData {
+                gl_context: cc.gl.clone(),
+                ..YaPeAppData::default()
+            },
+            ..Self::default()
+        }
     }
 
     fn set_dark_mode(&mut self, dark: bool, ctx: &Context) {
@@ -664,6 +682,7 @@ impl YaPeApp {
         index: usize,
         hex_editor: bool,
         ui_ctx: &Context,
+        gl_ctx: &Option<Arc<glow::Context>>,
     ) -> Option<EntryEditorTab> {
         let id = *next_tab_id;
         *next_tab_id = next_tab_id.wrapping_add(1);
@@ -675,7 +694,7 @@ impl YaPeApp {
             .and_then(|entry| {
                 if editor_supported(file_type) && !hex_editor {
                     let decoded = entry.decoded()?.unwrap();
-                    Ok(EditorType::DecodedEditor(decoded.new_editor(ui_ctx)))
+                    Ok(EditorType::DecodedEditor(decoded.new_editor(ui_ctx, gl_ctx)))
                 } else {
                     let decompressed = entry.decompressed()?;
                     Ok(EditorType::HexEditor(
@@ -694,7 +713,7 @@ impl YaPeApp {
         })
     }
 
-    fn open_index_tab(&mut self, index: usize, hex_editor: bool, ui_ctx: &Context) {
+    fn open_index_tab(&mut self, index: usize, hex_editor: bool, ui_ctx: &Context, gl_ctx: &Option<Arc<glow::Context>>) {
         if let Some(file) = &mut self.data.open_file {
             let search_rc = &file.resources[index];
             let open_found = self.dock_state.iter_all_nodes()
@@ -718,7 +737,14 @@ impl YaPeApp {
                 return;
             }
 
-            let Some(tab) = Self::open_index(&mut self.next_tab_id, &mut file.bytes, &file.resources, index, hex_editor, ui_ctx) else { return; };
+            let Some(tab) = Self::open_index(
+                &mut self.next_tab_id,
+                &mut file.bytes,
+                &file.resources,
+                index,
+                hex_editor,
+                ui_ctx,
+                gl_ctx) else { return; };
             let leaf_pos = self.dock_state.iter_all_tabs().skip(1).last().map(|(pos, _tab)| pos);
             if let Some(pos) = leaf_pos {
                 if let Some((_i, node)) = self.dock_state.iter_all_nodes_mut().nth(pos.1.0) {
@@ -1017,13 +1043,15 @@ impl App for YaPeApp {
             .style(style)
             .show(ctx, &mut self.data);
 
+        let gl_ctx = &self.data.gl_context.clone();
+
         if let Some(new_tab_index) = self.data.open_new_tab_index {
             self.data.open_new_tab_index = None;
-            self.open_index_tab(new_tab_index, false, ctx);
+            self.open_index_tab(new_tab_index, false, ctx, gl_ctx);
         }
         if let Some(new_hex_tab_index) = self.data.open_new_hex_tab_index {
             self.data.open_new_hex_tab_index = None;
-            self.open_index_tab(new_hex_tab_index, true, ctx);
+            self.open_index_tab(new_hex_tab_index, true, ctx, gl_ctx);
         }
 
         ctx.input(|i| i.raw.dropped_files.get(0).map(|f| f.clone()))

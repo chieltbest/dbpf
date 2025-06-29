@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
 use eframe::egui::{ComboBox, DragValue, Response, Ui};
+use eframe::glow;
 
 mod property_set;
 mod binary_index;
@@ -8,7 +10,7 @@ mod binary_index;
 impl Editor for Item {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let mut res = ComboBox::from_id_salt("data_type")
             .width(60.0)
             .selected_text(format!("{:?}", self.data.get_type()))
@@ -19,10 +21,10 @@ impl Editor for Item {
                 if ui.button("Bool").clicked() { self.data = Data::Bool(false); }
                 if ui.button("String").clicked() { self.data = Data::String("".into()); }
             }).response;
-        res |= self.name.show_editor(&mut 300.0, ui);
+        res |= self.name.show_editor(&mut 300.0, ui, gl);
         res | match &mut self.data {
             Data::UInt(n) => ui.add(DragValue::new(n).hexadecimal(1, false, false)),
-            Data::String(s) => s.show_editor(&mut 300.0, ui),
+            Data::String(s) => s.show_editor(&mut 300.0, ui, gl),
             Data::Float(n) => ui.add(DragValue::new(n)),
             Data::Bool(b) => ui.checkbox(b, ""),
             Data::Int(n) => ui.add(DragValue::new(n)),
@@ -33,7 +35,7 @@ impl Editor for Item {
 impl Editor for CPF {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let ires = ui.horizontal_wrapped(|ui| {
             let mut res = ComboBox::new("cpf_version", "Version ")
                 .selected_text(if matches!(self.version, CPFVersion::XML(_, _)) {
@@ -85,7 +87,7 @@ impl Editor for CPF {
         res |= self.entries.show_editor(&mut VecEditorState {
             columns: 3,
             storage: VecEditorStateStorage::Shared(()),
-        }, ui);
+        }, ui, gl);
 
         res
     }

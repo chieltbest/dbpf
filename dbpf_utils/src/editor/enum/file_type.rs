@@ -3,6 +3,8 @@ use crate::editor::Editor;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use eframe::egui::{Response, Ui};
 use std::fmt::Write;
+use std::sync::Arc;
+use eframe::glow;
 
 impl EnumEditor for DBPFFileType {
     type KnownEnum = KnownDBPFFileType;
@@ -68,7 +70,7 @@ impl EnumEditor for DBPFFileType {
 impl Editor for DBPFFileType {
     type EditorState = EnumEditorState;
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         Self::show_enum_editor(self, state, ui)
     }
 }

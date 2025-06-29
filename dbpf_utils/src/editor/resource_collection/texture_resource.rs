@@ -1,12 +1,13 @@
 use std::fmt::Write;
 use crate::editor::Editor;
 use dbpf::internal_file::resource_collection::texture_resource::{KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData};
-use eframe::egui;
+use eframe::{egui, glow};
 use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Pos2, Rect, Response, Slider, TextureOptions, Ui};
 use image::ImageReader;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
+use std::sync::Arc;
 use binrw::BinRead;
 use enum_iterator::all;
 use futures::channel::oneshot;
@@ -123,7 +124,7 @@ impl TextureResourceEditorState {
 impl Editor for TextureResource {
     type EditorState = TextureResourceEditorState;
 
-    fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
+    fn new_editor(&self, context: &egui::Context, _gl: &Option<Arc<glow::Context>>) -> Self::EditorState {
         let mut new = Self::EditorState {
             original_texture_bgra: self.recompress_with_format(TextureFormat::RawARGB32).unwrap(),
             ..Default::default()
@@ -132,7 +133,7 @@ impl Editor for TextureResource {
         new
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         if let Some(picker) = &mut state.save_file_picker {
             if let Ok(Some(handle)) = picker.try_recv() {
                 state.save_file_picker = None;
@@ -150,7 +151,7 @@ impl Editor for TextureResource {
 
         let mut update_images = false;
 
-        let mut res = self.file_name.name.show_editor(&mut 500.0, ui);
+        let mut res = self.file_name.name.show_editor(&mut 500.0, ui, gl);
         ui.horizontal_wrapped(|ui| {
             res |= ui.add_enabled(false, DragValue::new(&mut self.width));
             ui.label("width");

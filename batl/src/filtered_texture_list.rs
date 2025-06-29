@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
-
+use std::sync::Arc;
 use eframe::egui::{ComboBox, Context, DragValue, Response, Ui, Window};
-use eframe::Storage;
+use eframe::{glow, Storage};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use dbpf::internal_file::resource_collection::texture_resource::TextureFormat;
@@ -141,7 +141,7 @@ impl Into<usize> for TextureFilterOperation {
 impl Editor for TextureFilterOperation {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         let mut selected: usize = self.clone().into();
 
         let ires = ComboBox::from_id_salt(ui.id().with(0))
@@ -264,12 +264,12 @@ impl TextureFilterRule for TextureFilter {
 impl Editor for TextureFilter {
     type EditorState = VecEditorState<TextureFilterOperation>;
 
-    fn new_editor(&self, context: &Context) -> Self::EditorState {
-        self.operations.new_editor(context)
+    fn new_editor(&self, context: &Context, gl: &Option<Arc<glow::Context>>) -> Self::EditorState {
+        self.operations.new_editor(context, gl)
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-        self.operations.show_editor(state, ui)
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+        self.operations.show_editor(state, ui, gl)
     }
 }
 
@@ -324,15 +324,15 @@ impl FilteredTextureList {
         storage.set_string("filter_list", serde_json::to_string(&self.texture_filter).unwrap());
     }
 
-    pub fn show_filter_menu(&mut self, ui: &mut Ui) {
+    pub fn show_filter_menu(&mut self, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) {
         let res = Window::new("Filter List")
             .resizable(false)
             .open(&mut self.open_texture_filter_ui)
             .show(ui.ctx(), |ui| {
                 let state = self.texture_filter_ui_state.get_or_insert_with(|| {
-                    self.texture_filter.new_editor(ui.ctx())
+                    self.texture_filter.new_editor(ui.ctx(), gl)
                 });
-                self.texture_filter.show_editor(state, ui)
+                self.texture_filter.show_editor(state, ui, gl)
             });
         res.map(|r|
             r.inner.map(|inner|

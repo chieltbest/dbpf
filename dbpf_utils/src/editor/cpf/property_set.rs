@@ -1,28 +1,29 @@
+use std::sync::Arc;
 use crate::editor::drag_option_fn;
 use crate::editor::drag_checkbox_fn;
 use crate::editor::drag_fn;
 use crate::editor::cpf::reference_edit_fn;
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use dbpf::internal_file::cpf::property_set::{Override, PropertySet};
-use eframe::egui;
+use eframe::{egui, glow};
 use eframe::egui::{DragValue, Grid, Response, Ui};
 
 impl Editor for Override {
     type EditorState = ();
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {}
+    fn new_editor(&self, _context: &egui::Context, _gl: &Option<Arc<glow::Context>>) -> Self::EditorState {}
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let mut res = ui.add(DragValue::new(&mut self.shape)).on_hover_text("shape");
         res |= reference_edit_fn("", &mut self.resource, ui);
-        res | self.subset.show_editor(&mut 300.0, ui)
+        res | self.subset.show_editor(&mut 300.0, ui, gl)
     }
 }
 
 impl Editor for PropertySet {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let ires = Grid::new("PropertySet edit grid")
             .num_columns(2)
             .show(ui, |ui| {
@@ -47,7 +48,7 @@ impl Editor for PropertySet {
                     ($name:ident) => {
                         {
                             ui.label(stringify!($name));
-                            let res = self.$name.show_editor(&mut 300.0, ui);
+                            let res = self.$name.show_editor(&mut 300.0, ui, gl);
                             ui.end_row();
                             res
                         }
@@ -76,7 +77,7 @@ impl Editor for PropertySet {
 
                 // type is a builtin keyword, so use a different name
                 ui.label("type");
-                res |= self.type_.show_editor(&mut 300.0, ui);
+                res |= self.type_.show_editor(&mut 300.0, ui, gl);
                 ui.end_row();
 
                 res |= string!(skintone);
@@ -96,6 +97,6 @@ impl Editor for PropertySet {
         ires.response | ires.inner | self.overrides.show_editor(&mut VecEditorState {
             columns: 3,
             storage: VecEditorStateStorage::Shared(()),
-        }, ui)
+        }, ui, gl)
     }
 }

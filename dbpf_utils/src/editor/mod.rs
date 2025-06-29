@@ -1,5 +1,6 @@
 use std::fmt::Debug;
-use eframe::egui;
+use std::sync::Arc;
+use eframe::{egui, glow};
 use eframe::egui::{Align, DragValue, Grid, Response, Ui};
 use eframe::emath::Numeric;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
@@ -22,11 +23,11 @@ mod header;
 pub trait Editor {
     type EditorState: Default;
 
-    fn new_editor(&self, _context: &egui::Context) -> Self::EditorState {
+    fn new_editor(&self, _context: &egui::Context, _gl_context: &Option<Arc<glow::Context>>) -> Self::EditorState {
         Self::EditorState::default()
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response;
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response;
 }
 
 #[derive(Debug, Default)]
@@ -42,45 +43,45 @@ pub enum DecodedFileEditorState {
 impl Editor for DecodedFile {
     type EditorState = DecodedFileEditorState;
 
-    fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
+    fn new_editor(&self, _context: &egui::Context, _gl_context: &Option<Arc<glow::Context>>) -> Self::EditorState {
         match self {
             DecodedFile::SimOutfits(skin) => {
-                DecodedFileEditorState::SimOutfits(skin.new_editor(context))
+                DecodedFileEditorState::SimOutfits(skin.new_editor(_context, _gl_context))
             }
             DecodedFile::ResourceCollection(rcol) => {
-                DecodedFileEditorState::ResourceCollection(rcol.new_editor(context))
+                DecodedFileEditorState::ResourceCollection(rcol.new_editor(_context, _gl_context))
             }
             DecodedFile::TextList(str) => {
-                DecodedFileEditorState::TextList(str.new_editor(context))
+                DecodedFileEditorState::TextList(str.new_editor(_context, _gl_context))
             }
             DecodedFile::BehaviourFunction(bhav) => {
-                DecodedFileEditorState::BehaviourFunction(bhav.new_editor(context))
+                DecodedFileEditorState::BehaviourFunction(bhav.new_editor(_context, _gl_context))
             }
             _ => DecodedFileEditorState::None,
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         match (self, state) {
-            (DecodedFile::PropertySet(gzps), _) => gzps.show_editor(&mut (), ui),
-            (DecodedFile::BinaryIndex(binx), _) => binx.show_editor(&mut (), ui),
-            (DecodedFile::GenericCPF(cpf), _) => cpf.show_editor(&mut (), ui),
-            (DecodedFile::ObjectData(objd), _) => objd.show_editor(&mut (), ui),
+            (DecodedFile::PropertySet(gzps), _) => gzps.show_editor(&mut (), ui, gl),
+            (DecodedFile::BinaryIndex(binx), _) => binx.show_editor(&mut (), ui, gl),
+            (DecodedFile::GenericCPF(cpf), _) => cpf.show_editor(&mut (), ui, gl),
+            (DecodedFile::ObjectData(objd), _) => objd.show_editor(&mut (), ui, gl),
             (DecodedFile::SimOutfits(skin),
                 DecodedFileEditorState::SimOutfits(state)) => {
-                skin.show_editor(state, ui)
+                skin.show_editor(state, ui, gl)
             }
             (DecodedFile::ResourceCollection(rcol),
                 DecodedFileEditorState::ResourceCollection(state)) => {
-                rcol.show_editor(state, ui)
+                rcol.show_editor(state, ui, gl)
             }
             (DecodedFile::TextList(str),
                 DecodedFileEditorState::TextList(state)) => {
-                str.show_editor(state, ui)
+                str.show_editor(state, ui, gl)
             }
             (DecodedFile::BehaviourFunction(bhav),
                 DecodedFileEditorState::BehaviourFunction(state)) => {
-                bhav.show_editor(state, ui)
+                bhav.show_editor(state, ui, gl)
             }
             _ => panic!(),
         }
@@ -171,14 +172,14 @@ where
 {
     type EditorState = VecEditorState<T>;
 
-    fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
+    fn new_editor(&self, _context: &egui::Context, _gl_context: &Option<Arc<glow::Context>>) -> Self::EditorState {
         Self::EditorState {
             columns: 1,
-            storage: VecEditorStateStorage::Vec(self.iter().map(|elem| elem.new_editor(context)).collect()),
+            storage: VecEditorStateStorage::Vec(self.iter().map(|elem| elem.new_editor(_context, _gl_context)).collect()),
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let res = Grid::new("generic vector editor")
             .min_col_width(0.0)
             .striped(true)
@@ -195,7 +196,7 @@ where
                         let del = ui.button("🗑").clicked();
 
                         let ires = ui.push_id(i, |ui| {
-                            elem.show_editor(state, ui)
+                            elem.show_editor(state, ui, gl)
                         });
                         let mut res = ires.response | ires.inner;
                         if del {
@@ -219,7 +220,7 @@ where
                 if bres.clicked() {
                     let new = T::default();
                     if let VecEditorStateStorage::Vec(v) = &mut state.storage {
-                        v.push(new.new_editor(ui.ctx()));
+                        v.push(new.new_editor(ui.ctx(), gl));
                     }
                     self.push(new);
                     bres.mark_changed();

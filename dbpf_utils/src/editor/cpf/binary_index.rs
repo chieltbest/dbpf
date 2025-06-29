@@ -1,13 +1,15 @@
+use std::sync::Arc;
 use crate::editor::drag_fn;
 use crate::editor::cpf::reference_edit_fn;
 use crate::editor::Editor;
 use dbpf::internal_file::cpf::binary_index::BinaryIndex;
 use eframe::egui::{Grid, Response, Ui};
+use eframe::glow;
 
 impl Editor for BinaryIndex {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let ires = Grid::new("BinaryIndex edit grid")
             .num_columns(2)
             .max_col_width(1000.0)
@@ -26,7 +28,7 @@ impl Editor for BinaryIndex {
                     ($name:ident) => {
                         {
                             ui.label(stringify!($name));
-                            let res = $name.show_editor(&mut 300.0, ui);
+                            let res = $name.show_editor(&mut 300.0, ui, gl);
                             ui.end_row();
                             res
                         }

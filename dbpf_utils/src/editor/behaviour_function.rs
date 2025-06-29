@@ -1,6 +1,8 @@
 use std::cmp::max;
 use std::collections::{BTreeSet, VecDeque};
+use std::sync::Arc;
 use eframe::egui::{Color32, ComboBox, Context, DragValue, Grid, Pos2, Response, Ui};
+use eframe::glow;
 use egui_snarl::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
 use egui_snarl::ui::{PinInfo, PinPlacement, SnarlPin, SnarlStyle, SnarlViewer, WireLayer, WireStyle};
 use dbpf::internal_file::behaviour::behaviour_function::{BehaviourFunction, Goto, Instruction, Signature};
@@ -61,7 +63,7 @@ impl EnumEditor for Goto {
 impl Editor for Goto {
     type EditorState = EnumEditorState;
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
         self.show_enum_editor(state, ui)
     }
 }
@@ -69,10 +71,10 @@ impl Editor for Goto {
 impl Editor for Instruction {
     type EditorState = <Goto as Editor>::EditorState;
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let mut res = ui.add(DragValue::new(&mut self.opcode).hexadecimal(1, false, false));
-        res |= self.true_target.show_editor(state, ui);
-        res |= self.false_target.show_editor(state, ui);
+        res |= self.true_target.show_editor(state, ui, gl);
+        res |= self.false_target.show_editor(state, ui, gl);
         res |= ui.add(DragValue::new(&mut self.node_version).hexadecimal(1, false, false));
 
         res | ui.horizontal(|ui| {
@@ -127,7 +129,7 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
         } else {
             (&mut snarl[pin.id.node].false_target, Color32::RED)
         };
-        target.show_editor(self.enum_editor_state, ui);
+        target.show_editor(self.enum_editor_state, ui, &None);
         PinInfo::circle().with_fill(color).with_wire_color(color)
     }
 
@@ -164,7 +166,7 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
 impl Editor for BehaviourFunction {
     type EditorState = BhavEditorState;
 
-    fn new_editor(&self, _context: &Context) -> Self::EditorState {
+    fn new_editor(&self, _context: &Context, _gl: &Option<Arc<glow::Context>>) -> Self::EditorState {
         let mut snarl = Snarl::new();
 
         let mut unopened: BTreeSet<usize> = (0..self.instructions.len()).collect();
@@ -263,12 +265,12 @@ impl Editor for BehaviourFunction {
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         let res = Grid::new("bhav edit grid")
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("filename");
-                let mut res = self.name.name.show_editor(&mut 500.0, ui);
+                let mut res = self.name.name.show_editor(&mut 500.0, ui, gl);
                 ui.end_row();
 
                 ui.label("signature");

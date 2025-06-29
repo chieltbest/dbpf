@@ -591,7 +591,7 @@ impl App for DBPFApp {
                         res | ui.label("UI Scale")
                     }).inner.on_hover_text("Scale of the interface");
 
-                    self.texture_list.show_filter_menu(ui);
+                    self.texture_list.show_filter_menu(ui, &None);
 
                     self.known_texture_menu(ctx, ui);
 

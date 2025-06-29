@@ -1,4 +1,5 @@
-use eframe::egui;
+use std::sync::Arc;
+use eframe::{egui, glow};
 use eframe::egui::{DragValue, Response, ScrollArea, Ui};
 use dbpf::internal_file::resource_collection::{ResourceCollection, ResourceData};
 use crate::editor::Editor;
@@ -22,12 +23,12 @@ pub struct ResourceCollectionEditorState {
 impl Editor for ResourceCollection {
     type EditorState = ResourceCollectionEditorState;
 
-    fn new_editor(&self, context: &egui::Context) -> Self::EditorState {
+    fn new_editor(&self, context: &egui::Context, gl: &Option<Arc<glow::Context>>) -> Self::EditorState {
         Self::EditorState {
             resource_editor_states: self.entries.iter().map(|entry| {
                 match &entry.data {
                     ResourceData::Texture(texture) => {
-                        ResourceEditorState::TextureResource(texture.new_editor(context))
+                        ResourceEditorState::TextureResource(texture.new_editor(context, gl))
                     }
                     ResourceData::Material(_material) => {
                         ResourceEditorState::None
@@ -38,7 +39,7 @@ impl Editor for ResourceCollection {
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
         ScrollArea::vertical().show(ui, |ui| {
             let mut res = ui.checkbox(&mut self.version, "Has resource id");
 
@@ -64,7 +65,7 @@ impl Editor for ResourceCollection {
                     ResourceData::Texture(texture) => {
                         match &mut state.resource_editor_states[num] {
                             ResourceEditorState::TextureResource(tex_edit_state) => {
-                                res |= texture.show_editor(tex_edit_state, ui);
+                                res |= texture.show_editor(tex_edit_state, ui, gl);
                             }
                             _ => {
                                 panic!()
@@ -74,7 +75,7 @@ impl Editor for ResourceCollection {
                     ResourceData::Material(material) => {
                         match &mut state.resource_editor_states[num] {
                             ResourceEditorState::None => {
-                                res |= material.show_editor(&mut (), ui);
+                                res |= material.show_editor(&mut (), ui, gl);
                             }
                             _ => {
                                 panic!()
