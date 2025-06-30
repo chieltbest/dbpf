@@ -13,17 +13,17 @@ impl Editor for Override {
 
     fn new_editor(&self, _context: &egui::Context, _gl: &Option<Arc<glow::Context>>) -> Self::EditorState {}
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = ui.add(DragValue::new(&mut self.shape)).on_hover_text("shape");
         res |= reference_edit_fn("", &mut self.resource, ui);
-        res | self.subset.show_editor(&mut 300.0, ui, gl)
+        res | self.subset.show_editor(&mut 300.0, ui)
     }
 }
 
 impl Editor for PropertySet {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = Grid::new("PropertySet edit grid")
             .num_columns(2)
             .show(ui, |ui| {
@@ -48,7 +48,7 @@ impl Editor for PropertySet {
                     ($name:ident) => {
                         {
                             ui.label(stringify!($name));
-                            let res = self.$name.show_editor(&mut 300.0, ui, gl);
+                            let res = self.$name.show_editor(&mut 300.0, ui);
                             ui.end_row();
                             res
                         }
@@ -77,7 +77,7 @@ impl Editor for PropertySet {
 
                 // type is a builtin keyword, so use a different name
                 ui.label("type");
-                res |= self.type_.show_editor(&mut 300.0, ui, gl);
+                res |= self.type_.show_editor(&mut 300.0, ui);
                 ui.end_row();
 
                 res |= string!(skintone);
@@ -95,8 +95,8 @@ impl Editor for PropertySet {
             });
 
         ires.response | ires.inner | self.overrides.show_editor(&mut VecEditorState {
-            columns: 3,
-            storage: VecEditorStateStorage::Shared(()),
-        }, ui, gl)
+                    columns: 3,
+                    storage: VecEditorStateStorage::Shared(()),
+                }, ui)
     }
 }

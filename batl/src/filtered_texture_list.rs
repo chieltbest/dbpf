@@ -141,7 +141,7 @@ impl Into<usize> for TextureFilterOperation {
 impl Editor for TextureFilterOperation {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut selected: usize = self.clone().into();
 
         let ires = ComboBox::from_id_salt(ui.id().with(0))
@@ -268,8 +268,8 @@ impl Editor for TextureFilter {
         self.operations.new_editor(context, gl)
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
-        self.operations.show_editor(state, ui, gl)
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        self.operations.show_editor(state, ui)
     }
 }
 
@@ -332,7 +332,7 @@ impl FilteredTextureList {
                 let state = self.texture_filter_ui_state.get_or_insert_with(|| {
                     self.texture_filter.new_editor(ui.ctx(), gl)
                 });
-                self.texture_filter.show_editor(state, ui, gl)
+                self.texture_filter.show_editor(state, ui)
             });
         res.map(|r|
             r.inner.map(|inner|

@@ -9,7 +9,7 @@ use eframe::glow;
 impl Editor for BinaryIndex {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = Grid::new("BinaryIndex edit grid")
             .num_columns(2)
             .max_col_width(1000.0)
@@ -28,7 +28,7 @@ impl Editor for BinaryIndex {
                     ($name:ident) => {
                         {
                             ui.label(stringify!($name));
-                            let res = $name.show_editor(&mut 300.0, ui, gl);
+                            let res = $name.show_editor(&mut 300.0, ui);
                             ui.end_row();
                             res
                         }

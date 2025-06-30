@@ -264,7 +264,7 @@ impl EntryEditorTab {
                                       }
                                       EditorType::DecodedEditor(state) => {
                                           let decoded = data_ref.data.data(reader).unwrap().decoded().unwrap().unwrap();
-                                          decoded.show_editor(state, ui, gl);
+                                          decoded.show_editor(state, ui);
                                       }
                                   }
                               });
@@ -289,15 +289,15 @@ impl YaPeAppData {
                             .num_columns(2)
                             .show(ui, |ui| {
                                 ui.label("version");
-                                header.version.show_editor(&mut (), ui, gl);
+                                header.version.show_editor(&mut (), ui);
                                 ui.end_row();
 
                                 ui.label("index version");
-                                header.index_version.show_editor(&mut (), ui, gl);
+                                header.index_version.show_editor(&mut (), ui);
                                 ui.end_row();
 
                                 ui.label("user version");
-                                header.user_version.show_editor(&mut (), ui, gl);
+                                header.user_version.show_editor(&mut (), ui);
                                 ui.end_row();
 
                                 ui.label("flags");
@@ -306,13 +306,13 @@ impl YaPeAppData {
 
                                 ui.label("created");
                                 ui.push_id("created", |ui| {
-                                    header.created.show_editor(&mut (), ui, gl);
+                                    header.created.show_editor(&mut (), ui);
                                 });
                                 ui.end_row();
 
                                 ui.label("modified");
                                 ui.push_id("modified", |ui| {
-                                    header.modified.show_editor(&mut (), ui, gl);
+                                    header.modified.show_editor(&mut (), ui);
                                 });
                                 ui.end_row();
                             });
@@ -370,7 +370,7 @@ impl YaPeAppData {
                                     ui.checkbox(e, "filter")
                                         .on_hover_text("type filter enabled");
                                 });
-                                if t.show_editor(&mut self.type_filter_state, ui, gl).changed() {
+                                if t.show_editor(&mut self.type_filter_state, ui).changed() {
                                     *e = true;
                                 }
                             });

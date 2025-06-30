@@ -14,7 +14,7 @@ impl<T: ?Sized + StringEditor> Editor for T {
         300.0
     }
     
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let string_res = self.clone().try_into();
         match string_res {
             Ok(mut str) => {

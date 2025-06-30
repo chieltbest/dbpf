@@ -63,7 +63,7 @@ impl EnumEditor for Goto {
 impl Editor for Goto {
     type EditorState = EnumEditorState;
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         self.show_enum_editor(state, ui)
     }
 }
@@ -71,10 +71,10 @@ impl Editor for Goto {
 impl Editor for Instruction {
     type EditorState = <Goto as Editor>::EditorState;
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = ui.add(DragValue::new(&mut self.opcode).hexadecimal(1, false, false));
-        res |= self.true_target.show_editor(state, ui, gl);
-        res |= self.false_target.show_editor(state, ui, gl);
+        res |= self.true_target.show_editor(state, ui);
+        res |= self.false_target.show_editor(state, ui);
         res |= ui.add(DragValue::new(&mut self.node_version).hexadecimal(1, false, false));
 
         res | ui.horizontal(|ui| {
@@ -129,7 +129,7 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
         } else {
             (&mut snarl[pin.id.node].false_target, Color32::RED)
         };
-        target.show_editor(self.enum_editor_state, ui, &None);
+        target.show_editor(self.enum_editor_state, ui);
         PinInfo::circle().with_fill(color).with_wire_color(color)
     }
 
@@ -265,12 +265,12 @@ impl Editor for BehaviourFunction {
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let res = Grid::new("bhav edit grid")
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("filename");
-                let mut res = self.name.name.show_editor(&mut 500.0, ui, gl);
+                let mut res = self.name.name.show_editor(&mut 500.0, ui);
                 ui.end_row();
 
                 ui.label("signature");

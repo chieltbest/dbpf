@@ -10,8 +10,8 @@ use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 impl Editor for Entry {
     type EditorState = <DBPFFileType as Editor>::EditorState;
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
-        let mut res = self.type_id.show_editor(state, ui, gl);
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        let mut res = self.type_id.show_editor(state, ui);
         res |= ui.add(DragValue::new(&mut self.group_id)
             .hexadecimal(8, false, true));
         res |= ui.add(DragValue::new(&mut self.instance_id.id)
@@ -30,7 +30,7 @@ impl Editor for SimOutfits {
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = ui.horizontal_wrapped(|ui| {
             ui.label("Index version");
             let mut res = ui.selectable_value(&mut self.version, IndexMinorVersion::V1, "V1");
@@ -41,7 +41,7 @@ impl Editor for SimOutfits {
 
         ui.separator();
 
-        res |= self.entries.show_editor(state, ui, gl);
+        res |= self.entries.show_editor(state, ui);
         
         res
     }

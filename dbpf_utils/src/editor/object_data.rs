@@ -8,7 +8,7 @@ use crate::editor::Editor;
 impl Editor for ObjectData {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ObjectData {
             file_name,
             version,
@@ -150,7 +150,7 @@ impl Editor for ObjectData {
                 }
 
                 ui.label("filename");
-                let mut res = file_name.name.show_editor(&mut 500.0, ui, gl);
+                let mut res = file_name.name.show_editor(&mut 500.0, ui);
                 ui.end_row();
 
                 ui.label("version");
@@ -317,7 +317,7 @@ impl Editor for ObjectData {
                 res |= drag!("unknown 0x6A", unused6);
 
                 ui.label("filename 2");
-                res |= file_name_2.show_editor(&mut 500.0, ui, gl);
+                res |= file_name_2.show_editor(&mut 500.0, ui);
                 ui.end_row();
 
                 res

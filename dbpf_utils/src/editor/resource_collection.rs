@@ -7,6 +7,7 @@ use texture_resource::TextureResourceEditorState;
 
 mod material_definition;
 mod texture_resource;
+mod geometric_data_container;
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -39,7 +40,7 @@ impl Editor for ResourceCollection {
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         ScrollArea::vertical().show(ui, |ui| {
             let mut res = ui.checkbox(&mut self.version, "Has resource id");
 
@@ -65,7 +66,7 @@ impl Editor for ResourceCollection {
                     ResourceData::Texture(texture) => {
                         match &mut state.resource_editor_states[num] {
                             ResourceEditorState::TextureResource(tex_edit_state) => {
-                                res |= texture.show_editor(tex_edit_state, ui, gl);
+                                res |= texture.show_editor(tex_edit_state, ui);
                             }
                             _ => {
                                 panic!()
@@ -75,7 +76,7 @@ impl Editor for ResourceCollection {
                     ResourceData::Material(material) => {
                         match &mut state.resource_editor_states[num] {
                             ResourceEditorState::None => {
-                                res |= material.show_editor(&mut (), ui, gl);
+                                res |= material.show_editor(&mut (), ui);
                             }
                             _ => {
                                 panic!()

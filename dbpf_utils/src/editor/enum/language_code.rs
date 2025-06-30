@@ -58,7 +58,7 @@ impl EnumEditor for LanguageCode {
 impl Editor for LanguageCode {
     type EditorState = EnumEditorState;
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, _gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         Self::show_enum_editor(self, state, ui)
     }
 }

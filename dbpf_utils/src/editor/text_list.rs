@@ -13,18 +13,18 @@ impl Editor for TaggedString {
         LanguageCode::new_editor(&self.language_code, _context, _gl_context)
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
-        let mut res = self.language_code.show_editor(state, ui, gl);
-        res |= self.value.show_editor(&mut 300.0, ui, gl);
-        res | self.description.show_editor(&mut 300.0, ui, gl)
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        let mut res = self.language_code.show_editor(state, ui);
+        res |= self.value.show_editor(&mut 300.0, ui);
+        res | self.description.show_editor(&mut 300.0, ui)
     }
 }
 
 impl Editor for UntaggedString {
     type EditorState = ();
 
-    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
-        self.value.show_editor(&mut 500.0, ui, gl)
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        self.value.show_editor(&mut 500.0, ui)
     }
 }
 
@@ -38,10 +38,10 @@ impl Editor for TextList {
         }
     }
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) -> Response {
+    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let res = ui.horizontal_wrapped(|ui| {
             ui.label("file name") |
-                self.file_name.name.show_editor(&mut 500.0, ui, gl)
+                self.file_name.name.show_editor(&mut 500.0, ui)
         });
 
         let mut cur_version = match self.data {
@@ -89,13 +89,13 @@ impl Editor for TextList {
 
         res | match &mut self.data {
             VersionedTextList::Tagged { sets, .. } => {
-                sets.show_editor(state, ui, gl)
+                sets.show_editor(state, ui)
             }
             VersionedTextList::Untagged { sets } => {
                 sets.show_editor(&mut VecEditorState {
-                    columns: 1,
-                    storage: VecEditorStateStorage::Shared(()),
-                }, ui, gl)
+                                    columns: 1,
+                                    storage: VecEditorStateStorage::Shared(()),
+                                }, ui)
             }
         }
     }
