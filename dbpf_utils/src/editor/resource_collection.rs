@@ -2,8 +2,10 @@ use std::sync::Arc;
 use eframe::{egui, glow};
 use eframe::egui::{DragValue, Response, ScrollArea, Ui};
 use dbpf::internal_file::resource_collection::{ResourceCollection, ResourceData};
+use dbpf::internal_file::resource_collection::geometric_data_container::GeometricDataContainer;
 use crate::editor::Editor;
 use texture_resource::TextureResourceEditorState;
+use crate::editor::resource_collection::geometric_data_container::GMDCEditorStateData;
 
 mod material_definition;
 mod texture_resource;
@@ -13,6 +15,7 @@ mod geometric_data_container;
 #[non_exhaustive]
 pub enum ResourceEditorState {
     TextureResource(TextureResourceEditorState),
+    Mesh(<GeometricDataContainer as Editor>::EditorState),
     None,
 }
 
@@ -34,7 +37,9 @@ impl Editor for ResourceCollection {
                     ResourceData::Material(_material) => {
                         ResourceEditorState::None
                     }
-                    ResourceData::Mesh(_) => todo!(),
+                    ResourceData::Mesh(mesh) => {
+                        ResourceEditorState::Mesh(mesh.new_editor(context, gl))
+                    },
                 }
             }).collect(),
         }
@@ -83,7 +88,16 @@ impl Editor for ResourceCollection {
                             }
                         }
                     }
-                    ResourceData::Mesh(_) => todo!(),
+                    ResourceData::Mesh(mesh) => {
+                        match &mut state.resource_editor_states[num] {
+                            ResourceEditorState::Mesh(mesh_state) => {
+                                res |= mesh.show_editor(mesh_state, ui);
+                            }
+                            _ => {
+                                panic!()
+                            }
+                        }
+                    },
                 }
             }
             

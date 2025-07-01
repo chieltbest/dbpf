@@ -43,19 +43,19 @@ pub enum DecodedFileEditorState {
 impl Editor for DecodedFile {
     type EditorState = DecodedFileEditorState;
 
-    fn new_editor(&self, _context: &egui::Context, _gl_context: &Option<Arc<glow::Context>>) -> Self::EditorState {
+    fn new_editor(&self, _context: &egui::Context, gl_context: &Option<Arc<glow::Context>>) -> Self::EditorState {
         match self {
             DecodedFile::SimOutfits(skin) => {
-                DecodedFileEditorState::SimOutfits(skin.new_editor(_context, _gl_context))
+                DecodedFileEditorState::SimOutfits(skin.new_editor(_context, gl_context))
             }
             DecodedFile::ResourceCollection(rcol) => {
-                DecodedFileEditorState::ResourceCollection(rcol.new_editor(_context, _gl_context))
+                DecodedFileEditorState::ResourceCollection(rcol.new_editor(_context, gl_context))
             }
             DecodedFile::TextList(str) => {
-                DecodedFileEditorState::TextList(str.new_editor(_context, _gl_context))
+                DecodedFileEditorState::TextList(str.new_editor(_context, gl_context))
             }
             DecodedFile::BehaviourFunction(bhav) => {
-                DecodedFileEditorState::BehaviourFunction(bhav.new_editor(_context, _gl_context))
+                DecodedFileEditorState::BehaviourFunction(bhav.new_editor(_context, gl_context))
             }
             _ => DecodedFileEditorState::None,
         }
@@ -120,6 +120,7 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
             // RCOL
             KnownDBPFFileType::TextureResource |
             KnownDBPFFileType::MaterialDefinition |
+            KnownDBPFFileType::GeometricDataContainer |
 
             // STR
             KnownDBPFFileType::TextList |
