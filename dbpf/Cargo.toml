@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 binrw = "0.14.0"
-refpack = {git = "https://github.com/chieltbest/refpack-rs.git"}
+refpack = "5.0.0"
 modular-bitfield = "0.11.2"
 thiserror = "1.0"
 enum-iterator = "2.1"
