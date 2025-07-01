@@ -1,14 +1,13 @@
-use std::sync::Arc;
 use crate::editor::drag_checkbox_fn;
-use eframe::{egui, glow};
-use eframe::egui::{ComboBox, DragValue, Response, Ui};
-use dbpf::internal_file::object_data::{ObjectData, Version};
 use crate::editor::Editor;
+use dbpf::internal_file::object_data::{ObjectData, Version};
+use eframe::egui::{ComboBox, DragValue, Response, Ui};
+use eframe::egui;
 
 impl Editor for ObjectData {
     type EditorState = ();
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ObjectData {
             file_name,
             version,

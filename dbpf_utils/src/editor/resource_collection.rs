@@ -5,7 +5,6 @@ use dbpf::internal_file::resource_collection::{ResourceCollection, ResourceData}
 use dbpf::internal_file::resource_collection::geometric_data_container::GeometricDataContainer;
 use crate::editor::Editor;
 use texture_resource::TextureResourceEditorState;
-use crate::editor::resource_collection::geometric_data_container::GMDCEditorStateData;
 
 mod material_definition;
 mod texture_resource;

@@ -230,7 +230,7 @@ impl Default for YaPeApp {
 }
 
 impl EntryEditorTab {
-    fn show<R: Read + Seek>(&mut self, ui: &mut Ui, gl: &Option<Arc<glow::Context>>, reader: &mut R) {
+    fn show<R: Read + Seek>(&mut self, ui: &mut Ui, reader: &mut R) {
         if let Some(data) = self.data.upgrade() {
             let mut data_ref = data.borrow_mut();
             ui.add_enabled_ui(!data_ref.ui_deleted,
@@ -273,7 +273,7 @@ impl EntryEditorTab {
 }
 
 impl YaPeAppData {
-    fn show_index(&mut self, ui: &mut Ui, gl: &Option<Arc<glow::Context>>) {
+    fn show_index(&mut self, ui: &mut Ui) {
         let mut open_index = None;
         let mut open_hex_index = None;
 
@@ -521,10 +521,10 @@ impl TabViewer for YaPeAppData {
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         match tab {
-            YaPeTab::File => self.show_index(ui, &self.gl_context.clone()),
+            YaPeTab::File => self.show_index(ui),
             YaPeTab::Entry(entry) => {
                 if let Some(file) = &mut self.open_file {
-                    entry.show(ui, &self.gl_context, &mut file.bytes);
+                    entry.show(ui, &mut file.bytes);
                 }
             }
         }

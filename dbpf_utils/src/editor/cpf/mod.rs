@@ -1,8 +1,6 @@
-use std::sync::Arc;
 use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
 use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
 use eframe::egui::{ComboBox, DragValue, Response, Ui};
-use eframe::glow;
 
 mod property_set;
 mod binary_index;
@@ -10,7 +8,7 @@ mod binary_index;
 impl Editor for Item {
     type EditorState = ();
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = ComboBox::from_id_salt("data_type")
             .width(60.0)
             .selected_text(format!("{:?}", self.data.get_type()))
@@ -35,7 +33,7 @@ impl Editor for Item {
 impl Editor for CPF {
     type EditorState = ();
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let ires = ui.horizontal_wrapped(|ui| {
             let mut res = ComboBox::new("cpf_version", "Version ")
                 .selected_text(if matches!(self.version, CPFVersion::XML(_, _)) {

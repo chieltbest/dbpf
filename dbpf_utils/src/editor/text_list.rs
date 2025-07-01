@@ -23,7 +23,7 @@ impl Editor for TaggedString {
 impl Editor for UntaggedString {
     type EditorState = ();
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         self.value.show_editor(&mut 500.0, ui)
     }
 }

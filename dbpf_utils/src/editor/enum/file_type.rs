@@ -3,8 +3,6 @@ use crate::editor::Editor;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use eframe::egui::{Response, Ui};
 use std::fmt::Write;
-use std::sync::Arc;
-use eframe::glow;
 
 impl EnumEditor for DBPFFileType {
     type KnownEnum = KnownDBPFFileType;

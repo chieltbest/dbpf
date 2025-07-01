@@ -10,7 +10,7 @@ impl Editor for Property {
 
     fn new_editor(&self, _context: &Context, _gl: &Option<Arc<glow::Context>>) -> Self::EditorState {}
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         self.name.show_editor(&mut 300.0, ui)
             | self.value.show_editor(&mut 300.0, ui)
     }
@@ -20,7 +20,7 @@ impl Editor for Property {
 impl Editor for MaterialDefinition {
     type EditorState = ();
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut res = self.file_name.name.show_editor(&mut 500.0, ui);
         ui.horizontal(|ui| {
             ui.label("Material Type");

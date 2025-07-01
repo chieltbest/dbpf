@@ -4,8 +4,6 @@ use dbpf::common::{KnownLanguageCode, LanguageCode};
 use eframe::egui::{Response, Ui};
 use std::fmt::Write;
 use std::str::FromStr;
-use std::sync::Arc;
-use eframe::glow;
 
 impl EnumEditor for LanguageCode {
     type KnownEnum = KnownLanguageCode;
