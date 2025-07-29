@@ -26,7 +26,7 @@ impl EnumEditor for Purpose {
 
     fn from_string(string: &String) -> Option<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         let f: f32 = string.parse().ok()?;
         let bytes = f.to_le_bytes();
@@ -381,7 +381,7 @@ impl Editor for TextureResource {
                                     TextureResourceData::LIFOFile { file_name } => {
                                         ui.end_row();
                                         ui.label(format!("file: {}",
-                                                         String::from_utf8_lossy(&file_name.data)));
+                                                         String::from_utf8_lossy(&file_name.0.data)));
                                     }
                                 }
                             }

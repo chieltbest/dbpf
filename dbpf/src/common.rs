@@ -1,8 +1,9 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::io::{Cursor, Read, Seek, Write};
 use std::marker::PhantomData;
 use std::string::FromUtf8Error;
 use binrw::{args, binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt, Endian, NamedArgs};
+use binrw::__private::Required;
 use binrw::error::CustomError;
 use binrw::meta::{EndianKind, ReadEndian, WriteEndian};
 use derive_more::with_trait::{Deref, DerefMut};
@@ -10,16 +11,92 @@ use enum_iterator::Sequence;
 #[cfg(test)]
 use test_strategy::Arbitrary;
 
+#[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
+pub struct SizedVec<C, T> {
+    _t: PhantomData<C>,
+    pub data: Vec<T>,
+}
+
+impl<C, T> ReadEndian for SizedVec<C, T> {
+    const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
+}
+
+impl<C: TryInto<usize> + BinRead, T: BinRead + 'static> BinRead for SizedVec<C, T>
+where
+    <C as TryInto<usize>>::Error: CustomError + 'static,
+    for<'a> <C as BinRead>::Args<'a>: Required,
+    for<'a> <T as BinRead>::Args<'a>: Clone,
+{
+    type Args<'a> = <T as BinRead>::Args<'a>;
+
+    fn read_options<R: Read + Seek>(reader: &mut R, _endian: Endian, args: Self::Args<'_>) -> BinResult<Self> {
+        let pos = reader.stream_position()?;
+        let count = C::read_le(reader)?.try_into()
+            .map_err(|err| binrw::Error::Custom {
+                pos,
+                err: Box::new(err),
+            })?;
+        Ok(Self {
+            _t: PhantomData,
+            data: Vec::<T>::read_le_args(reader, args! { count, inner: args })?,
+        })
+    }
+}
+
+impl<C, T> Deref for SizedVec<C, T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<C, T> DerefMut for SizedVec<C, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
+
+impl<C, T> WriteEndian for SizedVec<C, T> {
+    const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
+}
+
+impl<C: TryFrom<usize> + BinWrite, T: BinWrite + 'static> BinWrite for SizedVec<C, T>
+where
+    <C as TryFrom<usize>>::Error: CustomError + 'static,
+    for<'a> <C as BinWrite>::Args<'a>: Required,
+    for<'a> <T as BinWrite>::Args<'a>: Clone,
+{
+    type Args<'a> = <T as BinWrite>::Args<'a>;
+
+    fn write_options<W: Write + Seek>(&self, writer: &mut W, _endian: Endian, args: Self::Args<'_>) -> BinResult<()> {
+        let pos = writer.stream_position()?;
+        let count: C = self.data.len().try_into()
+            .map_err(|err| binrw::Error::Custom {
+                pos,
+                err: Box::new(err),
+            })?;
+        count.write_le(writer)?;
+        self.data.write_le_args(writer, args)
+    }
+}
+
+impl<C, T: Debug> Debug for SizedVec<C, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // f.debug_list()
+        //     .entries(self.data.iter())
+        //     .finish()
+        f.debug_tuple("SizedVec")
+            .field(&self.data.len())
+            .finish()
+    }
+}
+
 /// common string type without binread/binwrite implementation
 #[derive(Clone, Default, Hash, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
-pub struct ByteString(Vec<u8>);
-
-impl<T> From<PascalString<T>> for ByteString {
-    fn from(value: PascalString<T>) -> Self {
-        Self(value.data)
-    }
-}
+pub struct ByteString(pub Vec<u8>);
 
 impl From<NullString> for ByteString {
     fn from(value: NullString) -> Self {
@@ -47,64 +124,25 @@ impl Debug for ByteString {
     }
 }
 
-#[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
-#[cfg_attr(test, derive(Arbitrary))]
-pub struct PascalString<T> {
-    _t: PhantomData<T>,
-    pub data: Vec<u8>,
-}
-
-impl<T> ReadEndian for PascalString<T> {
-    const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
-}
-
-impl<T: TryInto<usize> + BinRead> BinRead for PascalString<T>
-where
-    <T as TryInto<usize>>::Error: CustomError + 'static,
-{
-    type Args<'a> = <T as BinRead>::Args<'a>;
-
-    fn read_options<R: Read + Seek>(reader: &mut R, _endian: Endian, args: Self::Args<'_>) -> BinResult<Self> {
-        let pos = reader.stream_position()?;
-        let count = T::read_le_args(reader, args)?.try_into()
-            .map_err(|err| binrw::Error::Custom {
-                pos,
-                err: Box::new(err),
-            })?;
-        Ok(Self {
-            _t: PhantomData,
-            data: Vec::<u8>::read_le_args(reader, args! { count })?,
-        })
+impl Display for ByteString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.0))
     }
 }
 
-impl<T> WriteEndian for PascalString<T> {
-    const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
-}
+pub type PascalString<T> = SizedVec<T, u8>;
 
-impl<T: TryFrom<usize> + BinWrite> BinWrite for PascalString<T>
-where
-    <T as TryFrom<usize>>::Error: CustomError + 'static,
-{
-    type Args<'a> = <T as BinWrite>::Args<'a>;
-
-    fn write_options<W: Write + Seek>(&self, writer: &mut W, _endian: Endian, args: Self::Args<'_>) -> BinResult<()> {
-        let pos = writer.stream_position()?;
-        let count: T = self.data.len().try_into()
-            .map_err(|err| binrw::Error::Custom {
-                pos,
-                err: Box::new(err),
-            })?;
-        count.write_le_args(writer, args)?;
-        self.data.write(writer)
+impl<T> From<PascalString<T>> for ByteString {
+    fn from(value: PascalString<T>) -> Self {
+        Self(value.data)
     }
 }
 
-impl<T> Debug for PascalString<T> {
+/*impl<T> Debug for PascalString<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"{}\"", String::from_utf8_lossy(&self.data))
     }
-}
+}*/
 
 impl<T: AsRef<str>, N> From<T> for PascalString<N> {
     fn from(value: T) -> Self {
@@ -202,6 +240,12 @@ impl Debug for NullString {
     }
 }
 
+impl Display for NullString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.0))
+    }
+}
+
 impl From<Vec<u8>> for NullString {
     fn from(value: Vec<u8>) -> Self {
         Self(value)
@@ -293,14 +337,62 @@ impl From<BigInt> for usize {
 }
 
 /// Also referred to as 7BITSTR, a string that encodes it's length in a variable-length int before the data
-pub type BigString = PascalString<BigInt>;
+#[binrw]
+#[brw(little)]
+#[derive(Clone, Default, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
+pub struct BigString(pub SizedVec<BigInt, u8>);
+
+impl Debug for BigString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", String::from_utf8_lossy(&self.0.data))
+    }
+}
+
+impl Display for BigString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.0.data))
+    }
+}
+
+impl From<BigString> for ByteString {
+    fn from(value: BigString) -> Self {
+        Self(value.0.data)
+    }
+}
+
+impl<T: AsRef<str>> From<T> for BigString {
+    fn from(value: T) -> Self {
+        Self(SizedVec {
+            _t: PhantomData,
+            data: Vec::from(value.as_ref()),
+        })
+    }
+}
+
+impl TryFrom<BigString> for String {
+    type Error = FromUtf8Error;
+
+    fn try_from(value: BigString) -> Result<Self, Self::Error> {
+        String::from_utf8(value.0.data)
+    }
+}
+
+impl From<ByteString> for BigString {
+    fn from(value: ByteString) -> Self {
+        Self(SizedVec {
+            _t: PhantomData,
+            data: value.0,
+        })
+    }
+}
 
 #[binrw]
 #[brw(little)]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct FileName {
-    #[brw(args { count: Some(0x40) })]
+    #[brw(args{ count: Some(0x40) })]
     pub name: NullString,
 }
 

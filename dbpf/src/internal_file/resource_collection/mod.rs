@@ -24,7 +24,7 @@ pub enum ResourceData {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct FileName {
-    #[br(assert("cSGResource".as_bytes() == c_sg_resource.data.as_slice()))]
+    #[br(assert("cSGResource".as_bytes() == c_sg_resource.0.as_slice()))]
     #[bw(calc(BigString::from("cSGResource".to_string())))]
     pub c_sg_resource: BigString,
 
