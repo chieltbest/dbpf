@@ -319,6 +319,7 @@ impl Editor for TextureResource {
             state.save_file_picker.is_none() {
             let (tx, rx) = oneshot::channel();
             let dialog = rfd::AsyncFileDialog::new()
+                .set_file_name(format!("{}.dds", String::from_utf8_lossy(&self.file_name.name.0.data)))
                 .add_filter("DirectDraw Surface", &["dds"]);
             // TODO global options open file path set directory
             let dialog = dialog.save_file();
