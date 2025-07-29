@@ -59,7 +59,7 @@ pub fn graphical_application_main(
     tracing::subscriber::set_global_default(
         tracing_subscriber::registry()
             .with(tracing_subscriber::fmt::layer().with_writer(non_blocking_appender))
-            .with(tracing_subscriber::fmt::layer().pretty())
+            .with(tracing_subscriber::fmt::layer().compact())
             .with(tracing_subscriber::filter::EnvFilter::from_default_env()),
     )
     .expect("set up the subscriber");
