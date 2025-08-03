@@ -1,0 +1,81 @@
+#version 330
+precision mediump float;
+
+in vec3 in_position;
+in vec3 in_normal;
+in vec2 in_texcoord;
+in vec3 in_tangent;
+
+//in uvec4 in_target_indices;
+//in uvec4 in_vertex_id;
+//in uvec4 in_region_mask;
+
+in vec3 in_position_delta[4];
+in vec3 in_normal_delta[4];
+//in vec3 in_tangent_delta[4];
+
+in vec4 in_blend_indices;
+in vec4 in_blend_keys;
+in vec4 in_blend_weights;
+in vec4 in_deform_mask;
+
+in vec4 in_bone_keys;
+in vec4 in_bone_weights;
+
+uniform float blend_values[256];
+uniform mat4 bones[256];
+
+uniform mat4 view_matrix;
+uniform mat4 projection_matrix;
+
+out vec3 v_normal;
+out vec2 v_texcoord;
+out vec3 v_tangent;
+
+void main() {
+    float morph_weights[4] = float[4](
+    blend_values[int(in_blend_keys.x)] * in_blend_weights.x,
+    blend_values[int(in_blend_keys.y)] * in_blend_weights.y,
+    blend_values[int(in_blend_keys.z)] * in_blend_weights.z,
+    blend_values[int(in_blend_keys.w)] * in_blend_weights.w);
+
+    mat4 model_matrix = mat4(0.0);
+    for (int i = 0; i < 4; i++) {
+       if (int(in_bone_keys[i]) != 0xff) {
+           model_matrix += in_bone_weights[i] * bones[int(in_bone_keys[i])];
+       }
+    }
+
+    vec3 morph_pos_delta = in_position_delta[0] * morph_weights[0]
+     + in_position_delta[1] * morph_weights[1]
+     + in_position_delta[2] * morph_weights[2]
+     + in_position_delta[3] * morph_weights[3];
+
+    gl_Position = view_matrix * model_matrix * vec4(in_position + morph_pos_delta, 1.0);
+//    gl_Position = view_matrix * model_matrix * vec4(in_position, 1.0);
+//    gl_Position = view_matrix * vec4(in_position, 1.0);
+
+    vec3 morph_norm_delta = in_normal_delta[0] * morph_weights[0]
+    + in_normal_delta[1] * morph_weights[1]
+    + in_normal_delta[2] * morph_weights[2]
+    + in_normal_delta[3] * morph_weights[3];
+
+    v_normal = normalize(mat3(view_matrix) * mat3(model_matrix) * (in_normal + morph_norm_delta));
+
+//    vec3 morph_tangent_delta = in_tangent_delta[0] * morph_weights[0]
+//    + in_tangent_delta[1] * morph_weights[1]
+//    + in_tangent_delta[2] * morph_weights[2]
+//    + in_tangent_delta[3] * morph_weights[3];
+
+//    v_tangent = normalize(mat3(view_matrix) * mat3(model_matrix) * (in_tangent + morph_tangent_delta));
+    v_tangent = normalize(mat3(view_matrix) * mat3(model_matrix) * in_tangent);
+//    v_tangent = normalize(mat3(view_matrix) * in_tangent);
+
+//    vec2 morph_texcoord_delta = in_texcoord_delta[0] * morph_weights[0]
+//    + in_texcoord_delta[1] * morph_weights[1]
+//    + in_texcoord_delta[2] * morph_weights[2]
+//    + in_texcoord_delta[3] * morph_weights[3];
+
+//    v_texcoord = in_texcoord + morph_texcoord_delta;
+    v_texcoord = in_texcoord;
+}

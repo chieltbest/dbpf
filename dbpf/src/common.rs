@@ -13,16 +13,19 @@ use test_strategy::Arbitrary;
 
 #[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
-pub struct SizedVec<C, T> {
+pub struct SizedVec<C, T>
+where
+    T: Debug,
+{
     _t: PhantomData<C>,
     pub data: Vec<T>,
 }
 
-impl<C, T> ReadEndian for SizedVec<C, T> {
+impl<C, T: Debug> ReadEndian for SizedVec<C, T> {
     const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
 }
 
-impl<C: TryInto<usize> + BinRead, T: BinRead + 'static> BinRead for SizedVec<C, T>
+impl<C: TryInto<usize> + BinRead, T: Debug + BinRead + 'static> BinRead for SizedVec<C, T>
 where
     <C as TryInto<usize>>::Error: CustomError + 'static,
     for<'a> <C as BinRead>::Args<'a>: Required,
@@ -44,7 +47,7 @@ where
     }
 }
 
-impl<C, T> Deref for SizedVec<C, T> {
+impl<C, T: Debug> Deref for SizedVec<C, T> {
     type Target = Vec<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -52,17 +55,17 @@ impl<C, T> Deref for SizedVec<C, T> {
     }
 }
 
-impl<C, T> DerefMut for SizedVec<C, T> {
+impl<C, T: Debug> DerefMut for SizedVec<C, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
     }
 }
 
-impl<C, T> WriteEndian for SizedVec<C, T> {
+impl<C, T: Debug> WriteEndian for SizedVec<C, T> {
     const ENDIAN: EndianKind = EndianKind::Endian(Endian::Little);
 }
 
-impl<C: TryFrom<usize> + BinWrite, T: BinWrite + 'static> BinWrite for SizedVec<C, T>
+impl<C: TryFrom<usize> + BinWrite, T: Debug + BinWrite + 'static> BinWrite for SizedVec<C, T>
 where
     <C as TryFrom<usize>>::Error: CustomError + 'static,
     for<'a> <C as BinWrite>::Args<'a>: Required,

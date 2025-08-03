@@ -19,7 +19,8 @@ impl<T: ?Sized + StringEditor> Editor for T {
         match string_res {
             Ok(mut str) => {
                 let text_edit = TextEdit::singleline(&mut str)
-                    .min_size(Vec2::new(*state, 0.0));
+                    .min_size(Vec2::new(*state, 0.0))
+                    .desired_width(*state);
                 let res = text_edit.show(ui).response;
                 if res.changed() {
                     *self = str.into();
