@@ -5,7 +5,10 @@ use eframe::egui::{PointerButton, Response, SliderClamping, Ui};
 use eframe::glow::{Context, HasContext};
 use eframe::{egui, egui_glow, glow};
 use std::sync::Arc;
+use futures::channel::oneshot;
+use rfd::FileHandle;
 use tracing::{debug, error, span, Level};
+use crate::async_execute;
 
 const VERTEX_SHADER_SOURCE: &str = include_str!("shaders/main.vert");
 const FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/main.frag");
@@ -47,6 +50,8 @@ pub struct GMDCEditorStateData {
 #[derive(Debug, Default)]
 pub struct GMDCEditorState {
     data: Option<GMDCEditorStateData>,
+
+    save_file_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
 }
 
 impl Editor for GeometricDataContainer {
@@ -164,6 +169,7 @@ impl Editor for GeometricDataContainer {
                     }).collect::<Option<Vec<_>>>() else {
                     return GMDCEditorState {
                         data: None,
+                        save_file_picker: None,
                     }
                 };
 
@@ -306,6 +312,7 @@ impl Editor for GeometricDataContainer {
                     .inspect_err(|err| error!(?err)) else {
                     return GMDCEditorState {
                         data: None,
+                        save_file_picker: None,
                     }
                 };
 
@@ -336,16 +343,36 @@ impl Editor for GeometricDataContainer {
 
                         display_mode: 0,
                     }),
+
+                    save_file_picker: None,
                 }
             }
         } else {
             GMDCEditorState {
                 data: None,
+                save_file_picker: None,
             }
         }
     }
 
     fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+        if let Some(picker) = &mut state.save_file_picker {
+            if let Ok(Some(handle)) = picker.try_recv() {
+                state.save_file_picker = None;
+                if let Some(handle) = handle {
+                    // let mut cur = Cursor::new(vec![]);
+                    let gltf = self.export_gltf();
+                    if let Some(gltf) = gltf {
+                        // gltf.write_file(handle.path()).unwrap(); // TODO proper error
+                        let res = futures::executor::block_on(handle.write(&gltf.0));
+                        if let Err(e) = res {
+                            error!(?e);
+                        }
+                    }
+                }
+            }
+        }
+
         if let Some(gl_state) = &mut state.data {
             /*ui.horizontal_wrapped(|ui| {
                 for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
@@ -420,6 +447,27 @@ impl Editor for GeometricDataContainer {
                 });
 
             ui.horizontal_wrapped(|ui| {
+                if ui.button("Export glTF")
+                    .on_hover_text("export the mesh to a .gltf file")
+                    .clicked() &&
+                    state.save_file_picker.is_none() {
+                    let (tx, rx) = oneshot::channel();
+                    let dialog = rfd::AsyncFileDialog::new()
+                        .set_file_name(format!("{}.glb", String::from_utf8_lossy(&self.file_name.name.0.data)))
+                        .add_filter("OpenGL Transfer Format", &["gltf", "glb"]);
+                    // TODO global options open file path set directory
+                    let dialog = dialog.save_file();
+                    async_execute(async move {
+                        let file = dialog.await;
+                        let _ = if let Some(handle) = file {
+                            tx.send(Some(handle))
+                        } else {
+                            tx.send(None)
+                        };
+                    });
+                    state.save_file_picker = Some(rx);
+                }
+
                 for (i, name) in ["normals", "tangents", "uv", "depth", "wireframe"].into_iter()
                     .enumerate() {
                     ui.radio_value(&mut gl_state.display_mode, i as i32, name);
