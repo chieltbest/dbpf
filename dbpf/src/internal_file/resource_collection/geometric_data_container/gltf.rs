@@ -1,18 +1,18 @@
+use crate::internal_file::resource_collection::geometric_data_container::math::Mat4;
+use crate::internal_file::resource_collection::geometric_data_container::{AttributeBuffer, AttributeType, BlockFormat, BoundingMesh, GeometricDataContainer, PrimitiveType};
+use gltf_kun::extensions::DefaultExtensions;
+use gltf_kun::graph::gltf::accessor::iter::AccessorIter;
+use gltf_kun::graph::gltf::accessor::{ComponentType, Type};
+use gltf_kun::graph::gltf::node::{Quat, Vec3};
+use gltf_kun::graph::gltf::primitive::{Mode, Semantic};
+use gltf_kun::graph::gltf::{Accessor, GltfDocument, Node};
+use gltf_kun::graph::{Graph, GraphNodeWeight};
+use gltf_kun::io::format::glb::{GlbExport, GlbFormat};
+use itertools::Itertools;
+use serde_json::{Number, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::f32::consts::FRAC_1_SQRT_2;
 use std::iter;
-use gltf_kun::extensions::DefaultExtensions;
-use gltf_kun::graph::gltf::{Accessor, GltfDocument, Node};
-use gltf_kun::graph::{Graph, GraphNodeWeight};
-use gltf_kun::graph::gltf::accessor::{ComponentType, Type};
-use gltf_kun::graph::gltf::accessor::iter::AccessorIter;
-use gltf_kun::graph::gltf::node::{Quat, Vec3};
-use gltf_kun::graph::gltf::primitive::{Mode, Semantic};
-use gltf_kun::io::format::glb::{GlbExport, GlbFormat};
-use serde_json::{Number, Value};
-use itertools::Itertools;
-use crate::internal_file::resource_collection::geometric_data_container::{BlockFormat, AttributeType, GeometricDataContainer, PrimitiveType, BoundingMesh, AttributeBuffer};
-use crate::internal_file::resource_collection::geometric_data_container::math::Mat4;
 
 impl GeometricDataContainer {
     pub fn export_gltf(&self) -> Option<GlbFormat> {
@@ -343,9 +343,12 @@ impl GeometricDataContainer {
                     AttributeType::TexCoords => Semantic::TexCoords(binding_idx),
                     AttributeType::Tangents => Semantic::Tangents,
 
-                    AttributeType::BlendValues2 => Semantic::Extras(format!("TargetIndices_{binding_idx}")),
+                    AttributeType::BlendValues1 => Semantic::Extras(format!("BlendValues1_{binding_idx}")),
+                    AttributeType::BlendValues2 => Semantic::Extras(format!("BlendValues2_{binding_idx}")),
+                    AttributeType::BoneValues => Semantic::Extras(format!("BoneValues_{binding_idx}")),
                     AttributeType::VertexID => Semantic::Extras(format!("VertexID_{binding_idx}")),
                     AttributeType::RegionMask => Semantic::Extras(format!("RegionMask_{binding_idx}")),
+                    AttributeType::DeformMask => Semantic::Extras(format!("DeformMask_{binding_idx}")),
 
                     // skins/bones
                     AttributeType::BoneWeights => Semantic::Weights(binding_idx),
@@ -373,10 +376,6 @@ impl GeometricDataContainer {
                     }
 
                     // morph targets/blends
-                    // TODO store blend data in morph targets array
-                    // AttributeType::BlendIndices => Semantic::Extras(format!("BlendIndices_{binding_idx}")),
-                    // AttributeType::BlendWeights => Semantic::Extras(format!("BlendWeights_{binding_idx}")),
-                    // AttributeType::DeformMask => Semantic::Extras(format!("DeformMask_{binding_idx}")),
                     _ => {
                         match attr.binding.binding_type {
                             AttributeType::PositionDeltas |
