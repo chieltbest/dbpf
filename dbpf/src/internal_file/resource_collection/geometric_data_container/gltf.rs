@@ -67,7 +67,7 @@ impl GeometricDataContainer {
                                         1.0f32
                                     } else {
                                         0.0f32
-                                    }.to_le_bytes().into_iter())
+                                    }.to_le_bytes())
                             })
                             .collect::<Vec<_>>(),
                         ComponentType::F32,
@@ -313,13 +313,10 @@ impl GeometricDataContainer {
                     for (buffer_key, (_, _, buffer)) in morph_to_buffer.iter_mut() {
                         if keys.clone().contains(buffer_key) {
                             // this buffer needs to get the new data, see if a buffer already exists
-                            if !buffer.contains_key(&b_type) {
-                                buffer.insert(b_type,
-                                              iter::repeat(0.0f32.to_le_bytes())
+                            buffer.entry(b_type).or_insert_with(|| iter::repeat(0.0f32.to_le_bytes())
                                                   .flatten()
                                                   .take(delta.data.len())
                                                   .collect());
-                            }
                             keys.clone().zip(delta.data.chunks_exact(delta_data_chunk_size))
                                 .zip(buffer.get_mut(&b_type).unwrap().chunks_exact_mut(delta_data_chunk_size))
                                 .for_each(|((key, delta), buf)| {
@@ -397,7 +394,7 @@ impl GeometricDataContainer {
                 .map(|(id, (i, _, _))| {
                     let name = self.blend_group_bindings.get(*id as usize)
                         .map(|binding| format!("{}::{}", binding.blend_group, binding.element))
-                        .unwrap_or_else(|| "".to_string());
+                        .unwrap_or_default();
 
                     (i, Value::String(name))
                 })

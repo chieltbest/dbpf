@@ -1,7 +1,7 @@
+use binrw::file_ptr::IntoSeekFrom;
+use binrw::{binrw, BinRead, BinResult, Endian, NamedArgs};
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{Read, Seek, SeekFrom};
-use binrw::{BinRead, BinResult, binrw, Endian, NamedArgs};
-use binrw::file_ptr::IntoSeekFrom;
 
 #[derive(Clone)]
 pub struct LazyFilePtr<Ptr, T: BinRead, Args: Clone> {
@@ -36,7 +36,7 @@ impl<Ptr, T, Args> BinRead for LazyFilePtr<Ptr, T, Args>
     fn read_options<R: Read + Seek>(reader: &mut R, options: Endian, args: Self::Args<'_>) -> BinResult<Self> {
         Ok(Self {
             ptr: Ptr::read_options(reader, options, ())?,
-            endian: options.clone(),
+            endian: options,
             args,
             data: None,
         })

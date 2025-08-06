@@ -1,13 +1,13 @@
-use std::sync::Arc;
 use crate::editor::Editor;
 use binrw::NullWideString;
 use dbpf::common::{BigString, ByteString, NullString, PascalString};
-use eframe::{egui, glow};
 use eframe::egui::{Response, TextEdit, Ui, Vec2};
+use eframe::{egui, glow};
+use std::sync::Arc;
 
 trait StringEditor: TryInto<String> + From<String> + Clone {}
 
-impl<T: ?Sized + StringEditor> Editor for T {
+impl<T: StringEditor> Editor for T {
     type EditorState = f32;
 
     fn new_editor(&self, _context: &egui::Context, _gl_context: &Option<Arc<glow::Context>>) -> Self::EditorState {

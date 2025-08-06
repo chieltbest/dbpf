@@ -1,9 +1,9 @@
-use binrw::{args, binrw};
 use crate::common::BigString;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
 use crate::internal_file::resource_collection::geometric_data_container::GeometricDataContainer;
 use crate::internal_file::resource_collection::material_definition::MaterialDefinition;
 use crate::internal_file::resource_collection::texture_resource::TextureResource;
+use binrw::{args, binrw};
 
 pub mod texture_resource;
 pub mod material_definition;
@@ -14,11 +14,11 @@ pub mod geometric_data_container;
 #[derive(Clone, Debug, PartialEq)]
 pub enum ResourceData {
     #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::TextureResource))))]
-    Texture(#[brw(args {version: version.clone()})] TextureResource),
+    Texture(#[brw(args{ version })] TextureResource),
     #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::MaterialDefinition))))]
-    Material(#[brw(args {version: version.clone()})] MaterialDefinition),
+    Material(#[brw(args{ version })] MaterialDefinition),
     #[br(pre_assert(matches ! (type_id, DBPFFileType::Known(KnownDBPFFileType::GeometricDataContainer))))]
-    Mesh(#[brw(args {version: version.clone()})] GeometricDataContainer),
+    Mesh(#[brw(args{ version })] GeometricDataContainer),
 }
 
 #[binrw]

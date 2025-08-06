@@ -37,17 +37,16 @@ async fn compress_file(path: PathBuf, decompress: bool) -> Result<(usize, usize)
     let mut cursor = Cursor::new(data);
     let mut write_cursor = cursor.clone();
 
-    let mut file = DBPFFile::read(&mut cursor).map_err(|err| CompressionError::from(err))?;
+    let mut file = DBPFFile::read(&mut cursor).map_err(CompressionError::from)?;
     file.index
         .iter_mut()
         .map(|entry| entry.data(&mut cursor))
         .collect::<BinResult<Vec<_>>>()
-        .map_err(|err| CompressionError::from(err))?;
+        .map_err(CompressionError::from)?;
 
     let entries = std::mem::take(&mut file.index)
         .into_iter()
         .map(async |mut entry| {
-            let decompress = decompress.clone();
             tokio_rayon::spawn(move || {
                 let compression = if decompress {
                     CompressionType::Uncompressed
@@ -84,7 +83,7 @@ async fn main() {
         let flattened = stream::iter(
             args.file_or_directory
                 .into_iter()
-                .map(|arg| {
+                .flat_map(|arg| {
                     WalkDir::new(arg).into_iter().filter_map(|entry| {
                         let path = entry.unwrap().path().to_path_buf();
                         if path.extension() == Some(OsStr::new("package")) {
@@ -94,7 +93,6 @@ async fn main() {
                         }
                     })
                 })
-                .flatten()
                 .map(|path| async { (path.clone(), compress_file(path, args.decompress).await) }),
         )
         .buffer_unordered(num_cpus::get());

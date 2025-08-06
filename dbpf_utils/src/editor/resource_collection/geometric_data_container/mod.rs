@@ -1,14 +1,14 @@
+use crate::async_execute;
 use crate::editor::Editor;
 use dbpf::internal_file::resource_collection::geometric_data_container::math::{Mat4, Vertex};
 use dbpf::internal_file::resource_collection::geometric_data_container::{AttributeType, GeometricDataContainer, PrimitiveType};
 use eframe::egui::{PointerButton, Response, SliderClamping, Ui};
 use eframe::glow::{Context, HasContext};
 use eframe::{egui, egui_glow, glow};
-use std::sync::Arc;
 use futures::channel::oneshot;
 use rfd::FileHandle;
+use std::sync::Arc;
 use tracing::{debug, error, span, Level};
-use crate::async_execute;
 
 const VERTEX_SHADER_SOURCE: &str = include_str!("shaders/main.vert");
 const FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/main.frag");
@@ -57,7 +57,7 @@ pub struct GMDCEditorState {
 impl Editor for GeometricDataContainer {
     type EditorState = GMDCEditorState;
 
-    fn new_editor(&self, _context: &eframe::egui::Context, gl_context: &Option<Arc<Context>>) -> Self::EditorState {
+    fn new_editor(&self, _context: &egui::Context, gl_context: &Option<Arc<Context>>) -> Self::EditorState {
         if let Some(gl) = gl_context {
             let gl = gl.clone();
             unsafe {
@@ -325,8 +325,8 @@ impl Editor for GeometricDataContainer {
                         subsets,
 
                         buffers,
-                        attribute_objects: attribute_objects.into_iter().filter_map(|b| b).collect(),
-                        meshes: meshes.into_iter().filter_map(|b| b).collect(),
+                        attribute_objects: attribute_objects.into_iter().flatten().collect(),
+                        meshes: meshes.into_iter().flatten().collect(),
 
                         blend_values: [0.0; 256],
 
@@ -549,7 +549,7 @@ impl Editor for GeometricDataContainer {
 
                             let rbd = gl.create_renderbuffer().unwrap();
                             gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbd));
-                            gl.renderbuffer_storage(glow::RENDERBUFFER, glow::DEPTH_COMPONENT32F, width as i32, height as i32);
+                            gl.renderbuffer_storage(glow::RENDERBUFFER, glow::DEPTH_COMPONENT32F, width, height);
                             gl.framebuffer_renderbuffer(glow::FRAMEBUFFER, glow::DEPTH_ATTACHMENT, glow::RENDERBUFFER, Some(rbd));
 
                             gl.bind_renderbuffer(glow::RENDERBUFFER, None);

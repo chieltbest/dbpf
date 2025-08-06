@@ -13,7 +13,7 @@ impl EnumEditor for DBPFFileType {
 
     fn from_string(string: &String) -> Option<Self> {
         u32::from_str_radix(string.trim_start_matches("0x"), 16)
-            .map(|i| DBPFFileType::from(i))
+            .map(DBPFFileType::from)
             .ok()
     }
 
@@ -30,7 +30,7 @@ impl EnumEditor for DBPFFileType {
 
     fn known_hover_string(file_type: &Self::KnownEnum) -> String {
         let mut str = String::new();
-        writeln!(str, "{}", file_type.properties().name.to_string()).unwrap();
+        writeln!(str, "{}", file_type.properties().name).unwrap();
         writeln!(str, "Abbreviation: {}", file_type.properties().abbreviation).unwrap();
         if let Some(extension) = file_type.properties().extension {
             writeln!(str, "Extension: {}", extension).unwrap();

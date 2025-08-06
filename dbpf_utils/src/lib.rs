@@ -1,5 +1,5 @@
-use std::future::Future;
 use eframe::AppCreator;
+use std::future::Future;
 use std::io::Cursor;
 use tracing_panic::panic_hook;
 
@@ -10,7 +10,7 @@ pub mod tgi_conflicts;
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn application_main<Fut>(main: impl FnOnce() -> Fut)
 where
-    Fut: std::future::Future,
+    Fut: Future,
 {
     use tokio::time::Instant;
     use tracing_subscriber::layer::SubscriberExt;

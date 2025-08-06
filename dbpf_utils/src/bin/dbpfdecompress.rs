@@ -1,10 +1,10 @@
+use binrw::{BinRead, Error};
+use dbpf::filetypes::DBPFFileType;
+use dbpf::{CompressionType, DBPFFile};
 use std::env;
 use std::ffi::{CStr, OsStr};
 use std::io::{Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
-use dbpf::{CompressionType, DBPFFile};
-use binrw::{BinRead, Error};
-use dbpf::filetypes::DBPFFileType;
 
 fn unpack_header<R: Read + Seek>(header: DBPFFile, reader: &mut R, dir_path: &Path) {
     for (i, mut entry) in header.index.into_iter().enumerate() {
@@ -69,7 +69,7 @@ fn unpack_file(mut input: Cursor<Vec<u8>>, path: &Path) {
 fn main() -> Result<(), Error> {
     for arg in env::args_os().skip(1) {
         let path = Path::new(&arg);
-        let input = Cursor::new(std::fs::read(path).unwrap());
+        let input = Cursor::new(std::fs::read(path)?);
         unpack_file(input, path);
     }
     Ok(())

@@ -5,23 +5,23 @@ use std::io::{Cursor, Read, Seek};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
-use binrw::{BinRead, BinResult, BinWrite};
 use binrw::io::BufReader;
+use binrw::{BinRead, BinResult, BinWrite};
 
 use futures::{stream, StreamExt};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
-use walkdir::WalkDir;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::fs::File;
 use tracing::error;
+use walkdir::WalkDir;
 
-use dbpf::DBPFFile;
-use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::filetypes::DBPFFileType::Known;
+use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
+use dbpf::DBPFFile;
 
-use dbpf::internal_file::{CompressionError, DecodedFile};
-use dbpf::internal_file::resource_collection::ResourceData;
 use dbpf::internal_file::resource_collection::texture_resource::TextureFormat;
+use dbpf::internal_file::resource_collection::ResourceData;
+use dbpf::internal_file::{CompressionError, DecodedFile};
 
 
 fn ser_file_type<S: Serializer>(t: &DBPFFileType, ser: S) -> Result<S::Ok, S::Error> {
@@ -48,19 +48,19 @@ where
             let mut bytes = [0u8; 4];
             v.write_le(&mut Cursor::new(bytes.as_mut_slice())).unwrap();
             TextureFormat::read_le(&mut Cursor::new(bytes.as_mut_slice()))
-                .map_err(|err| D::Error::custom(err.to_string()))
+                .map_err(|err| Error::custom(err.to_string()))
         })
 }
 
 #[derive(Eq, PartialEq, Hash, Copy, Clone, Default, Serialize, Deserialize)]
-pub struct TGI {
+pub struct Tgi {
     #[serde(serialize_with = "ser_file_type", deserialize_with = "deser_file_type")]
     pub type_id: DBPFFileType,
     pub group_id: u32,
     pub instance_id: u64,
 }
 
-impl Debug for TGI {
+impl Debug for Tgi {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(self.type_id.properties()
             .map(|prop| prop.name.to_string())
@@ -74,7 +74,7 @@ impl Debug for TGI {
 #[derive(Clone, Eq, PartialEq, Hash, Default, Debug, Serialize, Deserialize)]
 pub struct TextureId {
     pub path: PathBuf,
-    pub tgi: TGI,
+    pub tgi: Tgi,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Default, Debug, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ fn get_textures<R: Read + Seek>(path: PathBuf, header: DBPFFile, reader: &mut R)
                                 Some(FoundTexture {
                                     id: TextureId {
                                         path: path.clone(),
-                                        tgi: TGI {
+                                        tgi: Tgi {
                                             type_id,
                                             group_id,
                                             instance_id,

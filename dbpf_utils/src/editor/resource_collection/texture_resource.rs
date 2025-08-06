@@ -1,21 +1,21 @@
-use std::fmt::Write;
+use crate::async_execute;
+use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 use crate::editor::Editor;
+use binrw::BinRead;
+use dbpf::internal_file::resource_collection::texture_resource::decoded_texture::{DecodedTexture, ShrinkDirection};
 use dbpf::internal_file::resource_collection::texture_resource::{KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData};
-use eframe::{egui, glow};
 use eframe::egui::{Button, ColorImage, ComboBox, DragValue, Pos2, Rect, Response, Slider, TextureOptions, Ui};
+use eframe::{egui, glow};
+use enum_iterator::all;
+use futures::channel::oneshot;
 use image::ImageReader;
+use rfd::FileHandle;
 use std::cmp::min;
+use std::fmt::Write;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 use std::sync::Arc;
-use binrw::BinRead;
-use enum_iterator::all;
-use futures::channel::oneshot;
-use rfd::FileHandle;
 use tracing::error;
-use dbpf::internal_file::resource_collection::texture_resource::decoded_texture::{DecodedTexture, ShrinkDirection};
-use crate::async_execute;
-use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 
 impl EnumEditor for Purpose {
     type KnownEnum = KnownPurpose;
@@ -73,7 +73,7 @@ impl EnumEditor for Purpose {
 #[derive(Default)]
 pub struct TextureResourceEditorState {
     textures: Vec<Vec<Option<egui::TextureHandle>>>,
-    zoom_state: Vec<(egui::Rect, usize)>,
+    zoom_state: Vec<(Rect, usize)>,
     original_texture_bgra: TextureResource,
     preserve_transparency: u8,
     save_file_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
@@ -114,7 +114,7 @@ impl TextureResourceEditorState {
 
     fn refresh_textures_from(&mut self, res: &TextureResource, context: &egui::Context) {
         self.textures = Self::load_textures(res, context);
-        self.zoom_state.resize(self.textures.len(), (egui::Rect::ZERO, 0));
+        self.zoom_state.resize(self.textures.len(), (Rect::ZERO, 0));
         let mip_levels = res.mip_levels() - 1;
         self.zoom_state.iter_mut()
             .for_each(|(_r, mip)| *mip = min(*mip, mip_levels))
@@ -355,7 +355,7 @@ impl Editor for TextureResource {
 
             ui.horizontal_wrapped(|ui| {
                 if ui.button("Reset zoom").clicked() {
-                    *zoom = egui::Rect::ZERO;
+                    *zoom = Rect::ZERO;
                 }
                 for (mip_i, name) in mip_level_names.clone() {
                     ui.radio_value(cur_selected_mip_level, mip_i, name);

@@ -189,19 +189,19 @@ impl BinWrite for CPF {
 #[derive(Debug, Error)]
 enum ParsePrimitiveError {
     #[error(transparent)]
-    ParseIntError(#[from] ParseIntError),
+    Int(#[from] ParseIntError),
     #[error(transparent)]
-    ParseFloatError(#[from] ParseFloatError),
+    Float(#[from] ParseFloatError),
     #[error(transparent)]
-    ParseBoolError(#[from] ParseBoolError),
+    Bool(#[from] ParseBoolError),
 }
 
 #[derive(Debug, Error)]
 enum XMLParseError {
     #[error(transparent)]
-    XML(#[from] ParseError),
+    Xml(#[from] ParseError),
     #[error("Could not parse version tag: {0:?}")]
-    VersionParseError(#[from] ParseIntError),
+    BadVersion(#[from] ParseIntError),
     #[error("Type {name_type:?} does not match type {attribute_type:?}")]
     TypeMismatch {
         name_type: DataType,
@@ -227,17 +227,17 @@ enum XMLKeyUtf8Error {
     #[error(transparent)]
     Utf8(#[from] FromUtf8Error),
     #[error("Cannot have control character {1:?} at position {2} in xml key {0}")]
-    Control(std::string::String, char, usize),
+    Control(String, char, usize),
 }
 
 #[derive(Debug, Error)]
 enum XMLWriteError {
     #[error(transparent)]
-    XMLWriteError(#[from] xmltree::Error),
+    XMLWrite(#[from] xmltree::Error),
     #[error("{0} while writing key with datatype {1:?}")]
-    KeyUtf8Error(XMLKeyUtf8Error, DataType),
+    KeyUtf8(XMLKeyUtf8Error, DataType),
     #[error("{0} while writing data of key {1:?}")]
-    DataUtf8Error(FromUtf8Error, PascalString<u32>),
+    DataUtf8(FromUtf8Error, PascalString<u32>),
 }
 
 impl CPF {
@@ -315,20 +315,20 @@ impl CPF {
                     let data = match data_type {
                         DataType::UInt =>
                             parse_int!(u32, &e.get_text().unwrap_or("".into()))
-                                .map(|i| Data::UInt(i))
+                                .map(Data::UInt)
                                 .map_err(|err| err.into()),
                         DataType::Int =>
                             parse_int!(i32, &e.get_text().unwrap_or("".into()))
-                                .map(|i| Data::Int(i))
+                                .map(Data::Int)
                                 .map_err(|err| err.into()),
                         DataType::String => Ok(Data::String(e.get_text().unwrap_or("".into()).into())),
                         DataType::Float =>
                             f32::from_str(&e.get_text().unwrap_or("".into()))
-                                .map(|i| Data::Float(i))
+                                .map(Data::Float)
                                 .map_err(|err| err.into()),
                         DataType::Bool =>
                             bool::from_str(&e.get_text().unwrap_or("".into()).to_lowercase())
-                                .map(|i| Data::Bool(i))
+                                .map(Data::Bool)
                                 .map_err(|err| err.into()),
                     }.map_err(|err| XMLParseError::BadText {
                         data_type,
@@ -376,11 +376,11 @@ impl CPF {
 
             element.attributes.insert("type".to_string(), format!("0x{:x}", data_type as u32));
             element.attributes.insert("key".to_string(), entry.name.clone().try_into()
-                .map_err(|err: FromUtf8Error| XMLWriteError::KeyUtf8Error(err.into(), data_type))
-                .and_then(|str: std::string::String| {
+                .map_err(|err: FromUtf8Error| XMLWriteError::KeyUtf8(err.into(), data_type))
+                .and_then(|str: String| {
                     if let Some((i, c)) = str.chars().enumerate()
                         .find(|(i, c)| *c <= '\x1F') {
-                        Err(XMLWriteError::KeyUtf8Error(XMLKeyUtf8Error::Control(str, c, i), data_type))
+                        Err(XMLWriteError::KeyUtf8(XMLKeyUtf8Error::Control(str, c, i), data_type))
                     } else {
                         Ok(str)
                     }
@@ -391,7 +391,7 @@ impl CPF {
                 Data::Int(x) => x.to_string(),
                 Data::Float(x) => x.to_string(),
                 Data::String(str) => str.clone().try_into()
-                    .map_err(|err| XMLWriteError::DataUtf8Error(err, entry.name.clone()))?,
+                    .map_err(|err| XMLWriteError::DataUtf8(err, entry.name.clone()))?,
                 Data::Bool(b) => if *b { "True" } else { "False" }.to_string(),
             }));
 
@@ -414,12 +414,12 @@ impl CPF {
         T: TryFrom<Data>,
         <T as TryFrom<Data>>::Error: Display,
     {
-        self.take_item(key).ok_or(Error::AssertFail {
+        self.take_item(key).ok_or(AssertFail {
             pos: stream_position,
             message: format!("Could not find property by key {key}"),
         }).and_then(|data| {
             data.try_into()
-                .map_err(|err| Error::AssertFail {
+                .map_err(|err| AssertFail {
                     pos: stream_position,
                     message: format!("Data of key {key} has wrong type ({})", err),
                 })
@@ -428,7 +428,7 @@ impl CPF {
 
     fn check_empty(&self, pos: u64) -> BinResult<()> {
         if !self.entries.is_empty() {
-            Err(Error::AssertFail {
+            Err(AssertFail {
                 pos,
                 message: format!("CPF still has remaining entries: {:?}", self.entries),
             })
@@ -498,12 +498,12 @@ impl Reference {
         let keyidx = if key { "keyidx" } else { "idx" };
         match self {
             Reference::Idx(idx) => {
-                cpf.entries.push(Item::new(format!("{}{keyidx}", name.as_ref()), idx.clone()));
+                cpf.entries.push(Item::new(format!("{}{keyidx}", name.as_ref()), *idx));
             }
             Reference::TGI(t, g, i) => {
-                cpf.entries.push(Item::new(format!("{}restypeid", name.as_ref()), t.clone()));
-                cpf.entries.push(Item::new(format!("{}groupid", name.as_ref()), g.clone()));
-                cpf.entries.push(Item::new(format!("{}id", name.as_ref()), i.clone()));
+                cpf.entries.push(Item::new(format!("{}restypeid", name.as_ref()), *t));
+                cpf.entries.push(Item::new(format!("{}groupid", name.as_ref()), *g));
+                cpf.entries.push(Item::new(format!("{}id", name.as_ref()), *i));
             }
         }
     }
@@ -511,12 +511,12 @@ impl Reference {
 
 #[cfg(test)]
 mod test {
-    use std::io::{Cursor, Seek};
-    use binrw::{BinRead, BinWrite};
-    use proptest::prop_assert_eq;
-    use test_strategy::proptest;
     use crate::common::PascalString;
     use crate::internal_file::cpf::{CPFVersion, Data, Item, XMLDataType, CPF};
+    use binrw::{BinRead, BinWrite};
+    use proptest::prop_assert_eq;
+    use std::io::{Cursor, Seek};
+    use test_strategy::proptest;
 
     #[proptest]
     fn binary_write_read_same(version: u16, entries: Vec<Item>) {

@@ -66,7 +66,7 @@ impl Editor for CPF {
                         (Some(v), true) => {
                             ui.add(DragValue::new(v));
                         }
-                        (v @ _, true) => {
+                        (v, true) => {
                             *v = Some(7);
                         }
                         (v @ Some(_), false) => {

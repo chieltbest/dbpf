@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
-use eframe::Storage;
-use serde::{Deserialize, Serialize};
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf_utils::tgi_conflicts::TGIConflict;
+use eframe::Storage;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum ConflictTypeFilterWarning {
@@ -129,7 +129,7 @@ impl FilteredConflictList {
         }
         self.known_conflicts.push(known);
         self.re_filter();
-        return true;
+        true
     }
 
     pub fn remove_known(&mut self, i: usize) {
@@ -151,7 +151,7 @@ impl FilteredConflictList {
     }
 
     pub fn get_check_enabled(&self, internal_type: &KnownDBPFFileType) -> bool {
-        self.check_types.get(internal_type).is_some()
+        self.check_types.contains(internal_type)
     }
 
     pub fn set_check_enabled(&mut self, internal_type: &KnownDBPFFileType, enabled: bool) {
@@ -167,7 +167,7 @@ impl FilteredConflictList {
     pub fn get_type_visibility(&self, internal_type: &KnownDBPFFileType) -> ConflictTypeFilterWarning {
         match self.found_conflict_visible.get(internal_type) {
             None => ConflictTypeFilterWarning::NotFound,
-            Some(c) => c.clone(),
+            Some(c) => *c,
         }
     }
 
@@ -199,9 +199,7 @@ impl FilteredConflictList {
             self.filtered_conflicts.push(conflict);
 
             for known_t in all_conflict_tgis {
-                if !self.found_conflict_visible.contains_key(&known_t) {
-                    self.found_conflict_visible.insert(known_t, ConflictTypeFilterWarning::FoundVisible);
-                }
+                self.found_conflict_visible.entry(known_t).or_insert(ConflictTypeFilterWarning::FoundVisible);
             }
         } else if !known {
             // conflict was filtered out

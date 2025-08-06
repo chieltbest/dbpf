@@ -13,7 +13,7 @@ impl EnumEditor for LanguageCode {
     }
 
     fn from_string(string: &String) -> Option<Self> {
-        u8::from_str(string).ok().map(|i| Self::from(i))
+        u8::from_str(string).ok().map(Self::from)
     }
 
     fn known_name(known_enum: &Self::KnownEnum) -> String {

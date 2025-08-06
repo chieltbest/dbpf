@@ -7,29 +7,29 @@ pub mod audio_reference;
 pub mod behaviour;
 pub mod object_data;
 
-use std::fmt::{Debug, Formatter};
-use std::io::Cursor;
-use binrw::{binread, binrw, BinRead, BinResult, BinWrite, NamedArgs};
-use miniz_oxide::inflate::DecompressError;
-use refpack::data::compression::CompressionOptions;
-use refpack::format::{Maxis, Reference, SimEA};
-use refpack::RefPackError;
-use thiserror::Error;
-use crate::CompressionType;
 use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
-use cpf::binary_index::BinaryIndex;
-use cpf::property_set::PropertySet;
 use crate::internal_file::audio_reference::AudioReference;
-use behaviour::behaviour_constants::BehaviourConstants;
-use behaviour::behaviour_function::BehaviourFunction;
-use crate::internal_file::cpf::CPF;
-use behaviour::object_functions::ObjectFunctions;
 use crate::internal_file::behaviour::behaviour_constants_labels::BehaviourConstantsLabels;
 use crate::internal_file::behaviour::behaviour_function_labels::BehaviourFunctionLabels;
+use crate::internal_file::cpf::CPF;
 use crate::internal_file::object_data::ObjectData;
 use crate::internal_file::resource_collection::ResourceCollection;
 use crate::internal_file::sim_outfits::SimOutfits;
 use crate::internal_file::text_list::TextList;
+use crate::CompressionType;
+use behaviour::behaviour_constants::BehaviourConstants;
+use behaviour::behaviour_function::BehaviourFunction;
+use behaviour::object_functions::ObjectFunctions;
+use binrw::{binread, binrw, BinRead, BinResult, BinWrite, NamedArgs};
+use cpf::binary_index::BinaryIndex;
+use cpf::property_set::PropertySet;
+use miniz_oxide::inflate::DecompressError;
+use refpack::data::compression::CompressionOptions;
+use refpack::format::{Maxis, Reference, SimEA};
+use refpack::RefPackError;
+use std::fmt::{Debug, Formatter};
+use std::io::Cursor;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum CompressionError {
@@ -176,20 +176,8 @@ impl CompressedFileData {
                     // try all formats in the order of how restrictive they are
                     // TODO add a force format override
                     refpack::easy_decompress::<Maxis>(&self.data)
-                        .and_then(|v| {
-                            // eprintln!("sims2");
-                            Ok(v)
-                        })
-                        .or_else(|_| refpack::easy_decompress::<SimEA>(&self.data)
-                            .and_then(|v| {
-                                // eprintln!("sims3");
-                                Ok(v)
-                            }))
-                        .or_else(|_| refpack::easy_decompress::<Reference>(&self.data)
-                            .and_then(|v| {
-                                // eprintln!("ref");
-                                Ok(v)
-                            }))?
+                        .or_else(|_| refpack::easy_decompress::<SimEA>(&self.data))
+                        .or_else(|_| refpack::easy_decompress::<Reference>(&self.data))?
                 }
                 CompressionType::ZLib => {
                     miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(
@@ -281,10 +269,10 @@ impl DecodedFile {
         let mut cursor = Cursor::new(data);
         match file_type {
             DBPFFileType::Known(KnownDBPFFileType::PropertySet) => {
-                Some(PropertySet::read(&mut cursor).map(|r| DecodedFile::PropertySet(r)))
+                Some(PropertySet::read(&mut cursor).map(DecodedFile::PropertySet))
             }
             DBPFFileType::Known(KnownDBPFFileType::BinaryIndex) => {
-                Some(BinaryIndex::read(&mut cursor).map(|r| DecodedFile::BinaryIndex(r)))
+                Some(BinaryIndex::read(&mut cursor).map(DecodedFile::BinaryIndex))
             }
             DBPFFileType::Known(KnownDBPFFileType::TrackSettings |
                                 KnownDBPFFileType::FloorXML |
@@ -307,41 +295,41 @@ impl DecodedFile {
                                 KnownDBPFFileType::WallXML |
                                 KnownDBPFFileType::SimDNA |
                                 KnownDBPFFileType::VersionInformation) => {
-                Some(CPF::read(&mut cursor).map(|r| DecodedFile::GenericCPF(r)))
+                Some(CPF::read(&mut cursor).map(DecodedFile::GenericCPF))
             }
             DBPFFileType::Known(KnownDBPFFileType::SimOutfits) => {
-                Some(SimOutfits::read(&mut cursor).map(|r| DecodedFile::SimOutfits(r)))
+                Some(SimOutfits::read(&mut cursor).map(DecodedFile::SimOutfits))
             }
             DBPFFileType::Known(KnownDBPFFileType::TextureResource |
                                 KnownDBPFFileType::MaterialDefinition |
                                 KnownDBPFFileType::GeometricDataContainer) => {
-                Some(ResourceCollection::read(&mut cursor).map(|r| DecodedFile::ResourceCollection(r)))
+                Some(ResourceCollection::read(&mut cursor).map(DecodedFile::ResourceCollection))
             }
             DBPFFileType::Known(KnownDBPFFileType::TextList |
                                 KnownDBPFFileType::CatalogDescription |
                                 KnownDBPFFileType::PieMenuStrings) => {
-                Some(TextList::read(&mut cursor).map(|r| DecodedFile::TextList(r)))
+                Some(TextList::read(&mut cursor).map(DecodedFile::TextList))
             }
             DBPFFileType::Known(KnownDBPFFileType::SimanticsBehaviourFunction) => {
-                Some(BehaviourFunction::read(&mut cursor).map(|r| DecodedFile::BehaviourFunction(r)))
+                Some(BehaviourFunction::read(&mut cursor).map(DecodedFile::BehaviourFunction))
             }
             DBPFFileType::Known(KnownDBPFFileType::EdithSimanticsBehaviourLabels) => {
-                Some(BehaviourFunctionLabels::read(&mut cursor).map(|r| DecodedFile::BehaviourFunctionLabels(r)))
+                Some(BehaviourFunctionLabels::read(&mut cursor).map(DecodedFile::BehaviourFunctionLabels))
             }
             DBPFFileType::Known(KnownDBPFFileType::SimanticsBehaviourConstants) => {
-                Some(BehaviourConstants::read(&mut cursor).map(|r| DecodedFile::BehaviourConstants(r)))
+                Some(BehaviourConstants::read(&mut cursor).map(DecodedFile::BehaviourConstants))
             }
             DBPFFileType::Known(KnownDBPFFileType::BehaviourConstantsLabels) => {
-                Some(BehaviourConstantsLabels::read(&mut cursor).map(|r| DecodedFile::BehaviourConstantsLabels(r)))
+                Some(BehaviourConstantsLabels::read(&mut cursor).map(DecodedFile::BehaviourConstantsLabels))
             }
             DBPFFileType::Known(KnownDBPFFileType::ObjectFunctions) => {
-                Some(ObjectFunctions::read(&mut cursor).map(|r| DecodedFile::ObjectFunctions(r)))
+                Some(ObjectFunctions::read(&mut cursor).map(DecodedFile::ObjectFunctions))
             }
             DBPFFileType::Known(KnownDBPFFileType::ObjectData) => {
-                Some(ObjectData::read(&mut cursor).map(|r| DecodedFile::ObjectData(r)))
+                Some(ObjectData::read(&mut cursor).map(DecodedFile::ObjectData))
             }
             DBPFFileType::Known(KnownDBPFFileType::AudioReference) => {
-                Some(AudioReference::read(&mut cursor).map(|r| DecodedFile::AudioReference(r)))
+                Some(AudioReference::read(&mut cursor).map(DecodedFile::AudioReference))
             }
             _ => None,
         }

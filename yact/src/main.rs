@@ -8,18 +8,18 @@ mod filtered_conflict_list;
 
 use crate::filtered_conflict_list::{ConflictTypeFilterWarning, FilteredConflictList, KnownConflict};
 
-use std::error::Error;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, mpsc, Mutex};
-use std::sync::mpsc::{Receiver, TryRecvError};
-use eframe::{App, egui, Frame, Storage};
-use eframe::egui::{Color32, containers, Context, DragValue, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window};
+use dbpf_utils::graphical_application_main;
+use dbpf_utils::tgi_conflicts::{find_conflicts, TGIConflict, Tgi};
+use eframe::egui::{containers, Color32, Context, DragValue, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui, Visuals, Window};
+use eframe::{egui, App, Frame, Storage};
 use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
+use std::error::Error;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::{mpsc, Arc, Mutex};
 use tracing::{info, instrument, warn};
-use dbpf_utils::graphical_application_main;
-use dbpf_utils::tgi_conflicts::{find_conflicts, TGI, TGIConflict};
 
 struct DBPFApp {
     ui_scale: f32,
@@ -117,7 +117,7 @@ impl DBPFApp {
     #[instrument(skip(self))]
     fn start_scannning(&mut self, ctx: &Context) {
         self.conflict_list.clear();
-        self.scan_ran_with_folders = self.scan_folders.lines().map(|line| PathBuf::from(line)).collect();
+        self.scan_ran_with_folders = self.scan_folders.lines().map(PathBuf::from).collect();
         self.highlighted_conflict = None;
 
         let (tx, rx) = mpsc::channel();
@@ -168,7 +168,7 @@ impl DBPFApp {
                         self.scan_folders = folders.iter()
                             .map(|folder| folder.path().to_string_lossy().to_string())
                             .reduce(|mut full, str| {
-                                full.push_str("\n");
+                                full.push('\n');
                                 full.push_str(str.as_str());
                                 full
                             }).unwrap_or("".to_string());
@@ -222,7 +222,7 @@ impl DBPFApp {
                                    } else { "" }));
     }
 
-    fn conflict_description_string(path: &Path, tgis: &Vec<TGI>) -> String {
+    fn conflict_description_string(path: &Path, tgis: &Vec<Tgi>) -> String {
         let mut desc = path.to_string_lossy().to_string();
         for tgi in tgis {
             desc.push_str(format!("\n{tgi:X?}").as_str());
@@ -237,7 +237,7 @@ impl DBPFApp {
             .open(&mut self.open_known_conflict_gui)
             .show(ctx, |ui| {
                 let known_conflicts = self.conflict_list.get_known();
-                if known_conflicts.len() > 0 {
+                if !known_conflicts.is_empty() {
                     let mut remove = None;
 
                     let available_width = ui.available_width();
@@ -340,11 +340,11 @@ impl DBPFApp {
         });
     }
 
-    fn strip_prefix<'a>(scan_folders: &Vec<PathBuf>, path: &'a Path) -> Option<&'a Path> {
+    fn strip_prefix<'a>(scan_folders: &[PathBuf], path: &'a Path) -> Option<&'a Path> {
         scan_folders.iter().find_map(|folder| path.strip_prefix(folder).ok())
     }
 
-    fn show_path_cell(&mut self, conflict: &TGIConflict, path: &PathBuf, ui: &mut Ui) -> bool {
+    fn show_path_cell(&mut self, conflict: &TGIConflict, path: &Path, ui: &mut Ui) -> bool {
         let path_same = conflict.original == conflict.new;
 
         let stripped_path = Self::strip_prefix(&self.scan_ran_with_folders, path).unwrap_or(path);
@@ -449,7 +449,7 @@ impl DBPFApp {
                                   }
                               });
                           });
-                if let Some(_) = highlight {
+                if highlight.is_some() {
                     self.highlighted_conflict = highlight;
                 }
             });

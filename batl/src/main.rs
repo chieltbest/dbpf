@@ -169,7 +169,7 @@ impl DBPFApp {
     #[instrument(skip(self))]
     fn start_scannning(&mut self, ctx: &Context) {
         self.texture_list.clear();
-        self.scan_ran_with_folders = self.scan_folders.lines().map(|line| PathBuf::from(line)).collect();
+        self.scan_ran_with_folders = self.scan_folders.lines().map(PathBuf::from).collect();
         self.highlighted_texture = None;
 
         let (tx, rx) = mpsc::channel();
@@ -220,7 +220,7 @@ impl DBPFApp {
                         self.scan_folders = folders.iter()
                             .map(|folder| folder.path().to_string_lossy().to_string())
                             .reduce(|mut full, str| {
-                                full.push_str("\n");
+                                full.push('\n');
                                 full.push_str(str.as_str());
                                 full
                             }).unwrap_or("".to_string());
@@ -259,7 +259,7 @@ impl DBPFApp {
             .open(&mut self.open_known_texture_gui)
             .show(ctx, |ui| {
                 let known_textures = self.texture_list.get_known();
-                if known_textures.len() > 0 {
+                if !known_textures.is_empty() {
                     let mut remove = None;
 
                     let available_width = ui.available_width();
@@ -367,7 +367,7 @@ impl DBPFApp {
         }
     }
 
-    fn strip_prefix<'a>(scan_folders: &Vec<PathBuf>, path: &'a Path) -> Option<&'a Path> {
+    fn strip_prefix<'a>(scan_folders: &[PathBuf], path: &'a Path) -> Option<&'a Path> {
         scan_folders.iter().find_map(|folder| path.strip_prefix(folder).ok())
     }
 
@@ -426,9 +426,8 @@ impl DBPFApp {
 
             res.response | res.inner
         });
-        let res = res.response | res.inner;
 
-        res
+        res.response | res.inner
     }
 
     #[instrument(skip_all)]
@@ -517,7 +516,7 @@ impl DBPFApp {
                                           });
                                       });
                               });
-                    if let Some(_) = highlight {
+                    if highlight.is_some() {
                         self.highlighted_texture = highlight;
                     }
                 });
@@ -642,7 +641,7 @@ impl App for DBPFApp {
                         .text(format!("{progress}/{total} {}",
                                       Self::strip_prefix(&self.scan_ran_with_folders, path)
                                           .unwrap_or(path)
-                                          .display().to_string())));
+                                          .display())));
                 }
 
                 ui.separator();

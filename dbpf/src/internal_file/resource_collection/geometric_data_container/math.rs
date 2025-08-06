@@ -197,13 +197,13 @@ impl Mul<Mat4> for Mat4 {
     fn mul(self, rhs: Self) -> Self::Output {
         let l = self.0;
         let r = rhs.0;
-        let new_slice: Vec<_> = (0..4).map(|y| {
+        let new_slice: Vec<_> = (0..4).flat_map(|y| {
             (0..4).map(move |x| {
                 (0..4).map(move |z| {
                     l[z + y*4] * r[x + z*4]
                 }).sum()
             })
-        }).flatten().collect();
+        }).collect();
         Self(new_slice[0..16].try_into().unwrap())
     }
 }

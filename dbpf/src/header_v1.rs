@@ -1,13 +1,13 @@
+use crate::dbpf_file::Index;
+use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
+use crate::internal_file::dbpf_directory::{DBPFDirectory, DBPFDirectoryBinWriteArgs, DBPFDirectoryEntry};
+use crate::internal_file::{CompressedFileData, CompressionError, FileData, FileDataBinReadArgs, FileDataInternal};
+use crate::lazy_file_ptr::{LazyFilePtr, Zero};
+use crate::{CompressionType, IndexEntry, IndexMinorVersion};
+use binrw::{args, binread, binrw, BinRead, BinResult, BinWrite, BinWriterExt, Endian, Error};
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::num::NonZeroU32;
-use binrw::{args, binread, BinRead, BinResult, binrw, BinWrite, BinWriterExt, Endian, Error};
-use crate::{CompressionType, IndexEntry, IndexMinorVersion};
-use crate::dbpf_file::Index;
-use crate::filetypes::{DBPFFileType, KnownDBPFFileType};
-use crate::lazy_file_ptr::{LazyFilePtr, Zero};
-use crate::internal_file::{CompressedFileData, CompressionError, FileData, FileDataBinReadArgs, FileDataInternal};
-use crate::internal_file::dbpf_directory::{DBPFDirectory, DBPFDirectoryBinWriteArgs, DBPFDirectoryEntry};
 
 #[binread]
 #[br(import { count: usize, version: IndexMinorVersion })]
@@ -63,7 +63,7 @@ impl Index for IndexV1 {
     fn try_into_vec<R: Read + Seek>(mut self, reader: &mut R, index_version: IndexMinorVersion) -> BinResult<Vec<IndexEntry>> {
         let mut compressed_entries = HashMap::new();
 
-        self.entries.iter_mut().map(|entry| {
+        self.entries.iter_mut().try_for_each(|entry| {
             match entry.type_id {
                 DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory) => {
                     let data = entry.data.get(reader)?;
@@ -79,11 +79,11 @@ impl Index for IndexV1 {
                             (entry.type_id, entry.group_id, entry.instance_id),
                             entry.decompressed_size);
                     }
-                    Ok(())
+                    Ok::<_, Error>(())
                 }
                 _ => Ok(()),
             }
-        }).collect::<BinResult<()>>()?;
+        })?;
 
         self.entries.into_iter().filter_map(|entry| {
             if matches!(entry.type_id,
@@ -137,7 +137,7 @@ impl Index for IndexV1 {
             }.into())
         };
         writer.seek(SeekFrom::Current(index_size as i64))
-            .map_err(|err| Error::from(err))?;
+            .map_err(Error::from)?;
 
         let dir = DBPFDirectory {
             entries: entries.iter_mut().filter_map(|entry| {
@@ -216,7 +216,7 @@ impl Index for IndexV1 {
                 })?;
 
             let location = writer.stream_position()
-                .map_err(|err| Error::from(err))? as u32;
+                .map_err(Error::from)? as u32;
             // this will cause all entries in the index to be opened, maybe do a clone?
             let compression = entry.compression;
             let data = entry.data(reader)?;
@@ -225,7 +225,7 @@ impl Index for IndexV1 {
             compressed.write_le(writer)?;
 
             let size = writer.stream_position()
-                .map_err(|err| Error::from(err))? as u32 - location;
+                .map_err(Error::from)? as u32 - location;
 
             location.write_le(&mut index_buf)?;
             size.write_le(&mut index_buf)?;

@@ -1,12 +1,12 @@
-use std::io::{Read, Write, Seek};
-use binrw::{args, binread, BinResult, BinRead, BinWrite};
+use crate::dbpf_file::Index;
+use crate::filetypes::DBPFFileType;
+use crate::internal_file::{CompressionError, FileData, FileDataBinReadArgs};
+use crate::lazy_file_ptr::{LazyFilePtr, Zero};
+use crate::{CompressionType, IndexEntry, IndexMinorVersion};
+use binrw::{args, binread, BinRead, BinResult, BinWrite};
 use modular_bitfield::bitfield;
 use modular_bitfield::prelude::*;
-use crate::{CompressionType, IndexEntry, IndexMinorVersion};
-use crate::filetypes::DBPFFileType;
-use crate::lazy_file_ptr::{LazyFilePtr, Zero};
-use crate::dbpf_file::Index;
-use crate::internal_file::{CompressionError, FileData, FileDataBinReadArgs};
+use std::io::{Read, Seek, Write};
 
 /*#[binread]
 #[derive(Clone, Debug)]
@@ -89,11 +89,11 @@ group_id: Option < u32 >,
 instance_id_ex: Option < u32 >})]
 #[derive(Clone, Debug)]
 pub(crate) struct IndexEntryV2 {
-    #[brw(if (matches ! (type_id, None), type_id.unwrap()))]
+    #[brw(if (type_id.is_none(), type_id.unwrap()))]
     pub type_id: DBPFFileType,
-    #[brw(if (matches ! (group_id, None), group_id.unwrap()))]
+    #[brw(if (group_id.is_none(), group_id.unwrap()))]
     pub group_id: u32,
-    #[brw(if (matches ! (instance_id_ex, None), instance_id_ex.unwrap()))]
+    #[brw(if (instance_id_ex.is_none(), instance_id_ex.unwrap()))]
     pub instance_id_ex: u32,
     pub instance_id: u32,
 
@@ -111,7 +111,7 @@ pub(crate) struct IndexEntryV2 {
     committed: u16,
 
     #[br(args {
-    offset: u32::from(file_location) as u64,
+    offset: file_location as u64,
     inner: args ! {
     count: file_size.size() as usize,
     compression_type,

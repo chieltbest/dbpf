@@ -8,6 +8,8 @@ use clap::Parser;
 use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::internal_file::CompressionError;
 use dbpf::{CompressionType, DBPFFile, IndexEntry};
+use dbpf_utils::editor::{editor_supported, DecodedFileEditorState, Editor};
+use dbpf_utils::{async_execute, graphical_application_main};
 use eframe::egui::{Button, Color32, ComboBox, Context, DragValue, Id, Key, KeyboardShortcut, Label, Modifiers, Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, TextWrapMode, Ui, Visuals, WidgetText};
 use eframe::{egui, glow, App, Frame, Storage};
 use egui_dock::{DockState, Node, NodeIndex, Split, TabIndex, TabViewer};
@@ -26,8 +28,6 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use tracing::error;
-use dbpf_utils::editor::{editor_supported, DecodedFileEditorState, Editor};
-use dbpf_utils::{async_execute, graphical_application_main};
 
 enum EditorType {
     HexEditor(MemoryEditor),
@@ -301,7 +301,7 @@ impl YaPeAppData {
                                 ui.end_row();
 
                                 ui.label("flags");
-                                ui.add(egui::DragValue::new(&mut header.flags).hexadecimal(1, false, false));
+                                ui.add(DragValue::new(&mut header.flags).hexadecimal(1, false, false));
                                 ui.end_row();
 
                                 ui.label("created");
@@ -462,7 +462,7 @@ impl YaPeAppData {
                                     });
                                     col!(|ui| {
                                         let entry = &mut entry.data;
-                                        let res = egui::ComboBox::from_id_salt(
+                                        let res = ComboBox::from_id_salt(
                                             format!("{:?}{}{}", entry.type_id, entry.group_id, entry.instance_id))
                                             .selected_text(format!("{:?}", entry.compression))
                                             .width(110.0)
@@ -678,7 +678,7 @@ impl YaPeApp {
     fn open_index<R: Read + Seek>(
         next_tab_id: &mut usize,
         reader: &mut R,
-        file_resources: &Vec<Rc<RefCell<OpenResource>>>,
+        file_resources: &[Rc<RefCell<OpenResource>>],
         index: usize,
         hex_editor: bool,
         ui_ctx: &Context,
@@ -690,7 +690,7 @@ impl YaPeApp {
         let entry_ref = &mut index_entry.borrow_mut().data;
         let file_type = entry_ref.type_id;
         let res = entry_ref.data(reader)
-            .map_err(|err| CompressionError::BinResult(err))
+            .map_err(CompressionError::BinResult)
             .and_then(|entry| {
                 if editor_supported(file_type) && !hex_editor {
                     let decoded = entry.decoded()?.unwrap();
@@ -705,8 +705,8 @@ impl YaPeApp {
             .inspect_err(|err| error!(?err));
 
         Some(EntryEditorTab {
-            state: res.unwrap_or_else(|err| EditorType::Error(err)),
-            data: Rc::downgrade(&index_entry),
+            state: res.unwrap_or_else(EditorType::Error),
+            data: Rc::downgrade(index_entry),
             index: Some(index),
             is_hex_editor: hex_editor,
             id,
@@ -722,7 +722,7 @@ impl YaPeApp {
                     node.iter_tabs().enumerate().find_map(|(tab_i, tab)| {
                         match tab {
                             YaPeTab::Entry(t) => {
-                                (t.data.ptr_eq(&Rc::downgrade(&search_rc)) &&
+                                (t.data.ptr_eq(&Rc::downgrade(search_rc)) &&
                                     t.is_hex_editor == hex_editor)
                                     .then_some((surf_i, NodeIndex(node_i), TabIndex(tab_i)))
                             }
@@ -1054,15 +1054,14 @@ impl App for YaPeApp {
             self.open_index_tab(new_hex_tab_index, true, ctx, gl_ctx);
         }
 
-        ctx.input(|i| i.raw.dropped_files.get(0).map(|f| f.clone()))
-            .map(|file| {
-                if let Some(path) = file.path {
-                    self.open_file(path);
-                } else if let Some(bytes) = file.bytes {
-                    self.open_bytes(Vec::from(&*bytes));
-                }
-                ctx.request_discard("load file from dropped input");
-            });
+        if let Some(file) = ctx.input(|i| i.raw.dropped_files.first().cloned()) {
+            if let Some(path) = file.path {
+                self.open_file(path);
+            } else if let Some(bytes) = file.bytes {
+                self.open_bytes(Vec::from(&*bytes));
+            }
+            ctx.request_discard("load file from dropped input");
+        }
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
@@ -1075,7 +1074,7 @@ impl App for YaPeApp {
                         entry.index = file.resources.iter()
                             .enumerate()
                             .find_map(|(i, elem)| {
-                                if entry.data.ptr_eq(&Rc::downgrade(&elem)) {
+                                if entry.data.ptr_eq(&Rc::downgrade(elem)) {
                                     Some(i)
                                 } else {
                                     None

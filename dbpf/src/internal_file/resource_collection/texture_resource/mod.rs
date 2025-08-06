@@ -1,17 +1,17 @@
 pub mod decoded_texture;
 
+use crate::common::BigString;
+use crate::internal_file::resource_collection::texture_resource::decoded_texture::{ShrinkDirection, ShrinkResult};
+use crate::internal_file::resource_collection::{FileName, ResourceBlockVersion};
+use binrw::{args, binrw, BinResult, Error};
+use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
+use decoded_texture::DecodedTexture;
+use enum_iterator::Sequence;
+use log::error;
 use std::cmp::max;
 use std::fmt::Debug;
 use std::io::{Cursor, Read, Write};
-use binrw::{args, binrw, BinResult, Error};
-use ddsfile::{D3DFormat, Dds, DxgiFormat, NewD3dParams, PixelFormatFlags};
-use enum_iterator::Sequence;
-use log::error;
 use thiserror::Error;
-use decoded_texture::DecodedTexture;
-use crate::common::BigString;
-use crate::internal_file::resource_collection::{FileName, ResourceBlockVersion};
-use crate::internal_file::resource_collection::texture_resource::decoded_texture::{ShrinkDirection, ShrinkResult};
 
 const TEXPRESSO_PARAMS: texpresso::Params = texpresso::Params {
     algorithm: texpresso::Algorithm::IterativeClusterFit,
@@ -57,10 +57,9 @@ impl TextureFormat {
             TextureFormat::AltARGB32 => {
                 output.copy_from_slice(
                     data.chunks_exact(4)
-                        .map(|px| {
+                        .flat_map(|px| {
                             [px[2], px[1], px[0], px[3]]
                         })
-                        .flatten()
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
@@ -68,30 +67,27 @@ impl TextureFormat {
             TextureFormat::AltRGB24 => {
                 output.copy_from_slice(
                     data.chunks_exact(3)
-                        .map(|px| {
+                        .flat_map(|px| {
                             [px[2], px[1], px[0], 0xFF]
                         })
-                        .flatten()
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
             TextureFormat::Grayscale => {
                 output.copy_from_slice(
                     data.iter()
-                        .map(|px| {
+                        .flat_map(|px| {
                             [*px, *px, *px, 0xFF]
                         })
-                        .flatten()
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
             TextureFormat::Alpha => {
                 output.copy_from_slice(
                     data.iter()
-                        .map(|px| {
+                        .flat_map(|px| {
                             [0, 0, 0, *px]
                         })
-                        .flatten()
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
@@ -108,10 +104,9 @@ impl TextureFormat {
             TextureFormat::AltARGB32 => {
                 output.copy_from_slice(
                     data.chunks_exact(4)
-                        .map(|px| {
+                        .flat_map(|px| {
                             [px[2], px[1], px[0], px[3]]
                         })
-                        .flatten()
                         .collect::<Vec<u8>>()
                         .as_slice());
             }
@@ -119,10 +114,9 @@ impl TextureFormat {
             TextureFormat::AltRGB24 => {
                 output.copy_from_slice(
                     data.chunks_exact(4)
-                        .map(|px| {
+                        .flat_map(|px| {
                             [px[2], px[1], px[0]]
                         })
-                        .flatten()
                         .collect::<Vec<u8>>()
                         .as_slice());
             }

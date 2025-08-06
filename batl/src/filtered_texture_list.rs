@@ -1,14 +1,14 @@
-use std::collections::BTreeSet;
-use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 use eframe::egui::{ComboBox, Context, DragValue, Response, Ui, Window};
 use eframe::{glow, Storage};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 use dbpf::internal_file::resource_collection::texture_resource::TextureFormat;
 use dbpf_utils::editor::{Editor, VecEditorState};
 
-use crate::texture_finder::{deser_texture_format, FoundTexture, ser_texture_format, TextureId};
+use crate::texture_finder::{deser_texture_format, ser_texture_format, FoundTexture, TextureId};
 
 trait TextureFilterRule {
     /// filter the texture according to this rule, returns true if the texture should be shown
@@ -72,14 +72,14 @@ impl From<TextureFormat> for SerTexFormat {
     }
 }
 
-impl Into<TextureFormat> for SerTexFormat {
-    fn into(self) -> TextureFormat {
-        self.0
+impl From<SerTexFormat> for TextureFormat {
+    fn from(value: SerTexFormat) -> Self {
+        value.0
     }
 }
 
 fn ser_format_filter<S: Serializer>(t: &BTreeSet<TextureFormat>, ser: S) -> Result<S::Ok, S::Error> {
-    let ser_btree: BTreeSet<SerTexFormat> = t.iter().map(|t| t.clone().into()).collect();
+    let ser_btree: BTreeSet<SerTexFormat> = t.iter().map(|t| (*t).into()).collect();
 
     ser_btree.serialize(ser)
 }
@@ -126,9 +126,9 @@ impl Default for TextureFilterOperation {
     }
 }
 
-impl Into<usize> for TextureFilterOperation {
-    fn into(self) -> usize {
-        match self {
+impl From<TextureFilterOperation> for usize {
+    fn from(value: TextureFilterOperation) -> Self {
+        match value {
             TextureFilterOperation::Width(_, _) => 0,
             TextureFilterOperation::Height(_, _) => 1,
             TextureFilterOperation::Memory(_, _) => 2,
@@ -141,7 +141,7 @@ impl Into<usize> for TextureFilterOperation {
 impl Editor for TextureFilterOperation {
     type EditorState = ();
 
-    fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+    fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
         let mut selected: usize = self.clone().into();
 
         let ires = ComboBox::from_id_salt(ui.id().with(0))
@@ -224,7 +224,7 @@ impl Editor for TextureFilterOperation {
                         TextureFormat::DXT1,
                         TextureFormat::DXT3,
                         TextureFormat::DXT5].iter().map(|tf| {
-                        let mut new = checked.contains(&tf);
+                        let mut new = checked.contains(tf);
                         let res = ui.checkbox(&mut new, format!("{tf:?}"));
                         if res.changed() {
                             if new {
@@ -257,7 +257,7 @@ pub struct TextureFilter {
 
 impl TextureFilterRule for TextureFilter {
     fn filter(&self, tex: &FoundTexture) -> bool {
-        self.operations.iter().find(|filter| !filter.filter(tex)).is_none()
+        !self.operations.iter().any(|filter| !filter.filter(tex))
     }
 }
 
@@ -359,7 +359,7 @@ impl FilteredTextureList {
         }
         self.known_textures.push(known);
         self.re_filter();
-        return true;
+        true
     }
 
     pub fn remove_known(&mut self, i: usize) {
@@ -368,7 +368,7 @@ impl FilteredTextureList {
     }
 
     pub fn is_known(&self, found: &FoundTexture) -> bool {
-        self.known_textures.iter().any(|known| *known == found.id)
+        self.known_textures.contains(&found.id)
     }
 
     pub fn set_show_known(&mut self, show: bool) {
@@ -404,9 +404,8 @@ impl FilteredTextureList {
         self.filtered_textures = Vec::new();
 
         self.filtered_textures = self.found_textures.iter()
-            .filter_map(|tex| {
-                self.filter_texture(tex).then(|| tex.clone())
-            })
+            .filter(|&tex| self.filter_texture(tex))
+            .cloned()
             .collect();
     }
 }

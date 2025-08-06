@@ -1,11 +1,11 @@
-use std::io::{Read, Seek, SeekFrom, Write};
-use binrw::{binread, BinRead, BinResult, binrw, BinWrite, parser};
-use crate::{Timestamp, UserVersion, Version, CompressionType, IndexVersion, IndexMinorVersion, HEADER_SIZE};
 use crate::filetypes::DBPFFileType;
 use crate::header_v1::{IndexV1, IndexV1BinReadArgs};
 use crate::header_v2::{IndexV2, IndexV2BinReadArgs};
-use crate::lazy_file_ptr::{LazyFilePtr, Zero};
 use crate::internal_file::{CompressionError, FileData, FileDataBinReadArgs};
+use crate::lazy_file_ptr::{LazyFilePtr, Zero};
+use crate::{CompressionType, IndexMinorVersion, IndexVersion, Timestamp, UserVersion, Version, HEADER_SIZE};
+use binrw::{binread, binrw, parser, BinRead, BinResult, BinWrite};
+use std::io::{Read, Seek, SeekFrom, Write};
 
 #[binrw]
 #[brw(magic = b"DBPF", little)]
@@ -117,7 +117,7 @@ impl DBPFFile {
     pub fn write<W: Write + Seek, R: Read + Seek>(&mut self, writer: &mut W, reader: &mut R)
         -> Result<(), CompressionError> {
         writer.seek(SeekFrom::Start(HEADER_SIZE as u64))
-            .map_err(|e| binrw::Error::from(e))?;
+            .map_err(binrw::Error::from)?;
         let (index, count) = match self.header.version {
             Version::V1(_) => IndexV1::write_entries(writer,
                                                      reader,
@@ -131,10 +131,10 @@ impl DBPFFile {
         self.header.hole_index_entry_count = 0;
         self.header.hole_index_location = 0;
         writer.seek(SeekFrom::Start(0))
-            .map_err(|e| binrw::Error::from(e))?;
+            .map_err(binrw::Error::from)?;
         self.header.write(writer)?;
         writer.seek(SeekFrom::Start(HEADER_SIZE as u64))
-            .map_err(|e| binrw::Error::from(e))?;
+            .map_err(binrw::Error::from)?;
         index.write(writer)?;
         Ok(())
     }

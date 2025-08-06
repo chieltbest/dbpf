@@ -4,27 +4,27 @@ use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
-use binrw::{BinRead, BinResult};
 use binrw::io::BufReader;
+use binrw::{BinRead, BinResult};
 
 use futures::{stream, StreamExt};
-use walkdir::WalkDir;
 use tokio::fs::File;
+use walkdir::WalkDir;
 
-use dbpf::DBPFFile;
-use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
 use dbpf::filetypes::DBPFFileType::Known;
+use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
+use dbpf::DBPFFile;
 
 use tracing::{error, info, info_span, instrument};
 
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
-pub struct TGI {
+pub struct Tgi {
     pub type_id: DBPFFileType,
     pub group_id: u32,
     pub instance_id: u64,
 }
 
-impl Debug for TGI {
+impl Debug for Tgi {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(self.type_id.properties()
             .map(|prop| prop.name.to_string())
@@ -39,7 +39,7 @@ impl Debug for TGI {
 pub struct TGIConflict {
     pub original: PathBuf,
     pub new: PathBuf,
-    pub tgis: Vec<TGI>,
+    pub tgis: Vec<Tgi>,
 }
 
 impl Display for TGIConflict {
@@ -53,9 +53,9 @@ impl Display for TGIConflict {
 }
 
 #[instrument(skip_all, level = "trace")]
-fn get_tgis(header: DBPFFile) -> Vec<TGI> {
+fn get_tgis(header: DBPFFile) -> Vec<Tgi> {
     header.index.iter()
-        .map(|file| TGI {
+        .map(|file| Tgi {
             type_id: file.type_id,
             group_id: file.group_id,
             instance_id: file.instance_id,
@@ -64,10 +64,10 @@ fn get_tgis(header: DBPFFile) -> Vec<TGI> {
 }
 
 #[instrument(level = "error")]
-async fn get_path_tgis(path: PathBuf) -> (PathBuf, Option<Vec<TGI>>) {
+async fn get_path_tgis(path: PathBuf) -> (PathBuf, Option<Vec<Tgi>>) {
     let data = File::open(&path).await.unwrap().into_std().await;
     let mut data = BufReader::new(data);
-    let result = tokio::task::spawn_blocking(move || -> BinResult<Vec<TGI>> {
+    let result = tokio::task::spawn_blocking(move || -> BinResult<Vec<Tgi>> {
         Ok(get_tgis(DBPFFile::read(&mut data)?))
     }).await.unwrap();
     match result {
@@ -84,7 +84,7 @@ async fn get_path_tgis(path: PathBuf) -> (PathBuf, Option<Vec<TGI>>) {
 pub async fn find_conflicts(dirs: Vec<PathBuf>,
                             tx: Sender<TGIConflict>,
                             mut progress: impl FnMut(PathBuf, usize, usize)) {
-    let files_futures_vec = dirs.iter().map(|dir| {
+    let files_futures_vec = dirs.iter().flat_map(|dir| {
         WalkDir::new(dir).sort_by_file_name().into_iter().filter_map(|entry| {
             let path = entry.unwrap().path().to_path_buf();
             if path.extension() == Some(OsStr::new("package")) {
@@ -93,7 +93,7 @@ pub async fn find_conflicts(dirs: Vec<PathBuf>,
                 None
             }
         })
-    }).flatten().collect::<Vec<_>>();
+    }).collect::<Vec<_>>();
     let total_files = files_futures_vec.len();
     progress(PathBuf::from(""), 0, total_files);
 
@@ -106,11 +106,11 @@ pub async fn find_conflicts(dirs: Vec<PathBuf>,
     while let Some((i, (path, data))) = tgis_stream.next().await {
         progress(path.clone(), i + 1, total_files);
         if let Some(tgis) = data {
-            let mut internal_conflict_files: HashMap<PathBuf, Vec<TGI>> = HashMap::new();
+            let mut internal_conflict_files: HashMap<PathBuf, Vec<Tgi>> = HashMap::new();
             for tgi in tgis {
                 match tgi {
                     // BCON, BHAV, CTSS, GLOB, GZPS, OBJD, OBJF, SLOT, STR, TPRP, TRCN, TTAB, TTAS, VERS
-                    TGI {
+                    Tgi {
                         type_id: Known(KnownDBPFFileType::SimanticsBehaviourConstants |
                                        KnownDBPFFileType::SimanticsBehaviourFunction |
                                        KnownDBPFFileType::CatalogDescription |
@@ -145,11 +145,11 @@ pub async fn find_conflicts(dirs: Vec<PathBuf>,
             }
 
             for (original, tgis) in internal_conflict_files.drain() {
-                if let Err(_) = tx.send(TGIConflict {
+                if tx.send(TGIConflict {
                     original: original.clone(),
                     new: path.clone(),
                     tgis: tgis.clone(),
-                }) {
+                }).is_err() {
                     return;
                 }
                 info_span!("conflict", ?path, ?original).in_scope(|| {
