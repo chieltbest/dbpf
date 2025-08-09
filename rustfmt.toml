@@ -1,0 +1,7 @@
+imports_granularity = "Crate"
+newline_style = "Unix"
+hard_tabs = true
+
+unstable_features = true
+overflow_delimited_expr = true
+group_imports = "StdExternalCrate"
