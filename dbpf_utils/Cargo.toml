@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Chiel Douwes
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 [package]
 name = "dbpf_utils"
 version = "0.1.0"
@@ -27,7 +31,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2.3"
 tracing-panic = "0.1"
 
-tokio = { version = "1.38", features = ["full"] }
 tokio-rayon = "2.1"
 num_cpus = "1.16"
 
@@ -38,3 +41,12 @@ image = "0.25"
 clap = { version = "4.5", features = ["derive", "unicode"] }
 
 similar = { version = "2.7", features = ["bytes"] }
+
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1.38", features = ["rt-multi-thread", "time", "macros", "fs", "parking_lot"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1.38", features = ["rt", "macros"] }
+wasm-bindgen-futures = "0.4"
+web-sys = "0.3"

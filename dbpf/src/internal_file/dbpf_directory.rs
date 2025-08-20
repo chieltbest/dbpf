@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use binrw::{binrw, helpers::until_eof};
 
 use crate::{filetypes::DBPFFileType, header_v1::InstanceId, IndexMinorVersion};

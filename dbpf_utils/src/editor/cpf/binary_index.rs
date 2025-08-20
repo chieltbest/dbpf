@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use dbpf::internal_file::cpf::binary_index::BinaryIndex;
 use eframe::egui::{Grid, Response, Ui};
 

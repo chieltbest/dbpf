@@ -1,5 +1,9 @@
 #![windows_subsystem = "windows"]
 
+// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // TODO right click on known conflict > forget known conflict
 // TODO add hidden known conflicts counter
 // TODO show outdated known conflicts

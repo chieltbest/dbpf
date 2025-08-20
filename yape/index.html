@@ -1,3 +1,11 @@
+<!--
+SPDX-FileCopyrightText: 2020-2024 eframe_template contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+
+From: "eframe_template" https://github.com/emilk/eframe_template/tree/main
+-->
+
 <!DOCTYPE html>
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -19,13 +27,11 @@
 
 	<link data-trunk rel="copy-file" href="assets/sw.js"/>
 	<link data-trunk rel="copy-file" href="assets/manifest.json"/>
-	<link data-trunk rel="copy-file" href="assets/icon-1024.png" data-target-path="assets"/>
-	<link data-trunk rel="copy-file" href="assets/icon-256.png" data-target-path="assets"/>
 	<link data-trunk rel="copy-file" href="assets/icon_ios_touch_192.png" data-target-path="assets"/>
-	<link data-trunk rel="copy-file" href="assets/maskable_icon_x512.png" data-target-path="assets"/>
+	<link data-target-path="assets" data-trunk href="icon.png" rel="copy-file"/>
 
 
-	<link rel="manifest" href="manifest.json">
+	<link href="assets/manifest.json" rel="manifest">
 	<link rel="apple-touch-icon" href="assets/icon_ios_touch_192.png">
 	<meta name="theme-color" media="(prefers-color-scheme: light)" content="white">
 	<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#404040">

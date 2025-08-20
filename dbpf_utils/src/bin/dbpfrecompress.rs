@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use std::{ffi::OsStr, io::Cursor, path::PathBuf};
 
 use binrw::{BinRead, BinResult};

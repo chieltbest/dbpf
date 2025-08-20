@@ -1,0 +1,20 @@
+version = 1
+
+# computer generated files
+[[annotations]]
+path = [
+    "\\.idea/**",
+    "**/proptest-regressions/**",
+    "**/Cargo.lock"
+]
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "CC0-1.0"
+
+# release documentation under CC0-1.0
+[[annotations]]
+path = [
+    "**/CHANGELOG.md",
+    "**/README.md",
+]
+SPDX-FileCopyrightText = "Chiel Douwes"
+SPDX-License-Identifier = "CC0-1.0"

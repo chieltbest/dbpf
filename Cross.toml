@@ -1,2 +1,6 @@
+# SPDX-FileCopyrightText: 2023 Chiel Douwes
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 [target.x86_64-pc-windows-msvc]
 image = "ghcr.io/cross-rs/x86_64-pc-windows-msvc-cross:local"

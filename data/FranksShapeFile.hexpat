@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma endian little
 
 bitfield OffsetX {

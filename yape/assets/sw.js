@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2021-2022 eframe_template contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// From: "eframe_template" https://github.com/emilk/eframe_template/tree/main
+
 var cacheName = 'egui-template-pwa';
 var filesToCache = [
   './',

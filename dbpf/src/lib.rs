@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 pub mod common;
 mod dbpf_file;
 pub mod filetypes;

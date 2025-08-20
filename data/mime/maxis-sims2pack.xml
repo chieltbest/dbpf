@@ -1,4 +1,11 @@
 <?xml version="1.0"?>
+
+<!--
+SPDX-FileCopyrightText: 2025 Chiel Douwes
+
+SPDX-License-Identifier: CC0-1.0
+-->
+
 <mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
     <mime-type type="application/sims2pack">
         <comment>Sims 2 Pack</comment>

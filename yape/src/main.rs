@@ -1,5 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // TODO add open with resource tgi arguments
 // TODO add resource
 

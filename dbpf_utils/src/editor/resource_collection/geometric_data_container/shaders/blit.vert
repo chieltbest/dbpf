@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2020 Stack Overflow user "derhass" <https://stackoverflow.com/users/2327517/derhass>
+//
+// SPDX-License-Identifier: CC-BY-SA-4.0
+
 // https://stackoverflow.com/a/59739538
 #version 330
 precision mediump float;
