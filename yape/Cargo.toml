@@ -43,10 +43,10 @@ rfd = "0.15"
 egui_memory_editor = { version = "0.2.12", features = ["serde"] }
 egui_dock = { version = "0.16", features = ["serde"] }
 
+tracing = "0.1"
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 walkdir = "2"
-
-tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 tokio = { version = "1.38", features = ["full"] }

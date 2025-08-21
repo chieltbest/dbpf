@@ -1,9 +1,9 @@
+#version 300 es
+precision mediump float;
+
 // SPDX-FileCopyrightText: 2025 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-#version 330
-precision mediump float;
 
 in vec3 v_normal;
 in vec2 v_texcoord;
@@ -23,10 +23,10 @@ void main() {
             out_color = vec4((v_tangent + 1.0) / 2.0, 1.0);
             break;
         case 2:
-            out_color.rb = v_texcoord;
+            out_color = vec4(v_texcoord, 0.0, 1.0);
             break;
         case 3:
-            float z = pow(gl_FragCoord.z, 16) * 0.9;
+            float z = pow(gl_FragCoord.z, 16.0) * 0.9;
             if (dark_mode != 0) {
                 z = 1.0 - z;
             }

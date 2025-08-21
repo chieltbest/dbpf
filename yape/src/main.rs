@@ -19,6 +19,7 @@ use std::{
 };
 
 use binrw::{BinRead, BinResult};
+#[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use dbpf::{
 	filetypes::{DBPFFileType, KnownDBPFFileType},
@@ -921,6 +922,18 @@ async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
 	(handle.read().await, PathBuf::default())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+async fn write_file_handle(handle: FileHandle, buf: &[u8]) -> Result<Option<PathBuf>, Error> {
+	handle.write(buf).await?;
+	Ok(Some(handle.path().to_owned()))
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn write_file_handle(handle: FileHandle, buf: &[u8]) -> Result<Option<PathBuf>, Error> {
+	handle.write(buf).await?;
+	Ok(None)
+}
+
 impl App for YaPeApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
 		if let Some(picker) = &mut self.file_picker {
@@ -937,12 +950,16 @@ impl App for YaPeApp {
 				eprintln!("handle = {:#?}", handle);
 				self.save_file_picker = None;
 				if let Some(handle) = handle {
-					self.data.open_file_path = Some(handle.path().to_path_buf());
 					let mut buf = Cursor::new(Vec::new());
 					match self.save_bytes(&mut buf) {
 						Err(e) => error!(?e),
 						Ok(_) => {
-							let _ = futures::executor::block_on(handle.write(&buf.into_inner()));
+							if let Ok(path) = futures::executor::block_on(write_file_handle(
+								handle,
+								&buf.into_inner(),
+							)) {
+								self.data.open_file_path = path;
+							}
 						}
 					}
 				}
@@ -1203,15 +1220,17 @@ impl App for YaPeApp {
 }
 
 /// Simple program to greet a person
-#[derive(Parser, Debug)]
-#[command(version)]
+#[derive(Debug, Default)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Parser), command(version))]
 struct Args {
 	files: Vec<PathBuf>,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+	#[cfg(not(target_arch = "wasm32"))]
 	let args = Args::parse();
+	#[cfg(target_arch = "wasm32")]
+	let args = Args::default();
 
 	graphical_application_main(
 		include_bytes!("../icon.png"),
@@ -1220,7 +1239,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	)
 }
 
-// When compiling to web using trunk:
+/*fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+	graphical_application_main(
+		include_bytes!("../icon.png"),
+		"Yet Another Package Editor",
+		Box::new(|cc| Ok(Box::new(YaPeApp::new(cc, args)))),
+	)
+}*/
+
+/*// When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() {
 	use eframe::wasm_bindgen::JsCast as _;
@@ -1265,4 +1293,4 @@ fn main() {
 			}
 		}
 	});
-}
+}*/

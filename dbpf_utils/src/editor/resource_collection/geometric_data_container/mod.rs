@@ -28,9 +28,9 @@ const OFFSCREEN_RENDER_FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/blit
 
 #[derive(Clone, Debug)]
 struct GlMesh {
-	vao: glow::NativeVertexArray,
+	vao: glow::VertexArray,
 	primitive_type: u32,
-	indices: glow::NativeBuffer,
+	indices: glow::Buffer,
 	num_indices: usize,
 	visible: bool,
 }
@@ -40,22 +40,22 @@ pub struct GMDCEditorStateData {
 	// gl: Arc<Context>,
 	program: glow::Program,
 	subsets: Vec<(
-		glow::NativeVertexArray,
-		glow::NativeBuffer,
-		glow::NativeBuffer,
+		glow::VertexArray,
+		glow::Buffer,
+		glow::Buffer,
 		usize,
 		usize,
 		bool,
 	)>,
 
-	buffers: Vec<glow::NativeBuffer>,
-	attribute_objects: Vec<glow::NativeVertexArray>,
+	buffers: Vec<glow::Buffer>,
+	attribute_objects: Vec<glow::VertexArray>,
 	meshes: Vec<GlMesh>,
 
 	blend_values: [f32; 256],
 
 	offscreen_render_program: glow::Program,
-	offscreen_render_vao: glow::NativeVertexArray,
+	offscreen_render_vao: glow::VertexArray,
 
 	camera_angle: (f32, f32),
 	camera_position: Vertex,
@@ -102,7 +102,7 @@ impl Editor for GeometricDataContainer {
 						gl.compile_shader(shader);
 						assert!(
 							gl.get_shader_compile_status(shader),
-							"Failed to compile custom_3d_glow {shader_type}: {}",
+							"Failed to compile custom_3d_glow {shader_source}: {}",
 							gl.get_shader_info_log(shader)
 						);
 
@@ -271,9 +271,25 @@ impl Editor for GeometricDataContainer {
 
 							let (attr_binding_name, attr_type) = match attr.binding.binding_type {
 								AttributeType::Positions => ("in_position", glow::FLOAT),
-								AttributeType::PositionDeltas => ("in_position_delta", glow::FLOAT),
+								AttributeType::PositionDeltas => (
+									[
+										"in_position_delta_0",
+										"in_position_delta_1",
+										"in_position_delta_2",
+										"in_position_delta_3",
+									][attr.binding.binding_slot as usize],
+									glow::FLOAT,
+								),
 								AttributeType::Normals => ("in_normal", glow::FLOAT),
-								AttributeType::NormalDeltas => ("in_normal_delta", glow::FLOAT),
+								AttributeType::NormalDeltas => (
+									[
+										"in_normal_delta_0",
+										"in_normal_delta_1",
+										"in_normal_delta_2",
+										"in_normal_delta_3",
+									][attr.binding.binding_slot as usize],
+									glow::FLOAT,
+								),
 								AttributeType::TexCoords => ("in_texcoord", glow::FLOAT),
 								AttributeType::Tangents => ("in_tangent", glow::FLOAT),
 								AttributeType::TangentDeltas => ("in_tangent_delta", glow::FLOAT),
@@ -295,7 +311,8 @@ impl Editor for GeometricDataContainer {
 							};
 							let location = gl.get_attrib_location(main_program, attr_binding_name);
 							if let Some(location) = location {
-								let attr_binding = location + attr.binding.binding_slot;
+								// let attr_binding = location + attr.binding.binding_slot;
+								let attr_binding = location;
 								let num_components = attr.block_format.num_components();
 
 								gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
@@ -600,11 +617,11 @@ impl Editor for GeometricDataContainer {
 						unsafe {
 							gl.use_program(Some(state.program));
 
-							// TODO opengl error handling
+							/*// TODO opengl error handling
 							let err = gl.get_error();
 							if err != glow::NO_ERROR {
 								eprintln!("s {err:?}");
-							}
+							}*/
 
 							let fbo = gl.create_framebuffer().unwrap();
 							gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
@@ -612,7 +629,7 @@ impl Editor for GeometricDataContainer {
 							gl.active_texture(glow::TEXTURE0);
 							let ctex = gl.create_texture().unwrap();
 							gl.bind_texture(glow::TEXTURE_2D, Some(ctex));
-							gl.texture_storage_2d(ctex, 1, glow::RGBA8, width, height);
+							gl.tex_storage_2d(glow::TEXTURE_2D, 1, glow::RGBA8, width, height);
 
 							gl.framebuffer_texture_2d(
 								glow::FRAMEBUFFER,
@@ -622,13 +639,13 @@ impl Editor for GeometricDataContainer {
 								0,
 							);
 
-							let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
+							/*let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
 							if fbstatus != glow::FRAMEBUFFER_COMPLETE {
 								error!(
 									"framebuffer is incomplete, OpenGL error code: {}",
 									fbstatus
 								);
-							}
+							}*/
 
 							let rbd = gl.create_renderbuffer().unwrap();
 							gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbd));
