@@ -33,5 +33,5 @@ opt-level = 2
 inherits = "release"
 lto = "thin"
 
-[patch.crates-io]
-gltf_kun = { git = "https://github.com/chieltbest/gltf_kun.git" }
+#[patch.crates-io]
+#gltf_kun = { git = "https://github.com/chieltbest/gltf_kun.git" }

@@ -2217,7 +2217,8 @@ dependencies = [
 [[package]]
 name = "gltf_kun"
 version = "0.2.0"
-source = "git+https://github.com/chieltbest/gltf_kun.git#03bad27401d39a64c53c0c16d2d9bf8b80465a6c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92d0b16fba617fdee2b9b1431bf5507fcd42f71ad8c36d79cc080b03bac7d097"
 dependencies = [
  "base64 0.22.1",
  "bevy_math",

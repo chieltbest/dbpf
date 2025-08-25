@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::ops::Deref;
 use std::sync::Arc;
 
 use dbpf::internal_file::resource_collection::geometric_data_container::{
@@ -16,7 +17,7 @@ use eframe::{
 };
 use futures::channel::oneshot;
 use rfd::FileHandle;
-use tracing::{debug, error, span, Level};
+use tracing::{debug, error, span, warn, Level};
 
 use crate::{async_execute, editor::Editor};
 
@@ -32,36 +33,48 @@ struct GlMesh {
 	primitive_type: u32,
 	indices: glow::Buffer,
 	num_indices: usize,
-	visible: bool,
 }
 
 #[derive(Clone, Debug)]
-pub struct GMDCEditorStateData {
-	// gl: Arc<Context>,
+struct SharedGlState {
 	program: glow::Program,
-	subsets: Vec<(
-		glow::VertexArray,
-		glow::Buffer,
-		glow::Buffer,
-		usize,
-		usize,
-		bool,
-	)>,
+	subsets: Vec<(glow::VertexArray, glow::Buffer, glow::Buffer, usize, usize)>,
 
 	buffers: Vec<glow::Buffer>,
 	attribute_objects: Vec<glow::VertexArray>,
 	meshes: Vec<GlMesh>,
 
-	blend_values: [f32; 256],
-
 	offscreen_render_program: glow::Program,
 	offscreen_render_vao: glow::VertexArray,
+}
+
+#[derive(Clone, Debug)]
+struct GlState {
+	// gl is not sync, so this has to be separate from the other state
+	gl: Arc<Context>,
+
+	data: Arc<SharedGlState>,
+}
+
+#[derive(Clone, Debug)]
+struct DisplayState {
+	subsets_visible: Vec<bool>,
+	meshes_visible: Vec<bool>,
+
+	blend_values: [f32; 256],
 
 	camera_angle: (f32, f32),
 	camera_position: Vertex,
 	camera_distance: f32,
 
 	display_mode: i32, // TODO enum
+}
+
+#[derive(Clone, Debug)]
+pub struct GMDCEditorStateData {
+	gl_state: Arc<GlState>,
+
+	display_state: DisplayState,
 }
 
 #[derive(Debug, Default)]
@@ -197,7 +210,10 @@ impl Editor for GeometricDataContainer {
 							glow::STATIC_DRAW,
 						);
 
-						Some((vao, vbo, veo, subset_num_faces, subset_num_vertices, false))
+						Some((
+							(vao, vbo, veo, subset_num_faces, subset_num_vertices),
+							false,
+						))
 					})
 					.collect::<Option<Vec<_>>>()
 				else {
@@ -206,6 +222,8 @@ impl Editor for GeometricDataContainer {
 						save_file_picker: None,
 					};
 				};
+
+				let (subsets, subsets_visible) = subsets.into_iter().unzip();
 
 				let mut buffers = vec![];
 
@@ -335,10 +353,10 @@ impl Editor for GeometricDataContainer {
 					})
 					.collect::<Vec<_>>();
 
-				let meshes = self
+				let (meshes, meshes_visible): (Vec<_>, Vec<_>) = self
 					.meshes
 					.iter()
-					.map(|mesh| {
+					.filter_map(|mesh| {
 						attribute_objects[mesh.attribute_group_index as usize].and_then(|vao| {
 							let indices =
 								gl.create_buffer().inspect_err(|err| error!(?err)).ok()?;
@@ -363,16 +381,18 @@ impl Editor for GeometricDataContainer {
 								glow::STATIC_DRAW,
 							);
 
-							Some(GlMesh {
-								vao,
-								primitive_type,
-								indices,
-								num_indices,
-								visible: true,
-							})
+							Some((
+								GlMesh {
+									vao,
+									primitive_type,
+									indices,
+									num_indices,
+								},
+								true,
+							))
 						})
 					})
-					.collect::<Vec<_>>();
+					.unzip();
 
 				let Ok(or_vao) = gl.create_vertex_array().inspect_err(|err| error!(?err)) else {
 					return GMDCEditorState {
@@ -385,28 +405,40 @@ impl Editor for GeometricDataContainer {
 
 				GMDCEditorState {
 					data: Some(GMDCEditorStateData {
-						// gl,
-						program: main_program,
-						subsets,
+						gl_state: Arc::new(GlState {
+							gl,
 
-						buffers,
-						attribute_objects: attribute_objects.into_iter().flatten().collect(),
-						meshes: meshes.into_iter().flatten().collect(),
+							data: Arc::new(SharedGlState {
+								program: main_program,
+								subsets,
 
-						blend_values: [0.0; 256],
+								buffers,
+								attribute_objects: attribute_objects
+									.into_iter()
+									.flatten()
+									.collect(),
+								meshes,
 
-						offscreen_render_program: or_program,
-						offscreen_render_vao: or_vao,
+								offscreen_render_program: or_program,
+								offscreen_render_vao: or_vao,
+							}),
+						}),
 
-						camera_angle: (std::f32::consts::PI, 0.0),
-						camera_position: Vertex {
-							x: 0.0,
-							y: -1.0,
-							z: 0.0,
+						display_state: DisplayState {
+							subsets_visible,
+							meshes_visible,
+							blend_values: [0.0; 256],
+
+							camera_angle: (std::f32::consts::PI, 0.0),
+							camera_position: Vertex {
+								x: 0.0,
+								y: -1.0,
+								z: 0.0,
+							},
+							camera_distance: 1.0,
+
+							display_mode: 0,
 						},
-						camera_distance: 1.0,
-
-						display_mode: 0,
 					}),
 
 					save_file_picker: None,
@@ -438,7 +470,11 @@ impl Editor for GeometricDataContainer {
 			}
 		}
 
-		if let Some(gl_state) = &mut state.data {
+		if let Some(state_data) = &mut state.data {
+			let display_data = &mut state_data.display_state;
+
+			let available = ui.available_size_before_wrap();
+
 			/*ui.horizontal_wrapped(|ui| {
 				for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
 					.iter_mut().enumerate() {
@@ -450,8 +486,6 @@ impl Editor for GeometricDataContainer {
 				}
 			});*/
 
-			let available = ui.available_size_before_wrap();
-
 			egui::ScrollArea::vertical()
 				.auto_shrink([false, true])
 				.max_height(available.y / 3.0)
@@ -460,11 +494,11 @@ impl Editor for GeometricDataContainer {
 						// TODO name in tooltip
 						ui.group(|ui| {
 							ui.vertical(|ui| {
-								for (mesh, gl_mesh) in
-									self.meshes.iter_mut().zip(gl_state.meshes.iter_mut())
+								for (mesh, visible) in
+									self.meshes.iter_mut().zip(&mut display_data.meshes_visible)
 								{
 									ui.horizontal(|ui| {
-										ui.add(egui::Checkbox::without_text(&mut gl_mesh.visible));
+										ui.add(egui::Checkbox::without_text(visible));
 
 										mesh.name.show_editor(&mut 100.0, ui).on_hover_ui(|ui| {
 											ui.label(format!(
@@ -507,7 +541,7 @@ impl Editor for GeometricDataContainer {
 									for (name, value) in self
 										.blend_group_bindings
 										.iter_mut()
-										.zip(&mut gl_state.blend_values)
+										.zip(&mut display_data.blend_values)
 									{
 										ui.horizontal(|ui| {
 											ui.add(
@@ -554,11 +588,12 @@ impl Editor for GeometricDataContainer {
 					state.save_file_picker = Some(rx);
 				}
 
+				// TODO standard display
 				for (i, name) in ["normals", "tangents", "uv", "depth", "wireframe"]
 					.into_iter()
 					.enumerate()
 				{
-					ui.radio_value(&mut gl_state.display_mode, i as i32, name);
+					ui.radio_value(&mut display_data.display_mode, i as i32, name);
 				}
 			});
 
@@ -567,16 +602,16 @@ impl Editor for GeometricDataContainer {
 					let (rect, response) = ui
 						.allocate_exact_size(ui.available_size_before_wrap(), egui::Sense::drag());
 
-					let inverse_orientation = Mat4::rotation_y(-gl_state.camera_angle.0)
-						* Mat4::rotation_x(-gl_state.camera_angle.1);
+					let inverse_orientation = Mat4::rotation_y(-display_data.camera_angle.0)
+						* Mat4::rotation_x(-display_data.camera_angle.1);
 
 					let drag_delta = response.drag_delta() / rect.height() * 2.0;
 					if ui.input(|i| i.pointer.button_down(PointerButton::Primary)) {
-						gl_state.camera_angle.0 += drag_delta.x * std::f32::consts::PI;
-						gl_state.camera_angle.1 -= drag_delta.y * std::f32::consts::FRAC_PI_2;
+						display_data.camera_angle.0 += drag_delta.x * std::f32::consts::PI;
+						display_data.camera_angle.1 -= drag_delta.y * std::f32::consts::FRAC_PI_2;
 					}
 					if ui.input(|i| i.pointer.button_down(PointerButton::Secondary)) {
-						gl_state.camera_position += inverse_orientation
+						display_data.camera_position += inverse_orientation
 							* Vertex {
 								x: drag_delta.x,
 								y: -drag_delta.y,
@@ -584,7 +619,7 @@ impl Editor for GeometricDataContainer {
 							};
 					}
 					if ui.input(|i| i.pointer.button_down(PointerButton::Middle)) {
-						gl_state.camera_position += inverse_orientation
+						display_data.camera_position += inverse_orientation
 							* Vertex {
 								x: drag_delta.x,
 								y: 0.0,
@@ -595,7 +630,7 @@ impl Editor for GeometricDataContainer {
 					if response.hovered() {
 						let scroll_delta =
 							ui.input(|i| i.smooth_scroll_delta) / rect.height() * 2.0;
-						gl_state.camera_position += inverse_orientation
+						display_data.camera_position += inverse_orientation
 							* Vertex {
 								x: scroll_delta.x,
 								y: 0.0,
@@ -603,19 +638,23 @@ impl Editor for GeometricDataContainer {
 							};
 					}
 
-					let state = gl_state.clone();
+					let gl_state_ptr = Arc::downgrade(&state_data.gl_state.data);
+					let display_data = display_data.clone();
 					// let transforms = self.bones.clone();
 					let dark_mode = ui.style().visuals.dark_mode;
 
 					let cb = egui_glow::CallbackFn::new(move |info, painter| {
 						let gl = painter.gl();
+						let Some(gl_state) = gl_state_ptr.upgrade() else {
+							return;
+						};
 						// let viewport = info.viewport_in_pixels();
 						// let clip = info.clip_rect_in_pixels();
 						let [width, height] = info.screen_size_px.map(|u| u as i32);
 						// let width = viewport.width_px;
 						// let height = viewport.height_px;
 						unsafe {
-							gl.use_program(Some(state.program));
+							gl.use_program(Some(gl_state.program));
 
 							/*// TODO opengl error handling
 							let err = gl.get_error();
@@ -682,10 +721,10 @@ impl Editor for GeometricDataContainer {
 									* Mat4::translation(Vertex {
 										x: 0.0,
 										y: 0.0,
-										z: state.camera_distance,
-									}) * Mat4::rotation_x(state.camera_angle.1)
-									* Mat4::rotation_y(state.camera_angle.0)
-									* Mat4::translation(state.camera_position)
+										z: display_data.camera_distance,
+									}) * Mat4::rotation_x(display_data.camera_angle.1)
+									* Mat4::rotation_y(display_data.camera_angle.0)
+									* Mat4::translation(display_data.camera_position)
 									* Mat4::identity().swap_axes(1, 2);
 
 							// let ident_transform = Transform::identity();
@@ -708,9 +747,9 @@ impl Editor for GeometricDataContainer {
 							}*/
 
 							gl.uniform_1_f32_slice(
-								gl.get_uniform_location(state.program, "blend_values")
+								gl.get_uniform_location(gl_state.program, "blend_values")
 									.as_ref(),
-								&state.blend_values,
+								&display_data.blend_values,
 							);
 
 							let identity_bones = std::iter::repeat_n(Mat4::identity(), 256)
@@ -718,37 +757,43 @@ impl Editor for GeometricDataContainer {
 								.collect::<Vec<_>>();
 
 							gl.uniform_matrix_4_f32_slice(
-								gl.get_uniform_location(state.program, "bones").as_ref(),
+								gl.get_uniform_location(gl_state.program, "bones").as_ref(),
 								false,
 								&identity_bones,
 							);
 
-							let display_mode = if state.display_mode <= 3 {
+							let display_mode = if display_data.display_mode <= 3 {
 								gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
-								state.display_mode
+								display_data.display_mode
 							} else {
 								gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
 								3
 							};
 
 							gl.uniform_1_i32(
-								gl.get_uniform_location(state.program, "display_mode")
+								gl.get_uniform_location(gl_state.program, "display_mode")
 									.as_ref(),
 								display_mode,
 							);
 
 							gl.uniform_1_i32(
-								gl.get_uniform_location(state.program, "dark_mode").as_ref(),
+								gl.get_uniform_location(gl_state.program, "dark_mode")
+									.as_ref(),
 								dark_mode as i32,
 							);
 
-							for mesh in state.meshes.iter().filter(|m| m.visible) {
+							for mesh in gl_state
+								.meshes
+								.iter()
+								.zip(&display_data.meshes_visible)
+								.filter_map(|(m, visible)| visible.then_some(m))
+							{
 								// TODO bone bindings
 
 								gl.bind_vertex_array(Some(mesh.vao));
 
 								gl.vertex_attrib_4_f32(
-									gl.get_attrib_location(state.program, "in_blend_weights")
+									gl.get_attrib_location(gl_state.program, "in_blend_weights")
 										.unwrap(),
 									1.0,
 									1.0,
@@ -757,7 +802,7 @@ impl Editor for GeometricDataContainer {
 								);
 
 								gl.uniform_matrix_4_f32_slice(
-									gl.get_uniform_location(state.program, "view_matrix")
+									gl.get_uniform_location(gl_state.program, "view_matrix")
 										.as_ref(),
 									false,
 									&model_mat.transpose().0,
@@ -774,8 +819,8 @@ impl Editor for GeometricDataContainer {
 							}
 
 							// render the texture to the main buffer target
-							gl.use_program(Some(state.offscreen_render_program));
-							gl.bind_vertex_array(Some(state.offscreen_render_vao));
+							gl.use_program(Some(gl_state.offscreen_render_program));
+							gl.bind_vertex_array(Some(gl_state.offscreen_render_vao));
 							gl.bind_framebuffer(glow::FRAMEBUFFER, painter.intermediate_fbo());
 
 							gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
@@ -783,7 +828,7 @@ impl Editor for GeometricDataContainer {
 							gl.viewport(0, 0, width, height);
 
 							gl.uniform_1_i32(
-								gl.get_uniform_location(state.offscreen_render_program, "t")
+								gl.get_uniform_location(gl_state.offscreen_render_program, "t")
 									.as_ref(),
 								0,
 							);
@@ -811,21 +856,44 @@ impl Editor for GeometricDataContainer {
 	}
 }
 
-/*impl Drop for GMDCEditorStateData {
+impl Drop for GlState {
 	fn drop(&mut self) {
-		let Self {
-			gl,
+		let Self { gl, data } = self;
+		let SharedGlState {
 			program,
-			main_subset_vao: main_vao,
-			// main_subset_vertices,
-			// main_subset_indices,
-			..
-		} = self;
+			subsets,
+			buffers,
+			attribute_objects,
+			meshes,
+			offscreen_render_program,
+			offscreen_render_vao,
+		} = &**data;
 		unsafe {
+			warn!("delete");
+
 			gl.delete_program(*program);
-			gl.delete_vertex_array(*main_vao);
-			// gl.delete_buffer(*main_subset_vertices);
-			// gl.delete_buffer(*main_subset_indices);
+
+			for (vao, vertices, indices, ..) in subsets {
+				gl.delete_vertex_array(*vao);
+				gl.delete_buffer(*vertices);
+				gl.delete_buffer(*indices);
+			}
+
+			for buffer in buffers {
+				gl.delete_buffer(*buffer);
+			}
+
+			for vao in attribute_objects {
+				gl.delete_vertex_array(*vao);
+			}
+
+			for mesh in meshes {
+				gl.delete_vertex_array(mesh.vao);
+				gl.delete_buffer(mesh.indices);
+			}
+
+			gl.delete_program(*offscreen_render_program);
+			gl.delete_vertex_array(*offscreen_render_vao);
 		}
 	}
-}*/
+}
