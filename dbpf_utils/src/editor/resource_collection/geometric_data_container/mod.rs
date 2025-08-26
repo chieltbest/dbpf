@@ -499,6 +499,20 @@ impl Editor for GeometricDataContainer {
 				"memory: {}",
 				humansize::format_size(display_data.total_memory, humansize::DECIMAL)
 			));
+			ui.label(format!(
+				"draw calls: {}",
+				self.meshes.len()
+					+ if !self.bounding_mesh.faces.is_empty()
+						|| self
+							.dynamic_bounding_mesh
+							.iter()
+							.any(|d| !d.faces.is_empty())
+					{
+						1
+					} else {
+						0
+					}
+			));
 
 			/*ui.horizontal_wrapped(|ui| {
 				for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
