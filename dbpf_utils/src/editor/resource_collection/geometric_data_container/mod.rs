@@ -68,6 +68,9 @@ struct DisplayState {
 	camera_distance: f32,
 
 	display_mode: i32, // TODO enum
+
+	total_polys: usize,
+	total_memory: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -403,6 +406,19 @@ impl Editor for GeometricDataContainer {
 
 				gl.bind_vertex_array(None);
 
+				let total_memory = self
+					.attribute_buffers
+					.iter()
+					.map(|buf| buf.data.len())
+					.sum::<usize>() + self
+					.meshes
+					.iter()
+					.map(|m| {
+						m.indices.len() * 2 // assume that all indices are u16
+					})
+					.sum::<usize>();
+				let total_polys = self.meshes.iter().map(|m| m.poly_count()).sum();
+
 				GMDCEditorState {
 					data: Some(GMDCEditorStateData {
 						gl_state: Arc::new(GlState {
@@ -438,6 +454,9 @@ impl Editor for GeometricDataContainer {
 							camera_distance: 1.0,
 
 							display_mode: 0,
+
+							total_memory,
+							total_polys,
 						},
 					}),
 
@@ -474,6 +493,12 @@ impl Editor for GeometricDataContainer {
 			let display_data = &mut state_data.display_state;
 
 			let available = ui.available_size_before_wrap();
+
+			ui.label(format!("poly: {} triangles", display_data.total_polys));
+			ui.label(format!(
+				"memory: {}",
+				humansize::format_size(display_data.total_memory, humansize::DECIMAL)
+			));
 
 			/*ui.horizontal_wrapped(|ui| {
 				for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
