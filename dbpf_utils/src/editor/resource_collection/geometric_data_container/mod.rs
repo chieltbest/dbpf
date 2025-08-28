@@ -46,6 +46,28 @@ struct SharedGlState {
 
 	offscreen_render_program: glow::Program,
 	offscreen_render_vao: glow::VertexArray,
+
+	in_position_location: u32,
+	in_normal_location: u32,
+	in_texcoord_location: u32,
+	in_tangent_location: u32,
+
+	in_position_delta_locations: [u32; 4],
+	in_normal_delta_locations: [u32; 4],
+
+	in_blend_keys_location: u32,
+	in_blend_weights_location: u32,
+
+	in_bone_keys_location: u32,
+	in_bone_weights_location: u32,
+
+	blend_values_location: glow::UniformLocation,
+	bones_location: glow::UniformLocation,
+
+	view_matrix_location: glow::UniformLocation,
+
+	display_mode_location: glow::UniformLocation,
+	dark_mode_location: glow::UniformLocation,
 }
 
 #[derive(Clone, Debug)]
@@ -142,6 +164,60 @@ impl Editor for GeometricDataContainer {
 				for shader in &shaders[0..2] {
 					gl.detach_shader(main_program, *shader);
 					gl.delete_shader(*shader);
+				}
+
+				debug!(
+					GL_ACTIVE_ATOMIC_COUNTER_BUFFERS = gl.get_program_parameter_i32(
+						main_program,
+						glow::ACTIVE_ATOMIC_COUNTER_BUFFERS
+					)
+				);
+				debug!(
+					GL_ACTIVE_ATTRIBUTES =
+						gl.get_program_parameter_i32(main_program, glow::ACTIVE_ATTRIBUTES)
+				);
+				debug!(
+					GL_ACTIVE_ATTRIBUTE_MAX_LENGTH = gl
+						.get_program_parameter_i32(main_program, glow::ACTIVE_ATTRIBUTE_MAX_LENGTH)
+				);
+				debug!(
+					GL_ACTIVE_UNIFORMS =
+						gl.get_program_parameter_i32(main_program, glow::ACTIVE_UNIFORMS)
+				);
+				debug!(
+					GL_ACTIVE_UNIFORM_MAX_LENGTH =
+						gl.get_program_parameter_i32(main_program, glow::ACTIVE_UNIFORM_MAX_LENGTH)
+				);
+				debug!(
+					GL_PROGRAM_BINARY_LENGTH =
+						gl.get_program_parameter_i32(main_program, glow::PROGRAM_BINARY_LENGTH)
+				);
+				debug!(
+					GL_COMPUTE_WORK_GROUP_SIZE =
+						gl.get_program_parameter_i32(main_program, glow::COMPUTE_WORK_GROUP_SIZE)
+				);
+
+				let active_attributes = gl.get_active_attributes(main_program);
+				for attribute in 0..active_attributes {
+					if let Some(attr) = gl.get_active_attribute(main_program, attribute) {
+						debug!(
+							attribute,
+							name = attr.name,
+							atype = attr.atype,
+							size = attr.size
+						);
+					} else {
+						debug!(attribute)
+					}
+				}
+
+				let active_uniforms = gl.get_active_uniforms(main_program);
+				for uniform in 0..active_uniforms {
+					if let Some(uni) = gl.get_active_uniform(main_program, uniform) {
+						debug!(uniform, name = uni.name, utype = uni.utype, size = uni.size);
+					} else {
+						debug!(uniform);
+					}
 				}
 
 				let or_program = gl.create_program().expect("Cannot create program");
@@ -406,6 +482,55 @@ impl Editor for GeometricDataContainer {
 
 				gl.bind_vertex_array(None);
 
+				let Some(attribute_locations) = [
+					"in_position",
+					"in_normal",
+					"in_texcoord",
+					"in_tangent",
+					"in_position_delta_0",
+					"in_position_delta_1",
+					"in_position_delta_2",
+					"in_position_delta_3",
+					"in_normal_delta_0",
+					"in_normal_delta_1",
+					"in_normal_delta_2",
+					"in_normal_delta_3",
+					"in_blend_keys",
+					"in_blend_weights",
+					"in_bone_keys",
+					"in_bone_weights",
+				]
+				.into_iter()
+				.map(|name| gl.get_attrib_location(main_program, name))
+				.collect::<Option<Vec<_>>>() else {
+					// TODO print error
+					error!("could not get vertex attribute location");
+					return GMDCEditorState {
+						data: None,
+						save_file_picker: None,
+					};
+				};
+
+				let Ok(uniform_locations) = [
+					"blend_values",
+					"bones",
+					"view_matrix",
+					"display_mode",
+					"dark_mode",
+				]
+				.into_iter()
+				.map(|name| gl.get_uniform_location(main_program, name).ok_or(name))
+				.collect::<Result<Vec<_>, _>>()
+				.inspect_err(|name| {
+					error!("could not get uniform location for uniform \"{name}\"");
+				}) else {
+					// TODO return error
+					return GMDCEditorState {
+						data: None,
+						save_file_picker: None,
+					};
+				};
+
 				let total_memory = self
 					.attribute_buffers
 					.iter()
@@ -437,6 +562,27 @@ impl Editor for GeometricDataContainer {
 
 								offscreen_render_program: or_program,
 								offscreen_render_vao: or_vao,
+
+								in_position_location: attribute_locations[0],
+								in_normal_location: attribute_locations[1],
+								in_texcoord_location: attribute_locations[2],
+								in_tangent_location: attribute_locations[3],
+								in_position_delta_locations: attribute_locations[4..8]
+									.try_into()
+									.unwrap(),
+								in_normal_delta_locations: attribute_locations[8..12]
+									.try_into()
+									.unwrap(),
+								in_blend_keys_location: attribute_locations[12],
+								in_blend_weights_location: attribute_locations[13],
+								in_bone_keys_location: attribute_locations[14],
+								in_bone_weights_location: attribute_locations[15],
+
+								blend_values_location: uniform_locations[0],
+								bones_location: uniform_locations[1],
+								view_matrix_location: uniform_locations[2],
+								display_mode_location: uniform_locations[3],
+								dark_mode_location: uniform_locations[4],
 							}),
 						}),
 
@@ -701,6 +847,7 @@ impl Editor for GeometricDataContainer {
 								eprintln!("s {err:?}");
 							}*/
 
+							// TODO retain fbo across frames
 							let fbo = gl.create_framebuffer().unwrap();
 							gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
 
@@ -786,8 +933,7 @@ impl Editor for GeometricDataContainer {
 							}*/
 
 							gl.uniform_1_f32_slice(
-								gl.get_uniform_location(gl_state.program, "blend_values")
-									.as_ref(),
+								Some(&gl_state.blend_values_location),
 								&display_data.blend_values,
 							);
 
@@ -796,7 +942,7 @@ impl Editor for GeometricDataContainer {
 								.collect::<Vec<_>>();
 
 							gl.uniform_matrix_4_f32_slice(
-								gl.get_uniform_location(gl_state.program, "bones").as_ref(),
+								Some(&gl_state.bones_location),
 								false,
 								&identity_bones,
 							);
@@ -809,17 +955,9 @@ impl Editor for GeometricDataContainer {
 								3
 							};
 
-							gl.uniform_1_i32(
-								gl.get_uniform_location(gl_state.program, "display_mode")
-									.as_ref(),
-								display_mode,
-							);
+							gl.uniform_1_i32(Some(&gl_state.display_mode_location), display_mode);
 
-							gl.uniform_1_i32(
-								gl.get_uniform_location(gl_state.program, "dark_mode")
-									.as_ref(),
-								dark_mode as i32,
-							);
+							gl.uniform_1_i32(Some(&gl_state.dark_mode_location), dark_mode as i32);
 
 							for mesh in gl_state
 								.meshes
@@ -832,8 +970,7 @@ impl Editor for GeometricDataContainer {
 								gl.bind_vertex_array(Some(mesh.vao));
 
 								gl.vertex_attrib_4_f32(
-									gl.get_attrib_location(gl_state.program, "in_blend_weights")
-										.unwrap(),
+									gl_state.in_blend_weights_location,
 									1.0,
 									1.0,
 									1.0,
@@ -841,8 +978,7 @@ impl Editor for GeometricDataContainer {
 								);
 
 								gl.uniform_matrix_4_f32_slice(
-									gl.get_uniform_location(gl_state.program, "view_matrix")
-										.as_ref(),
+									Some(&gl_state.view_matrix_location),
 									false,
 									&model_mat.transpose().0,
 								);
@@ -906,6 +1042,7 @@ impl Drop for GlState {
 			meshes,
 			offscreen_render_program,
 			offscreen_render_vao,
+			..
 		} = &**data;
 		unsafe {
 			warn!("delete");

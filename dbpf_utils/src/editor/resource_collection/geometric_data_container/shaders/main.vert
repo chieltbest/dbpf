@@ -1,18 +1,14 @@
-#version 300 es
-precision mediump float;
-
 // SPDX-FileCopyrightText: 2025 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
+
+#version 300 es
+precision mediump float;
 
 in vec3 in_position;
 in vec3 in_normal;
 in vec2 in_texcoord;
 in vec3 in_tangent;
-
-//in uvec4 in_target_indices;
-//in uvec4 in_vertex_id;
-//in uvec4 in_region_mask;
 
 in vec3 in_position_delta_0;
 in vec3 in_position_delta_1;
@@ -24,13 +20,8 @@ in vec3 in_normal_delta_1;
 in vec3 in_normal_delta_2;
 in vec3 in_normal_delta_3;
 
-//in vec3 in_tangent_delta[4];
-
 in vec4 in_blend_keys;
 in vec4 in_blend_weights;
-
-//in vec4 in_blend_indices;
-//in vec4 in_deform_mask;
 
 in vec4 in_bone_keys;
 in vec4 in_bone_weights;
@@ -39,7 +30,7 @@ uniform float blend_values[256];
 uniform mat4 bones[256];
 
 uniform mat4 view_matrix;
-uniform mat4 projection_matrix;
+//uniform mat4 projection_matrix;
 
 out vec3 v_normal;
 out vec2 v_texcoord;
