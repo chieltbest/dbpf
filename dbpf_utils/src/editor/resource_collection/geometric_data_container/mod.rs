@@ -648,379 +648,393 @@ impl Editor for GeometricDataContainer {
 				}
 		));
 
-		if let Ok(state_data) = &mut state.data {
-			// TODO show even with error
-			let display_data = &mut state_data.display_state;
+		match &mut state.data {
+			Ok(state_data) => {
+				// TODO show even with error
+				let display_data = &mut state_data.display_state;
 
-			let available = ui.available_size_before_wrap();
+				let available = ui.available_size_before_wrap();
 
-			/*ui.horizontal_wrapped(|ui| {
-				for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
-					.iter_mut().enumerate() {
-					ui.checkbox(subset_enabled, if i == 0 {
-						format!("main: {}v, {}i", num_vertices, num_indices)
-					} else {
-						format!("{}: {}v, {}i", i - 1, num_vertices, num_indices)
-					});
-				}
-			});*/
-
-			egui::ScrollArea::vertical()
-				.auto_shrink([false, true])
-				.max_height(available.y / 3.0)
-				.show(ui, |ui| {
-					ui.horizontal_wrapped(|ui| {
-						// TODO name in tooltip
-						ui.group(|ui| {
-							ui.vertical(|ui| {
-								for (mesh, visible) in
-									self.meshes.iter_mut().zip(&mut display_data.meshes_visible)
-								{
-									ui.horizontal(|ui| {
-										ui.add(egui::Checkbox::without_text(visible));
-
-										mesh.name.show_editor(&mut 100.0, ui).on_hover_ui(|ui| {
-											ui.label(format!(
-												"{} {:?}",
-												mesh.poly_count(),
-												mesh.primitive_type,
-											));
-
-											let bones = mesh
-												.bone_references
-												.iter()
-												.map(|r| r.0)
-												.collect::<Vec<_>>();
-											ui.label(format!("Bones: {:?}", bones));
-
-											ui.label("Attributes:");
-											let attribute_group = &self.attribute_groups
-												[mesh.attribute_group_index as usize];
-											for attr_idx in attribute_group.attributes.iter() {
-												let attr =
-													&self.attribute_buffers[attr_idx.0 as usize];
-												ui.label(format!(
-													"{:?}#{}",
-													attr.binding.binding_type,
-													attr.binding.binding_slot
-												));
-											}
-										});
-
-										ui.add(egui::DragValue::new(&mut mesh.opacity))
-											.on_hover_text("opacity");
-									});
-								}
-							});
+				/*ui.horizontal_wrapped(|ui| {
+					for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
+						.iter_mut().enumerate() {
+						ui.checkbox(subset_enabled, if i == 0 {
+							format!("main: {}v, {}i", num_vertices, num_indices)
+						} else {
+							format!("{}: {}v, {}i", i - 1, num_vertices, num_indices)
 						});
-						// TODO name in tooltip
-						if !self.blend_group_bindings.is_empty() {
+					}
+				});*/
+
+				egui::ScrollArea::vertical()
+					.auto_shrink([false, true])
+					.max_height(available.y / 3.0)
+					.show(ui, |ui| {
+						ui.horizontal_wrapped(|ui| {
+							// TODO name in tooltip
 							ui.group(|ui| {
 								ui.vertical(|ui| {
-									for (name, value) in self
-										.blend_group_bindings
-										.iter_mut()
-										.zip(&mut display_data.blend_values)
+									for (mesh, visible) in
+										self.meshes.iter_mut().zip(&mut display_data.meshes_visible)
 									{
 										ui.horizontal(|ui| {
-											ui.add(
-												egui::Slider::new(value, 0.0..=1.0)
-													.clamping(SliderClamping::Never),
+											ui.add(egui::Checkbox::without_text(visible));
+
+											mesh.name.show_editor(&mut 100.0, ui).on_hover_ui(
+												|ui| {
+													ui.label(format!(
+														"{} {:?}",
+														mesh.poly_count(),
+														mesh.primitive_type,
+													));
+
+													let bones = mesh
+														.bone_references
+														.iter()
+														.map(|r| r.0)
+														.collect::<Vec<_>>();
+													ui.label(format!("Bones: {:?}", bones));
+
+													ui.label("Attributes:");
+													let attribute_group = &self.attribute_groups
+														[mesh.attribute_group_index as usize];
+													for attr_idx in
+														attribute_group.attributes.iter()
+													{
+														let attr = &self.attribute_buffers
+															[attr_idx.0 as usize];
+														ui.label(format!(
+															"{:?}#{}",
+															attr.binding.binding_type,
+															attr.binding.binding_slot
+														));
+													}
+												},
 											);
-											name.blend_group
-												.show_editor(&mut 70.0, ui)
-												.on_hover_text("Blend group");
-											name.element
-												.show_editor(&mut 70.0, ui)
-												.on_hover_text("Element");
+
+											ui.add(egui::DragValue::new(&mut mesh.opacity))
+												.on_hover_text("opacity");
 										});
 									}
 								});
 							});
-						}
+							// TODO name in tooltip
+							if !self.blend_group_bindings.is_empty() {
+								ui.group(|ui| {
+									ui.vertical(|ui| {
+										for (name, value) in self
+											.blend_group_bindings
+											.iter_mut()
+											.zip(&mut display_data.blend_values)
+										{
+											ui.horizontal(|ui| {
+												ui.add(
+													egui::Slider::new(value, 0.0..=1.0)
+														.clamping(SliderClamping::Never),
+												);
+												name.blend_group
+													.show_editor(&mut 70.0, ui)
+													.on_hover_text("Blend group");
+												name.element
+													.show_editor(&mut 70.0, ui)
+													.on_hover_text("Element");
+											});
+										}
+									});
+								});
+							}
+						});
 					});
+
+				ui.horizontal_wrapped(|ui| {
+					if ui
+						.button("Export glTF")
+						.on_hover_text("export the mesh to a .gltf file")
+						.clicked() && state.save_file_picker.is_none()
+					{
+						let (tx, rx) = oneshot::channel();
+						let dialog = rfd::AsyncFileDialog::new()
+							.set_file_name(format!(
+								"{}.glb",
+								String::from_utf8_lossy(&self.file_name.name.0.data)
+							))
+							.add_filter("OpenGL Transfer Format", &["gltf", "glb"]);
+						// TODO global options open file path set directory
+						let dialog = dialog.save_file();
+						async_execute(async move {
+							let file = dialog.await;
+							let _ = if let Some(handle) = file {
+								tx.send(Some(handle))
+							} else {
+								tx.send(None)
+							};
+						});
+						state.save_file_picker = Some(rx);
+					}
+
+					// TODO standard display
+					for (i, name) in ["normals", "tangents", "uv", "depth", "wireframe"]
+						.into_iter()
+						.enumerate()
+					{
+						ui.radio_value(&mut display_data.display_mode, i as i32, name);
+					}
 				});
 
-			ui.horizontal_wrapped(|ui| {
-				if ui
-					.button("Export glTF")
-					.on_hover_text("export the mesh to a .gltf file")
-					.clicked() && state.save_file_picker.is_none()
-				{
-					let (tx, rx) = oneshot::channel();
-					let dialog = rfd::AsyncFileDialog::new()
-						.set_file_name(format!(
-							"{}.glb",
-							String::from_utf8_lossy(&self.file_name.name.0.data)
-						))
-						.add_filter("OpenGL Transfer Format", &["gltf", "glb"]);
-					// TODO global options open file path set directory
-					let dialog = dialog.save_file();
-					async_execute(async move {
-						let file = dialog.await;
-						let _ = if let Some(handle) = file {
-							tx.send(Some(handle))
-						} else {
-							tx.send(None)
-						};
-					});
-					state.save_file_picker = Some(rx);
-				}
+				egui::Frame::canvas(ui.style())
+					.show(ui, |ui| {
+						let (rect, response) = ui.allocate_exact_size(
+							ui.available_size_before_wrap(),
+							egui::Sense::drag(),
+						);
 
-				// TODO standard display
-				for (i, name) in ["normals", "tangents", "uv", "depth", "wireframe"]
-					.into_iter()
-					.enumerate()
-				{
-					ui.radio_value(&mut display_data.display_mode, i as i32, name);
-				}
-			});
+						let inverse_orientation = Mat4::rotation_y(-display_data.camera_angle.0)
+							* Mat4::rotation_x(-display_data.camera_angle.1);
 
-			egui::Frame::canvas(ui.style())
-				.show(ui, |ui| {
-					let (rect, response) = ui
-						.allocate_exact_size(ui.available_size_before_wrap(), egui::Sense::drag());
+						let drag_delta = response.drag_delta() / rect.height() * 2.0;
+						if ui.input(|i| i.pointer.button_down(PointerButton::Primary)) {
+							display_data.camera_angle.0 += drag_delta.x * std::f32::consts::PI;
+							display_data.camera_angle.1 -=
+								drag_delta.y * std::f32::consts::FRAC_PI_2;
+						}
+						if ui.input(|i| i.pointer.button_down(PointerButton::Secondary)) {
+							display_data.camera_position += inverse_orientation
+								* Vertex {
+									x: drag_delta.x,
+									y: -drag_delta.y,
+									z: 0.0,
+								};
+						}
+						if ui.input(|i| i.pointer.button_down(PointerButton::Middle)) {
+							display_data.camera_position += inverse_orientation
+								* Vertex {
+									x: drag_delta.x,
+									y: 0.0,
+									z: -drag_delta.y,
+								};
+						}
 
-					let inverse_orientation = Mat4::rotation_y(-display_data.camera_angle.0)
-						* Mat4::rotation_x(-display_data.camera_angle.1);
+						if response.hovered() {
+							let scroll_delta =
+								ui.input(|i| i.smooth_scroll_delta) / rect.height() * 2.0;
+							display_data.camera_position += inverse_orientation
+								* Vertex {
+									x: scroll_delta.x,
+									y: 0.0,
+									z: -scroll_delta.y,
+								};
+						}
 
-					let drag_delta = response.drag_delta() / rect.height() * 2.0;
-					if ui.input(|i| i.pointer.button_down(PointerButton::Primary)) {
-						display_data.camera_angle.0 += drag_delta.x * std::f32::consts::PI;
-						display_data.camera_angle.1 -= drag_delta.y * std::f32::consts::FRAC_PI_2;
-					}
-					if ui.input(|i| i.pointer.button_down(PointerButton::Secondary)) {
-						display_data.camera_position += inverse_orientation
-							* Vertex {
-								x: drag_delta.x,
-								y: -drag_delta.y,
-								z: 0.0,
+						let gl_state_ptr = Arc::downgrade(&state_data.gl_state.data);
+						let display_data = display_data.clone();
+						// let transforms = self.bones.clone();
+						let dark_mode = ui.style().visuals.dark_mode;
+
+						let cb = egui_glow::CallbackFn::new(move |info, painter| {
+							let gl = painter.gl();
+							let Some(gl_state) = gl_state_ptr.upgrade() else {
+								return;
 							};
-					}
-					if ui.input(|i| i.pointer.button_down(PointerButton::Middle)) {
-						display_data.camera_position += inverse_orientation
-							* Vertex {
-								x: drag_delta.x,
-								y: 0.0,
-								z: -drag_delta.y,
-							};
-					}
+							// let viewport = info.viewport_in_pixels();
+							// let clip = info.clip_rect_in_pixels();
+							let [width, height] = info.screen_size_px.map(|u| u as i32);
+							// let width = viewport.width_px;
+							// let height = viewport.height_px;
+							unsafe {
+								gl.use_program(Some(gl_state.program));
 
-					if response.hovered() {
-						let scroll_delta =
-							ui.input(|i| i.smooth_scroll_delta) / rect.height() * 2.0;
-						display_data.camera_position += inverse_orientation
-							* Vertex {
-								x: scroll_delta.x,
-								y: 0.0,
-								z: -scroll_delta.y,
-							};
-					}
+								/*// TODO opengl error handling
+								let err = gl.get_error();
+								if err != glow::NO_ERROR {
+									eprintln!("s {err:?}");
+								}*/
 
-					let gl_state_ptr = Arc::downgrade(&state_data.gl_state.data);
-					let display_data = display_data.clone();
-					// let transforms = self.bones.clone();
-					let dark_mode = ui.style().visuals.dark_mode;
+								// TODO retain fbo across frames
+								let fbo = gl.create_framebuffer().unwrap();
+								gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
 
-					let cb = egui_glow::CallbackFn::new(move |info, painter| {
-						let gl = painter.gl();
-						let Some(gl_state) = gl_state_ptr.upgrade() else {
-							return;
-						};
-						// let viewport = info.viewport_in_pixels();
-						// let clip = info.clip_rect_in_pixels();
-						let [width, height] = info.screen_size_px.map(|u| u as i32);
-						// let width = viewport.width_px;
-						// let height = viewport.height_px;
-						unsafe {
-							gl.use_program(Some(gl_state.program));
+								gl.active_texture(glow::TEXTURE0);
+								let ctex = gl.create_texture().unwrap();
+								gl.bind_texture(glow::TEXTURE_2D, Some(ctex));
+								gl.tex_storage_2d(glow::TEXTURE_2D, 1, glow::RGBA8, width, height);
 
-							/*// TODO opengl error handling
-							let err = gl.get_error();
-							if err != glow::NO_ERROR {
-								eprintln!("s {err:?}");
-							}*/
-
-							// TODO retain fbo across frames
-							let fbo = gl.create_framebuffer().unwrap();
-							gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
-
-							gl.active_texture(glow::TEXTURE0);
-							let ctex = gl.create_texture().unwrap();
-							gl.bind_texture(glow::TEXTURE_2D, Some(ctex));
-							gl.tex_storage_2d(glow::TEXTURE_2D, 1, glow::RGBA8, width, height);
-
-							gl.framebuffer_texture_2d(
-								glow::FRAMEBUFFER,
-								glow::COLOR_ATTACHMENT0,
-								glow::TEXTURE_2D,
-								Some(ctex),
-								0,
-							);
-
-							/*let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
-							if fbstatus != glow::FRAMEBUFFER_COMPLETE {
-								error!(
-									"framebuffer is incomplete, OpenGL error code: {}",
-									fbstatus
-								);
-							}*/
-
-							let rbd = gl.create_renderbuffer().unwrap();
-							gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbd));
-							gl.renderbuffer_storage(
-								glow::RENDERBUFFER,
-								glow::DEPTH_COMPONENT32F,
-								width,
-								height,
-							);
-							gl.framebuffer_renderbuffer(
-								glow::FRAMEBUFFER,
-								glow::DEPTH_ATTACHMENT,
-								glow::RENDERBUFFER,
-								Some(rbd),
-							);
-
-							gl.bind_renderbuffer(glow::RENDERBUFFER, None);
-
-							gl.clear_color(0.0, 0.0, 0.0, 0.0);
-							gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-
-							gl.enable(glow::DEPTH_TEST);
-							gl.depth_func(glow::LESS);
-
-							// gl.viewport(viewport.left_px, viewport.from_bottom_px, viewport.width_px, viewport.height_px);
-							// gl.scissor(clip.left_px, clip.from_bottom_px, clip.width_px, clip.height_px);
-
-							/*eprintln!("{} {} {} {} ({})", viewport.left_px, viewport.top_px, viewport.width_px, viewport.height_px, viewport.from_bottom_px);
-							eprintln!("{} {} {} {} ({})", clip.left_px, clip.top_px, clip.width_px, clip.height_px, clip.from_bottom_px);
-							eprintln!("{} {}", width, height);*/
-
-							let model_mat =
-								Mat4::projection(0.1, 1.0 / info.viewport.aspect_ratio())
-									* Mat4::translation(Vertex {
-										x: 0.0,
-										y: 0.0,
-										z: display_data.camera_distance,
-									}) * Mat4::rotation_x(display_data.camera_angle.1)
-									* Mat4::rotation_y(display_data.camera_angle.0)
-									* Mat4::translation(display_data.camera_position)
-									* Mat4::identity().swap_axes(1, 2);
-
-							// let ident_transform = Transform::identity();
-
-							/*for ((vao, _, _, num_faces, _, _), transform) in state.subsets.iter()
-								.zip(iter::once(ident_transform)
-									.chain(transforms.data.clone().into_iter())
-									.chain(iter::repeat(ident_transform)))
-								.filter(|((_, _, _, _, _, enabled), _)| *enabled) {
-								gl.bind_vertex_array(Some(*vao));
-
-								let object_mat = model_mat * Mat4::transform(transform.inverse());
-								gl.uniform_matrix_4_f32_slice(
-									gl.get_uniform_location(state.program, "camera").as_ref(),
-									false,
-									&object_mat.0,
-								);
-
-								gl.draw_elements(glow::TRIANGLES, *num_faces as i32, glow::UNSIGNED_INT, 0);
-							}*/
-
-							gl.uniform_1_f32_slice(
-								Some(&gl_state.blend_values_location),
-								&display_data.blend_values,
-							);
-
-							let identity_bones = std::iter::repeat_n(Mat4::identity(), 256)
-								.flat_map(|eye| eye.0)
-								.collect::<Vec<_>>();
-
-							gl.uniform_matrix_4_f32_slice(
-								Some(&gl_state.bones_location),
-								false,
-								&identity_bones,
-							);
-
-							let display_mode = if display_data.display_mode <= 3 {
-								gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
-								display_data.display_mode
-							} else {
-								gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
-								3
-							};
-
-							gl.uniform_1_i32(Some(&gl_state.display_mode_location), display_mode);
-
-							gl.uniform_1_i32(Some(&gl_state.dark_mode_location), dark_mode as i32);
-
-							for mesh in gl_state
-								.meshes
-								.iter()
-								.zip(&display_data.meshes_visible)
-								.filter_map(|(m, visible)| visible.then_some(m))
-							{
-								// TODO bone bindings
-
-								gl.bind_vertex_array(Some(mesh.vao));
-
-								gl.vertex_attrib_4_f32(
-									gl_state.in_blend_weights_location,
-									1.0,
-									1.0,
-									1.0,
-									1.0,
-								);
-
-								gl.uniform_matrix_4_f32_slice(
-									Some(&gl_state.view_matrix_location),
-									false,
-									&model_mat.transpose().0,
-								);
-
-								gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(mesh.indices));
-
-								gl.draw_elements(
-									mesh.primitive_type,
-									mesh.num_indices as i32,
-									glow::UNSIGNED_INT,
+								gl.framebuffer_texture_2d(
+									glow::FRAMEBUFFER,
+									glow::COLOR_ATTACHMENT0,
+									glow::TEXTURE_2D,
+									Some(ctex),
 									0,
 								);
+
+								/*let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
+								if fbstatus != glow::FRAMEBUFFER_COMPLETE {
+									error!(
+										"framebuffer is incomplete, OpenGL error code: {}",
+										fbstatus
+									);
+								}*/
+
+								let rbd = gl.create_renderbuffer().unwrap();
+								gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbd));
+								gl.renderbuffer_storage(
+									glow::RENDERBUFFER,
+									glow::DEPTH_COMPONENT32F,
+									width,
+									height,
+								);
+								gl.framebuffer_renderbuffer(
+									glow::FRAMEBUFFER,
+									glow::DEPTH_ATTACHMENT,
+									glow::RENDERBUFFER,
+									Some(rbd),
+								);
+
+								gl.bind_renderbuffer(glow::RENDERBUFFER, None);
+
+								gl.clear_color(0.0, 0.0, 0.0, 0.0);
+								gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+
+								gl.enable(glow::DEPTH_TEST);
+								gl.depth_func(glow::LESS);
+
+								// gl.viewport(viewport.left_px, viewport.from_bottom_px, viewport.width_px, viewport.height_px);
+								// gl.scissor(clip.left_px, clip.from_bottom_px, clip.width_px, clip.height_px);
+
+								/*eprintln!("{} {} {} {} ({})", viewport.left_px, viewport.top_px, viewport.width_px, viewport.height_px, viewport.from_bottom_px);
+								eprintln!("{} {} {} {} ({})", clip.left_px, clip.top_px, clip.width_px, clip.height_px, clip.from_bottom_px);
+								eprintln!("{} {}", width, height);*/
+
+								let model_mat =
+									Mat4::projection(0.1, 1.0 / info.viewport.aspect_ratio())
+										* Mat4::translation(Vertex {
+											x: 0.0,
+											y: 0.0,
+											z: display_data.camera_distance,
+										}) * Mat4::rotation_x(display_data.camera_angle.1)
+										* Mat4::rotation_y(display_data.camera_angle.0)
+										* Mat4::translation(display_data.camera_position)
+										* Mat4::identity().swap_axes(1, 2);
+
+								// let ident_transform = Transform::identity();
+
+								/*for ((vao, _, _, num_faces, _, _), transform) in state.subsets.iter()
+									.zip(iter::once(ident_transform)
+										.chain(transforms.data.clone().into_iter())
+										.chain(iter::repeat(ident_transform)))
+									.filter(|((_, _, _, _, _, enabled), _)| *enabled) {
+									gl.bind_vertex_array(Some(*vao));
+
+									let object_mat = model_mat * Mat4::transform(transform.inverse());
+									gl.uniform_matrix_4_f32_slice(
+										gl.get_uniform_location(state.program, "camera").as_ref(),
+										false,
+										&object_mat.0,
+									);
+
+									gl.draw_elements(glow::TRIANGLES, *num_faces as i32, glow::UNSIGNED_INT, 0);
+								}*/
+
+								gl.uniform_1_f32_slice(
+									Some(&gl_state.blend_values_location),
+									&display_data.blend_values,
+								);
+
+								let identity_bones = std::iter::repeat_n(Mat4::identity(), 256)
+									.flat_map(|eye| eye.0)
+									.collect::<Vec<_>>();
+
+								gl.uniform_matrix_4_f32_slice(
+									Some(&gl_state.bones_location),
+									false,
+									&identity_bones,
+								);
+
+								let display_mode = if display_data.display_mode <= 3 {
+									gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+									display_data.display_mode
+								} else {
+									gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+									3
+								};
+
+								gl.uniform_1_i32(
+									Some(&gl_state.display_mode_location),
+									display_mode,
+								);
+
+								gl.uniform_1_i32(
+									Some(&gl_state.dark_mode_location),
+									dark_mode as i32,
+								);
+
+								for mesh in gl_state
+									.meshes
+									.iter()
+									.zip(&display_data.meshes_visible)
+									.filter_map(|(m, visible)| visible.then_some(m))
+								{
+									// TODO bone bindings
+
+									gl.bind_vertex_array(Some(mesh.vao));
+
+									gl.vertex_attrib_4_f32(
+										gl_state.in_blend_weights_location,
+										1.0,
+										1.0,
+										1.0,
+										1.0,
+									);
+
+									gl.uniform_matrix_4_f32_slice(
+										Some(&gl_state.view_matrix_location),
+										false,
+										&model_mat.transpose().0,
+									);
+
+									gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(mesh.indices));
+
+									gl.draw_elements(
+										mesh.primitive_type,
+										mesh.num_indices as i32,
+										glow::UNSIGNED_INT,
+										0,
+									);
+								}
+
+								// render the texture to the main buffer target
+								gl.use_program(Some(gl_state.offscreen_render_program));
+								gl.bind_vertex_array(Some(gl_state.offscreen_render_vao));
+								gl.bind_framebuffer(glow::FRAMEBUFFER, painter.intermediate_fbo());
+
+								gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+
+								gl.viewport(0, 0, width, height);
+
+								gl.uniform_1_i32(
+									gl.get_uniform_location(gl_state.offscreen_render_program, "t")
+										.as_ref(),
+									0,
+								);
+
+								gl.draw_arrays(glow::TRIANGLES, 0, 3);
+
+								gl.bind_texture(glow::TEXTURE_2D, None);
+								gl.delete_framebuffer(fbo);
+								gl.delete_texture(ctex);
+								gl.delete_renderbuffer(rbd);
 							}
+						});
 
-							// render the texture to the main buffer target
-							gl.use_program(Some(gl_state.offscreen_render_program));
-							gl.bind_vertex_array(Some(gl_state.offscreen_render_vao));
-							gl.bind_framebuffer(glow::FRAMEBUFFER, painter.intermediate_fbo());
+						let callback = egui::PaintCallback {
+							rect,
+							callback: Arc::new(cb),
+						};
 
-							gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
-
-							gl.viewport(0, 0, width, height);
-
-							gl.uniform_1_i32(
-								gl.get_uniform_location(gl_state.offscreen_render_program, "t")
-									.as_ref(),
-								0,
-							);
-
-							gl.draw_arrays(glow::TRIANGLES, 0, 3);
-
-							gl.bind_texture(glow::TEXTURE_2D, None);
-							gl.delete_framebuffer(fbo);
-							gl.delete_texture(ctex);
-							gl.delete_renderbuffer(rbd);
-						}
-					});
-
-					let callback = egui::PaintCallback {
-						rect,
-						callback: Arc::new(cb),
-					};
-
-					ui.painter().add(callback);
-				})
-				.response
-		} else {
-			ui.label("Something went wrong in OpenGL initialization, does this device have OpenGL support?")
+						ui.painter().add(callback);
+					})
+					.response
+			}
+			Err(err) => ui.label(format!("{err}")),
 		}
 	}
 }
