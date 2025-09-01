@@ -631,6 +631,8 @@ impl Editor for GeometricDataContainer {
 			}
 		}
 
+		self.file_name.name.show_editor(&mut 300.0, ui);
+
 		ui.label(format!("poly: {} triangles", state.total_polys));
 		ui.label(format!(
 			"memory: {}",
