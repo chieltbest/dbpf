@@ -16,6 +16,7 @@ humansize = "2.1"
 fuzzy-matcher = "0.3"
 
 futures = "0.3"
+itertools = "0.14"
 
 eframe = { version = "0.31", features = ["persistence"] }
 egui_extras = { version = "0.31", features = ["datepicker", "serde"] }

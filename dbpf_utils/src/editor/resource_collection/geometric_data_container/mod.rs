@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::iter;
 use std::sync::Arc;
 
 use dbpf::internal_file::resource_collection::geometric_data_container::{
@@ -15,6 +16,8 @@ use eframe::{
 	glow::{Context, HasContext},
 };
 use futures::channel::oneshot;
+use futures::TryFutureExt;
+use itertools::Either;
 use rfd::FileHandle;
 use thiserror::Error;
 use tracing::{debug, error, span, warn, Level};
@@ -648,138 +651,153 @@ impl Editor for GeometricDataContainer {
 				}
 		));
 
-		match &mut state.data {
-			Ok(state_data) => {
-				// TODO show even with error
-				let display_data = &mut state_data.display_state;
+		/*ui.horizontal_wrapped(|ui| {
+			for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
+				.iter_mut().enumerate() {
+				ui.checkbox(subset_enabled, if i == 0 {
+					format!("main: {}v, {}i", num_vertices, num_indices)
+				} else {
+					format!("{}: {}v, {}i", i - 1, num_vertices, num_indices)
+				});
+			}
+		});*/
 
-				let available = ui.available_size_before_wrap();
+		let available = ui.available_size_before_wrap();
 
-				/*ui.horizontal_wrapped(|ui| {
-					for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
-						.iter_mut().enumerate() {
-						ui.checkbox(subset_enabled, if i == 0 {
-							format!("main: {}v, {}i", num_vertices, num_indices)
-						} else {
-							format!("{}: {}v, {}i", i - 1, num_vertices, num_indices)
-						});
-					}
-				});*/
-
-				egui::ScrollArea::vertical()
-					.auto_shrink([false, true])
-					.max_height(available.y / 3.0)
-					.show(ui, |ui| {
-						ui.horizontal_wrapped(|ui| {
-							// TODO name in tooltip
-							ui.group(|ui| {
-								ui.vertical(|ui| {
-									for (mesh, visible) in
-										self.meshes.iter_mut().zip(&mut display_data.meshes_visible)
-									{
-										ui.horizontal(|ui| {
-											ui.add(egui::Checkbox::without_text(visible));
-
-											mesh.name.show_editor(&mut 100.0, ui).on_hover_ui(
-												|ui| {
-													ui.label(format!(
-														"{} {:?}",
-														mesh.poly_count(),
-														mesh.primitive_type,
-													));
-
-													let bones = mesh
-														.bone_references
-														.iter()
-														.map(|r| r.0)
-														.collect::<Vec<_>>();
-													ui.label(format!("Bones: {:?}", bones));
-
-													ui.label("Attributes:");
-													let attribute_group = &self.attribute_groups
-														[mesh.attribute_group_index as usize];
-													for attr_idx in
-														attribute_group.attributes.iter()
-													{
-														let attr = &self.attribute_buffers
-															[attr_idx.0 as usize];
-														ui.label(format!(
-															"{:?}#{}",
-															attr.binding.binding_type,
-															attr.binding.binding_slot
-														));
-													}
-												},
-											);
-
-											ui.add(egui::DragValue::new(&mut mesh.opacity))
-												.on_hover_text("opacity");
-										});
+		egui::ScrollArea::vertical()
+			.auto_shrink([false, true])
+			.max_height(available.y / 3.0)
+			.show(ui, |ui| {
+				ui.horizontal_wrapped(|ui| {
+					// TODO name in tooltip
+					ui.group(|ui| {
+						ui.vertical(|ui| {
+							for (mesh, visible) in self.meshes.iter_mut().zip(
+								state
+									.data
+									.as_mut()
+									.map(|state| {
+										Either::Left(state.display_state.meshes_visible.iter_mut())
+									})
+									.unwrap_or(Either::Right(iter::repeat(())))
+									.factor_into_iter(),
+							) {
+								ui.horizontal(|ui| {
+									if let Either::Left(visible) = visible {
+										ui.add(egui::Checkbox::without_text(visible));
 									}
-								});
-							});
-							// TODO name in tooltip
-							if !self.blend_group_bindings.is_empty() {
-								ui.group(|ui| {
-									ui.vertical(|ui| {
-										for (name, value) in self
-											.blend_group_bindings
-											.iter_mut()
-											.zip(&mut display_data.blend_values)
-										{
-											ui.horizontal(|ui| {
-												ui.add(
-													egui::Slider::new(value, 0.0..=1.0)
-														.clamping(SliderClamping::Never),
-												);
-												name.blend_group
-													.show_editor(&mut 70.0, ui)
-													.on_hover_text("Blend group");
-												name.element
-													.show_editor(&mut 70.0, ui)
-													.on_hover_text("Element");
-											});
+
+									mesh.name.show_editor(&mut 100.0, ui).on_hover_ui(|ui| {
+										ui.label(format!(
+											"{} {:?}",
+											mesh.poly_count(),
+											mesh.primitive_type,
+										));
+
+										let bones = mesh
+											.bone_references
+											.iter()
+											.map(|r| r.0)
+											.collect::<Vec<_>>();
+										ui.label(format!("Bones: {:?}", bones));
+
+										ui.label("Attributes:");
+										let attribute_group = &self.attribute_groups
+											[mesh.attribute_group_index as usize];
+										for attr_idx in attribute_group.attributes.iter() {
+											let attr = &self.attribute_buffers[attr_idx.0 as usize];
+											ui.label(format!(
+												"{:?}#{}",
+												attr.binding.binding_type,
+												attr.binding.binding_slot
+											));
 										}
 									});
+
+									ui.add(egui::DragValue::new(&mut mesh.opacity))
+										.on_hover_text("opacity");
 								});
 							}
 						});
 					});
-
-				ui.horizontal_wrapped(|ui| {
-					if ui
-						.button("Export glTF")
-						.on_hover_text("export the mesh to a .gltf file")
-						.clicked() && state.save_file_picker.is_none()
-					{
-						let (tx, rx) = oneshot::channel();
-						let dialog = rfd::AsyncFileDialog::new()
-							.set_file_name(format!(
-								"{}.glb",
-								String::from_utf8_lossy(&self.file_name.name.0.data)
-							))
-							.add_filter("OpenGL Transfer Format", &["gltf", "glb"]);
-						// TODO global options open file path set directory
-						let dialog = dialog.save_file();
-						async_execute(async move {
-							let file = dialog.await;
-							let _ = if let Some(handle) = file {
-								tx.send(Some(handle))
-							} else {
-								tx.send(None)
-							};
+					// TODO name in tooltip
+					if !self.blend_group_bindings.is_empty() {
+						ui.group(|ui| {
+							ui.vertical(|ui| {
+								for (name, value) in self.blend_group_bindings.iter_mut().zip(
+									state
+										.data
+										.as_mut()
+										.map(|state| {
+											Either::Left(
+												state.display_state.blend_values.iter_mut(),
+											)
+										})
+										.unwrap_or(Either::Right(iter::repeat(())))
+										.factor_into_iter(),
+								) {
+									ui.horizontal(|ui| {
+										if let Either::Left(value) = value {
+											ui.add(
+												egui::Slider::new(value, 0.0..=1.0)
+													.clamping(SliderClamping::Never),
+											);
+										}
+										name.blend_group
+											.show_editor(&mut 70.0, ui)
+											.on_hover_text("Blend group");
+										name.element
+											.show_editor(&mut 70.0, ui)
+											.on_hover_text("Element");
+									});
+								}
+							});
 						});
-						state.save_file_picker = Some(rx);
-					}
-
-					// TODO standard display
-					for (i, name) in ["normals", "tangents", "uv", "depth", "wireframe"]
-						.into_iter()
-						.enumerate()
-					{
-						ui.radio_value(&mut display_data.display_mode, i as i32, name);
 					}
 				});
+			});
+
+		ui.horizontal_wrapped(|ui| {
+			if ui
+				.button("Export glTF")
+				.on_hover_text("export the mesh to a .gltf file")
+				.clicked() && state.save_file_picker.is_none()
+			{
+				let (tx, rx) = oneshot::channel();
+				let dialog = rfd::AsyncFileDialog::new()
+					.set_file_name(format!(
+						"{}.glb",
+						String::from_utf8_lossy(&self.file_name.name.0.data)
+					))
+					.add_filter("OpenGL Transfer Format", &["gltf", "glb"]);
+				// TODO global options open file path set directory
+				let dialog = dialog.save_file();
+				async_execute(async move {
+					let file = dialog.await;
+					let _ = if let Some(handle) = file {
+						tx.send(Some(handle))
+					} else {
+						tx.send(None)
+					};
+				});
+				state.save_file_picker = Some(rx);
+			}
+
+			if let Ok(state_data) = &mut state.data {
+				// TODO standard display
+				for (i, name) in ["normals", "tangents", "uv", "depth", "wireframe"]
+					.into_iter()
+					.enumerate()
+				{
+					ui.radio_value(&mut state_data.display_state.display_mode, i as i32, name);
+				}
+			}
+		});
+
+		match &mut state.data {
+			Ok(state_data) => {
+				// TODO show even with error
+				let display_data = &mut state_data.display_state;
 
 				egui::Frame::canvas(ui.style())
 					.show(ui, |ui| {

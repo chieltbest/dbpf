@@ -1300,6 +1300,7 @@ dependencies = [
  "fuzzy-matcher",
  "humansize",
  "image",
+ "itertools 0.14.0",
  "log",
  "num_cpus",
  "rfd",
