@@ -26,8 +26,12 @@ in vec4 in_blend_weights;
 in vec4 in_bone_keys;
 in vec4 in_bone_weights;
 
-uniform float blend_values[256];
-uniform mat4 bones[256];
+layout (std140) uniform BlendValues {
+    float blend_values[256];
+};
+layout (std140) uniform Bones {
+    mat4 bones[256];
+};
 
 uniform mat4 view_matrix;
 //uniform mat4 projection_matrix;
