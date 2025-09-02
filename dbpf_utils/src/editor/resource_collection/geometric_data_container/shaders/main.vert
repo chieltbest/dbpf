@@ -21,7 +21,6 @@ in vec3 in_normal_delta_2;
 in vec3 in_normal_delta_3;
 
 in vec4 in_blend_keys;
-in vec4 in_blend_weights;
 
 in vec4 in_bone_keys;
 in vec4 in_bone_weights;
@@ -42,10 +41,10 @@ out vec3 v_tangent;
 
 void main() {
     float morph_weights[4] = float[4](
-    blend_values[int(in_blend_keys.x)] * in_blend_weights.x,
-    blend_values[int(in_blend_keys.y)] * in_blend_weights.y,
-    blend_values[int(in_blend_keys.z)] * in_blend_weights.z,
-    blend_values[int(in_blend_keys.w)] * in_blend_weights.w);
+    blend_values[int(in_blend_keys.x)],
+    blend_values[int(in_blend_keys.y)],
+    blend_values[int(in_blend_keys.z)],
+    blend_values[int(in_blend_keys.w)]);
 
     mat4 model_matrix = mat4(0.0);
     for (int i = 0; i < 4; i++) {

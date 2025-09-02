@@ -21,7 +21,7 @@ use futures::TryFutureExt;
 use itertools::Either;
 use rfd::FileHandle;
 use thiserror::Error;
-use tracing::{debug, error, span, warn, Level};
+use tracing::{debug, error, span, trace, warn, Level};
 
 use crate::editor::resource_collection::geometric_data_container::GMDCEditorCreationError::{
 	Create, GetAttrib, GetUniform, GetUniformBlock, NoContext, ProgramLink, ShaderCompile,
@@ -48,6 +48,7 @@ struct SharedGlState {
 
 	attribute_locations: BTreeMap<&'static str, u32>,
 	uniform_locations: BTreeMap<&'static str, glow::UniformLocation>,
+
 	uniform_block_locations: BTreeMap<&'static str, u32>,
 
 	blend_values_buffer: glow::Buffer,
@@ -194,7 +195,6 @@ impl GMDCEditorStateData {
 				"in_normal_delta_2",
 				"in_normal_delta_3",
 				"in_blend_keys",
-				"in_blend_weights",
 				"in_bone_keys",
 				"in_bone_weights",
 			]
@@ -229,31 +229,21 @@ impl GMDCEditorStateData {
 
 			let blend_values_buffer = gl.create_buffer().map_err(Create)?;
 			gl.bind_buffer(glow::UNIFORM_BUFFER, Some(blend_values_buffer));
-			/*gl.buffer_storage(
-				glow::UNIFORM_BUFFER,
-				(size_of::<f32>() * 256) as i32,
-				None,
-				glow::DYNAMIC_STORAGE_BIT | glow::MAP_WRITE_BIT,
-			);*/
-			gl.buffer_data_size(
+			gl.buffer_storage(
 				glow::UNIFORM_BUFFER,
 				// padded to vec4 as in std140
 				(size_of::<f32>() * 256 * 4) as i32,
-				glow::DYNAMIC_DRAW,
+				None,
+				glow::DYNAMIC_STORAGE_BIT | glow::MAP_WRITE_BIT,
 			);
 
 			let bones_buffer = gl.create_buffer().map_err(Create)?;
 			gl.bind_buffer(glow::UNIFORM_BUFFER, Some(bones_buffer));
-			/*gl.buffer_storage(
+			gl.buffer_storage(
 				glow::UNIFORM_BUFFER,
 				(size_of::<f32>() * 256 * 16) as i32,
 				None,
 				glow::DYNAMIC_STORAGE_BIT | glow::MAP_WRITE_BIT,
-			);*/
-			gl.buffer_data_size(
-				glow::UNIFORM_BUFFER,
-				(size_of::<f32>() * 256 * 16) as i32,
-				glow::DYNAMIC_DRAW,
 			);
 
 			gl.bind_buffer(glow::UNIFORM_BUFFER, None);
@@ -448,18 +438,10 @@ impl GMDCEditorStateData {
 							),
 							AttributeType::TexCoords => ("in_texcoord", glow::FLOAT),
 							AttributeType::Tangents => ("in_tangent", glow::FLOAT),
-							AttributeType::TangentDeltas => ("in_tangent_delta", glow::FLOAT),
-							AttributeType::BlendValues1 => ("in_blend_indices", glow::FLOAT),
-							AttributeType::BoneValues => ("in_blend_weights", glow::FLOAT),
 							AttributeType::BlendKeys => ("in_blend_keys", glow::UNSIGNED_BYTE),
 							AttributeType::BoneWeights => ("in_bone_weights", glow::FLOAT),
 							AttributeType::BoneKeys => ("in_bone_keys", glow::UNSIGNED_BYTE),
-							AttributeType::BlendValues2 => {
-								("in_target_indices", glow::UNSIGNED_BYTE)
-							}
-							AttributeType::VertexID => ("in_vertex_id", glow::UNSIGNED_BYTE),
-							AttributeType::RegionMask => ("in_region_mask", glow::UNSIGNED_BYTE),
-							AttributeType::DeformMask => ("in_deform_mask", glow::UNSIGNED_BYTE),
+							_ => continue,
 						};
 						let attr_binding = attribute_locations[attr_binding_name];
 						let num_components = attr.block_format.num_components();
@@ -537,6 +519,7 @@ impl GMDCEditorStateData {
 
 						attribute_locations,
 						uniform_locations,
+
 						uniform_block_locations,
 
 						blend_values_buffer,
@@ -863,6 +846,7 @@ impl Editor for GeometricDataContainer {
 								}
 
 								// TODO retain fbo across frames
+								// TODO make fbo smaller
 								let fbo = gl.create_framebuffer().unwrap();
 								gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
 
@@ -879,13 +863,13 @@ impl Editor for GeometricDataContainer {
 									0,
 								);
 
-								/*let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
+								let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
 								if fbstatus != glow::FRAMEBUFFER_COMPLETE {
 									error!(
 										"framebuffer is incomplete, OpenGL error code: {}",
 										fbstatus
 									);
-								}*/
+								}
 
 								let rbd = gl.create_renderbuffer().unwrap();
 								gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbd));
@@ -1004,14 +988,6 @@ impl Editor for GeometricDataContainer {
 
 									gl.bind_vertex_array(Some(mesh.vao));
 
-									gl.vertex_attrib_4_f32(
-										gl_state.attribute_locations["in_blend_weights"],
-										1.0,
-										1.0,
-										1.0,
-										1.0,
-									);
-
 									gl.uniform_matrix_4_f32_slice(
 										Some(&gl_state.uniform_locations["view_matrix"]),
 										false,
@@ -1033,6 +1009,7 @@ impl Editor for GeometricDataContainer {
 								gl.bind_vertex_array(Some(gl_state.offscreen_render_vao));
 								gl.bind_framebuffer(glow::FRAMEBUFFER, painter.intermediate_fbo());
 
+								gl.disable(glow::DEPTH_TEST);
 								gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
 
 								gl.viewport(0, 0, width, height);
