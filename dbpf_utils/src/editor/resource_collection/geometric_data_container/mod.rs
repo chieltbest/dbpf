@@ -4,7 +4,9 @@
 
 use std::collections::BTreeMap;
 use std::iter;
-use std::sync::Arc;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use dbpf::internal_file::resource_collection::geometric_data_container::{
 	math::{Mat4, Vertex},
@@ -17,11 +19,10 @@ use eframe::{
 	glow::{Context, HasContext},
 };
 use futures::channel::oneshot;
-use futures::TryFutureExt;
 use itertools::Either;
 use rfd::FileHandle;
 use thiserror::Error;
-use tracing::{debug, error, span, trace, warn, Level};
+use tracing::{debug, error, span, warn, Level};
 
 use crate::editor::resource_collection::geometric_data_container::GMDCEditorCreationError::{
 	Create, GetAttrib, GetUniform, GetUniformBlock, IncompleteFramebuffer, NoContext, ProgramLink,
@@ -48,7 +49,6 @@ struct SharedGlState {
 	program: glow::Program,
 
 	attribute_locations: BTreeMap<&'static str, u32>,
-	// uniform_locations: BTreeMap<&'static str, glow::UniformLocation>,
 	uniform_block_locations: BTreeMap<&'static str, u32>,
 
 	blend_values_buffer: glow::Buffer,
@@ -100,7 +100,7 @@ struct DisplayState {
 
 #[derive(Clone, Debug)]
 pub struct GMDCEditorStateData {
-	gl_state: Arc<GlState>,
+	gl_state: Rc<GlState>,
 
 	display_state: DisplayState,
 }
@@ -396,7 +396,7 @@ impl GMDCEditorStateData {
 				gl.delete_shader(*shader);
 			}
 
-			let subsets = std::iter::once(&gmdc.bounding_mesh)
+			let subsets = iter::once(&gmdc.bounding_mesh)
 				.chain(gmdc.dynamic_bounding_mesh.data.iter())
 				.map(|subset| {
 					let vao = gl.create_vertex_array().map_err(Create)?;
@@ -588,7 +588,7 @@ impl GMDCEditorStateData {
 			gl.bind_vertex_array(None);
 
 			Ok(GMDCEditorStateData {
-				gl_state: Arc::new(GlState {
+				gl_state: Rc::new(GlState {
 					gl,
 
 					data: Arc::new(RwLock::new(SharedGlState {
@@ -611,7 +611,7 @@ impl GMDCEditorStateData {
 
 						offscreen_render_program: or_program,
 						offscreen_render_vao: or_vao,
-					}),
+					})),
 				}),
 
 				display_state: DisplayState {
@@ -906,7 +906,10 @@ impl Editor for GeometricDataContainer {
 
 						let cb = egui_glow::CallbackFn::new(move |info, painter| {
 							let gl = painter.gl();
-							let Some(gl_state) = gl_state_ptr.upgrade() else {
+							let Some(ptr) = gl_state_ptr.upgrade() else {
+								return;
+							};
+							let Ok(mut gl_state) = ptr.write() else {
 								return;
 							};
 							// let viewport = info.viewport_in_pixels();
@@ -925,17 +928,17 @@ impl Editor for GeometricDataContainer {
 
 								if let Some(fbo) = &mut gl_state.fbo {
 									if fbo.width != width || fbo.height != height {
-										fbo.drop(&gl);
+										fbo.drop(gl);
 									}
 								}
 
 								let fbo = match &mut gl_state.fbo {
 									Some(fbo) => {
-										fbo.bind(&gl);
+										fbo.bind(gl);
 										fbo
 									}
 									fbo => {
-										let Ok(new_fbo) = Fbo::new(width, height, &gl) else {
+										let Ok(new_fbo) = Fbo::new(width, height, gl) else {
 											return;
 										};
 										fbo.insert(new_fbo)
@@ -1023,12 +1026,14 @@ impl Editor for GeometricDataContainer {
 								};
 
 								gl.uniform_1_i32(
-									Some(&gl_state.uniform_locations["display_mode"]),
+									gl.get_uniform_location(gl_state.program, "display_mode")
+										.as_ref(),
 									display_mode,
 								);
 
 								gl.uniform_1_i32(
-									Some(&gl_state.uniform_locations["dark_mode"]),
+									gl.get_uniform_location(gl_state.program, "dark_mode")
+										.as_ref(),
 									dark_mode as i32,
 								);
 
@@ -1043,7 +1048,8 @@ impl Editor for GeometricDataContainer {
 									gl.bind_vertex_array(Some(mesh.vao));
 
 									gl.uniform_matrix_4_f32_slice(
-										Some(&gl_state.uniform_locations["view_matrix"]),
+										gl.get_uniform_location(gl_state.program, "view_matrix")
+											.as_ref(),
 										false,
 										&model_mat.transpose().0,
 									);
@@ -1098,42 +1104,49 @@ impl Editor for GeometricDataContainer {
 impl Drop for GlState {
 	fn drop(&mut self) {
 		let Self { gl, data } = self;
-		let SharedGlState {
-			program,
-			subsets,
-			buffers,
-			attribute_objects,
-			meshes,
-			offscreen_render_program,
-			offscreen_render_vao,
-			..
-		} = &**data;
-		unsafe {
-			warn!("delete");
+		if let Ok(guard) = data.read() {
+			let SharedGlState {
+				program,
+				subsets,
+				buffers,
+				attribute_objects,
+				meshes,
+				offscreen_render_program,
+				offscreen_render_vao,
+				fbo,
+				..
+			} = guard.deref();
+			unsafe {
+				warn!("delete");
 
-			gl.delete_program(*program);
+				gl.delete_program(*program);
 
-			for (vao, vertices, indices, ..) in subsets {
-				gl.delete_vertex_array(*vao);
-				gl.delete_buffer(*vertices);
-				gl.delete_buffer(*indices);
+				for (vao, vertices, indices, ..) in subsets {
+					gl.delete_vertex_array(*vao);
+					gl.delete_buffer(*vertices);
+					gl.delete_buffer(*indices);
+				}
+
+				for buffer in buffers {
+					gl.delete_buffer(*buffer);
+				}
+
+				for vao in attribute_objects {
+					gl.delete_vertex_array(*vao);
+				}
+
+				for mesh in meshes {
+					gl.delete_vertex_array(mesh.vao);
+					gl.delete_buffer(mesh.indices);
+				}
+
+				gl.delete_program(*offscreen_render_program);
+				gl.delete_vertex_array(*offscreen_render_vao);
+
+				if let Some(fbo) = fbo {
+					fbo.drop(gl);
+				}
 			}
-
-			for buffer in buffers {
-				gl.delete_buffer(*buffer);
-			}
-
-			for vao in attribute_objects {
-				gl.delete_vertex_array(*vao);
-			}
-
-			for mesh in meshes {
-				gl.delete_vertex_array(mesh.vao);
-				gl.delete_buffer(mesh.indices);
-			}
-
-			gl.delete_program(*offscreen_render_program);
-			gl.delete_vertex_array(*offscreen_render_vao);
 		}
 	}
 }

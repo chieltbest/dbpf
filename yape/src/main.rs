@@ -727,7 +727,7 @@ impl YaPeApp {
 	}
 
 	fn open_file(&mut self, path: PathBuf) {
-		let Ok(bytes) = fs::read(path.clone()).inspect_err(|e| error!(?e)) else {
+		let Ok(bytes) = fs::read(path.clone()).inspect_err(|e| error!(%e)) else {
 			return;
 		};
 		self.open_bytes(bytes);

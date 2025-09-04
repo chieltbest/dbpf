@@ -1,9 +1,9 @@
+#version 300 es
+precision mediump float;
+
 // SPDX-FileCopyrightText: 2025 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-#version 300 es
-precision mediump float;
 
 in vec3 in_position;
 in vec3 in_normal;
