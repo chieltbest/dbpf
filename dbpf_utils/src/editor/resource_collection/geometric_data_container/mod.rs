@@ -24,7 +24,8 @@ use thiserror::Error;
 use tracing::{debug, error, span, trace, warn, Level};
 
 use crate::editor::resource_collection::geometric_data_container::GMDCEditorCreationError::{
-	Create, GetAttrib, GetUniform, GetUniformBlock, NoContext, ProgramLink, ShaderCompile,
+	Create, GetAttrib, GetUniform, GetUniformBlock, IncompleteFramebuffer, NoContext, ProgramLink,
+	ShaderCompile,
 };
 use crate::{async_execute, editor::Editor};
 
@@ -47,8 +48,7 @@ struct SharedGlState {
 	program: glow::Program,
 
 	attribute_locations: BTreeMap<&'static str, u32>,
-	uniform_locations: BTreeMap<&'static str, glow::UniformLocation>,
-
+	// uniform_locations: BTreeMap<&'static str, glow::UniformLocation>,
 	uniform_block_locations: BTreeMap<&'static str, u32>,
 
 	blend_values_buffer: glow::Buffer,
@@ -60,8 +60,20 @@ struct SharedGlState {
 	attribute_objects: Vec<glow::VertexArray>,
 	meshes: Vec<GlMesh>,
 
+	fbo: Option<Fbo>,
+
 	offscreen_render_program: glow::Program,
 	offscreen_render_vao: glow::VertexArray,
+}
+
+#[derive(Clone, Debug)]
+struct Fbo {
+	width: i32,
+	height: i32,
+
+	fbo: glow::Framebuffer,
+	color_tex: glow::Texture,
+	depth_buf: glow::Renderbuffer,
 }
 
 #[derive(Clone, Debug)]
@@ -69,7 +81,7 @@ struct GlState {
 	// gl is not sync, so this has to be separate from the other state
 	gl: Arc<Context>,
 
-	data: Arc<SharedGlState>,
+	data: Arc<RwLock<SharedGlState>>,
 }
 
 #[derive(Clone, Debug)]
@@ -132,6 +144,73 @@ pub enum GMDCEditorCreationError {
 	GetUniform(&'static str),
 	#[error("Could not get uniform block index for OpenGL uniform block {0}")]
 	GetUniformBlock(&'static str),
+	#[error("framebuffer is incomplete, OpenGL error code: {0}")]
+	IncompleteFramebuffer(u32),
+}
+
+impl Fbo {
+	/// create fbo and associated color and depth buffer
+	/// the framebuffer will be bound, and the color texture will be bound to TEXTURE0
+	unsafe fn new(
+		width: i32,
+		height: i32,
+		gl: &Arc<Context>,
+	) -> Result<Self, GMDCEditorCreationError> {
+		// TODO make fbo smaller
+		let fbo = gl.create_framebuffer().map_err(Create)?;
+		gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
+
+		gl.active_texture(glow::TEXTURE0);
+		let color_tex = gl.create_texture().map_err(Create)?;
+		gl.bind_texture(glow::TEXTURE_2D, Some(color_tex));
+		gl.tex_storage_2d(glow::TEXTURE_2D, 1, glow::RGBA8, width, height);
+
+		gl.framebuffer_texture_2d(
+			glow::FRAMEBUFFER,
+			glow::COLOR_ATTACHMENT0,
+			glow::TEXTURE_2D,
+			Some(color_tex),
+			0,
+		);
+
+		let depth_buf = gl.create_renderbuffer().unwrap();
+		gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buf));
+		gl.renderbuffer_storage(glow::RENDERBUFFER, glow::DEPTH_COMPONENT32F, width, height);
+		gl.framebuffer_renderbuffer(
+			glow::FRAMEBUFFER,
+			glow::DEPTH_ATTACHMENT,
+			glow::RENDERBUFFER,
+			Some(depth_buf),
+		);
+
+		gl.bind_renderbuffer(glow::RENDERBUFFER, None);
+
+		let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
+		if fbstatus != glow::FRAMEBUFFER_COMPLETE {
+			return Err(IncompleteFramebuffer(fbstatus));
+		}
+
+		Ok(Self {
+			width,
+			height,
+
+			fbo,
+			color_tex,
+			depth_buf,
+		})
+	}
+
+	unsafe fn bind(&self, gl: &Arc<Context>) {
+		gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.fbo));
+		gl.active_texture(glow::TEXTURE0);
+		gl.bind_texture(glow::TEXTURE_2D, Some(self.color_tex));
+	}
+
+	unsafe fn drop(&self, gl: &Arc<Context>) {
+		gl.delete_framebuffer(self.fbo);
+		gl.delete_texture(self.color_tex);
+		gl.delete_renderbuffer(self.depth_buf);
+	}
 }
 
 impl GMDCEditorStateData {
@@ -229,21 +308,19 @@ impl GMDCEditorStateData {
 
 			let blend_values_buffer = gl.create_buffer().map_err(Create)?;
 			gl.bind_buffer(glow::UNIFORM_BUFFER, Some(blend_values_buffer));
-			gl.buffer_storage(
+			gl.buffer_data_size(
 				glow::UNIFORM_BUFFER,
 				// padded to vec4 as in std140
 				(size_of::<f32>() * 256 * 4) as i32,
-				None,
-				glow::DYNAMIC_STORAGE_BIT | glow::MAP_WRITE_BIT,
+				glow::STREAM_DRAW,
 			);
 
 			let bones_buffer = gl.create_buffer().map_err(Create)?;
 			gl.bind_buffer(glow::UNIFORM_BUFFER, Some(bones_buffer));
-			gl.buffer_storage(
+			gl.buffer_data_size(
 				glow::UNIFORM_BUFFER,
 				(size_of::<f32>() * 256 * 16) as i32,
-				None,
-				glow::DYNAMIC_STORAGE_BIT | glow::MAP_WRITE_BIT,
+				glow::STREAM_DRAW,
 			);
 
 			gl.bind_buffer(glow::UNIFORM_BUFFER, None);
@@ -514,12 +591,11 @@ impl GMDCEditorStateData {
 				gl_state: Arc::new(GlState {
 					gl,
 
-					data: Arc::new(SharedGlState {
+					data: Arc::new(RwLock::new(SharedGlState {
 						program: main_program,
 
 						attribute_locations,
-						uniform_locations,
-
+						// uniform_locations,
 						uniform_block_locations,
 
 						blend_values_buffer,
@@ -530,6 +606,8 @@ impl GMDCEditorStateData {
 						buffers,
 						attribute_objects,
 						meshes,
+
+						fbo: None,
 
 						offscreen_render_program: or_program,
 						offscreen_render_vao: or_vao,
@@ -845,48 +923,24 @@ impl Editor for GeometricDataContainer {
 									eprintln!("s {err:?}");
 								}
 
-								// TODO retain fbo across frames
-								// TODO make fbo smaller
-								let fbo = gl.create_framebuffer().unwrap();
-								gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
-
-								gl.active_texture(glow::TEXTURE0);
-								let ctex = gl.create_texture().unwrap();
-								gl.bind_texture(glow::TEXTURE_2D, Some(ctex));
-								gl.tex_storage_2d(glow::TEXTURE_2D, 1, glow::RGBA8, width, height);
-
-								gl.framebuffer_texture_2d(
-									glow::FRAMEBUFFER,
-									glow::COLOR_ATTACHMENT0,
-									glow::TEXTURE_2D,
-									Some(ctex),
-									0,
-								);
-
-								let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
-								if fbstatus != glow::FRAMEBUFFER_COMPLETE {
-									error!(
-										"framebuffer is incomplete, OpenGL error code: {}",
-										fbstatus
-									);
+								if let Some(fbo) = &mut gl_state.fbo {
+									if fbo.width != width || fbo.height != height {
+										fbo.drop(&gl);
+									}
 								}
 
-								let rbd = gl.create_renderbuffer().unwrap();
-								gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbd));
-								gl.renderbuffer_storage(
-									glow::RENDERBUFFER,
-									glow::DEPTH_COMPONENT32F,
-									width,
-									height,
-								);
-								gl.framebuffer_renderbuffer(
-									glow::FRAMEBUFFER,
-									glow::DEPTH_ATTACHMENT,
-									glow::RENDERBUFFER,
-									Some(rbd),
-								);
-
-								gl.bind_renderbuffer(glow::RENDERBUFFER, None);
+								let fbo = match &mut gl_state.fbo {
+									Some(fbo) => {
+										fbo.bind(&gl);
+										fbo
+									}
+									fbo => {
+										let Ok(new_fbo) = Fbo::new(width, height, &gl) else {
+											return;
+										};
+										fbo.insert(new_fbo)
+									}
+								};
 
 								gl.clear_color(0.0, 0.0, 0.0, 0.0);
 								gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
@@ -1024,9 +1078,6 @@ impl Editor for GeometricDataContainer {
 								gl.draw_arrays(glow::TRIANGLES, 0, 3);
 
 								gl.bind_texture(glow::TEXTURE_2D, None);
-								gl.delete_framebuffer(fbo);
-								gl.delete_texture(ctex);
-								gl.delete_renderbuffer(rbd);
 							}
 						});
 
