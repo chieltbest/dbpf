@@ -38,6 +38,7 @@ const OFFSCREEN_RENDER_FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/blit
 
 #[derive(Clone, Debug)]
 struct GlMesh {
+	// non-owning reference
 	vao: glow::VertexArray,
 	primitive_type: u32,
 	indices: glow::Buffer,
@@ -56,8 +57,7 @@ struct SharedGlState {
 
 	subsets: Vec<(glow::VertexArray, glow::Buffer, glow::Buffer, usize, usize)>,
 
-	buffers: Vec<glow::Buffer>,
-	attribute_objects: Vec<glow::VertexArray>,
+	groups: Vec<(glow::VertexArray, glow::Buffer)>,
 	meshes: Vec<GlMesh>,
 
 	fbo: Option<Fbo>,
@@ -451,9 +451,7 @@ impl GMDCEditorStateData {
 
 			let (subsets, subsets_visible) = subsets.into_iter().unzip();
 
-			let mut buffers = vec![];
-
-			let attribute_objects = gmdc
+			let groups = gmdc
 				.attribute_groups
 				.iter()
 				.map(|group| {
@@ -473,7 +471,7 @@ impl GMDCEditorStateData {
 					let buffer = buffer_it.flatten().copied().collect::<Vec<_>>();
 
 					let vbo = gl.create_buffer().map_err(Create)?;
-					buffers.push(vbo); // TODO just return
+					// buffers.push(vbo); // TODO just return
 					gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
 					gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &buffer, glow::STATIC_DRAW);
 
@@ -538,7 +536,7 @@ impl GMDCEditorStateData {
 
 					gl.bind_buffer(glow::ARRAY_BUFFER, None);
 
-					Ok(vao)
+					Ok((vao, vbo))
 				})
 				.collect::<Result<Vec<_>, _>>()?;
 
@@ -546,7 +544,7 @@ impl GMDCEditorStateData {
 				.meshes
 				.iter()
 				.map(|mesh| {
-					let vao = attribute_objects[mesh.attribute_group_index as usize];
+					let vao = groups[mesh.attribute_group_index as usize].0;
 					let indices = gl.create_buffer().map_err(Create)?;
 
 					let mesh_index_data: Vec<u8> = mesh
@@ -603,8 +601,9 @@ impl GMDCEditorStateData {
 
 						subsets,
 
-						buffers,
-						attribute_objects,
+						// buffers,
+						// attribute_objects,
+						groups,
 						meshes,
 
 						fbo: None,
@@ -1108,8 +1107,7 @@ impl Drop for GlState {
 			let SharedGlState {
 				program,
 				subsets,
-				buffers,
-				attribute_objects,
+				groups,
 				meshes,
 				offscreen_render_program,
 				offscreen_render_vao,
@@ -1127,16 +1125,12 @@ impl Drop for GlState {
 					gl.delete_buffer(*indices);
 				}
 
-				for buffer in buffers {
+				for (vao, buffer) in groups {
+					gl.delete_vertex_array(*vao);
 					gl.delete_buffer(*buffer);
 				}
 
-				for vao in attribute_objects {
-					gl.delete_vertex_array(*vao);
-				}
-
 				for mesh in meshes {
-					gl.delete_vertex_array(mesh.vao);
 					gl.delete_buffer(mesh.indices);
 				}
 
