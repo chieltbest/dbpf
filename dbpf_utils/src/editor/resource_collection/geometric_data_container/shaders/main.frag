@@ -16,18 +16,19 @@ out vec4 out_color;
 
 void main() {
     switch (display_mode) {
-        case 0:
+        case 0: // standard
+        case 1: // normals
             out_color = vec4((v_normal + 1.0) / 2.0, 1.0);
             break;
-        case 1:
+        case 2: // tangents
             out_color = vec4((v_tangent + 1.0) / 2.0, 1.0);
             break;
-        case 2:
+        case 3: // uv
             out_color = vec4(v_texcoord, 0.0, 1.0);
             break;
-        case 3:
-            float z = pow(gl_FragCoord.z, 16.0) * 0.9;
-            if (dark_mode != 0) {
+        case 4: // depth
+            float z = sqrt((gl_FragCoord.z - 0.5) * 2.0) * 0.9 + 0.1;
+            if (dark_mode == 0) {
                 z = 1.0 - z;
             }
             out_color = vec4(vec3(z), 1.0);

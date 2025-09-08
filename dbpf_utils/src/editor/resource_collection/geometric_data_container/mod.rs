@@ -18,6 +18,7 @@ use eframe::{
 	egui_glow, glow,
 	glow::{Context, HasContext},
 };
+use enum_iterator::{all, Sequence};
 use futures::channel::oneshot;
 use itertools::Either;
 use rfd::FileHandle;
@@ -84,6 +85,18 @@ struct GlState {
 	data: Arc<RwLock<SharedGlState>>,
 }
 
+#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Debug, Default, Sequence)]
+#[repr(i32)]
+enum DisplayMode {
+	#[default]
+	Standard = 0,
+	Normals,
+	Tangents,
+	Uv,
+	Depth,
+	Wireframe,
+}
+
 #[derive(Clone, Debug)]
 struct DisplayState {
 	subsets_visible: Vec<bool>,
@@ -95,7 +108,7 @@ struct DisplayState {
 	camera_position: Vertex,
 	camera_distance: f32,
 
-	display_mode: i32, // TODO enum
+	display_mode: DisplayMode,
 }
 
 #[derive(Clone, Debug)]
@@ -626,7 +639,7 @@ impl GMDCEditorStateData {
 					},
 					camera_distance: 1.0,
 
-					display_mode: 0,
+					display_mode: DisplayMode::default(),
 				},
 			})
 		}
@@ -840,12 +853,12 @@ impl Editor for GeometricDataContainer {
 			}
 
 			if let Ok(state_data) = &mut state.data {
-				// TODO standard display
-				for (i, name) in ["normals", "tangents", "uv", "depth", "wireframe"]
-					.into_iter()
-					.enumerate()
-				{
-					ui.radio_value(&mut state_data.display_state.display_mode, i as i32, name);
+				for mode in all::<DisplayMode>() {
+					ui.radio_value(
+						&mut state_data.display_state.display_mode,
+						mode,
+						format!("{:?}", mode).to_lowercase(),
+					);
 				}
 			}
 		});
@@ -945,10 +958,11 @@ impl Editor for GeometricDataContainer {
 								};
 
 								gl.clear_color(0.0, 0.0, 0.0, 0.0);
+								gl.clear_depth(0.0);
 								gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
 
 								gl.enable(glow::DEPTH_TEST);
-								gl.depth_func(glow::LESS);
+								gl.depth_func(glow::GREATER);
 
 								// gl.viewport(viewport.left_px, viewport.from_bottom_px, viewport.width_px, viewport.height_px);
 								// gl.scissor(clip.left_px, clip.from_bottom_px, clip.width_px, clip.height_px);
@@ -957,16 +971,17 @@ impl Editor for GeometricDataContainer {
 								eprintln!("{} {} {} {} ({})", clip.left_px, clip.top_px, clip.width_px, clip.height_px, clip.from_bottom_px);
 								eprintln!("{} {}", width, height);*/
 
-								let model_mat =
-									Mat4::projection(0.1, 1.0 / info.viewport.aspect_ratio())
-										* Mat4::translation(Vertex {
-											x: 0.0,
-											y: 0.0,
-											z: display_data.camera_distance,
-										}) * Mat4::rotation_x(display_data.camera_angle.1)
-										* Mat4::rotation_y(display_data.camera_angle.0)
-										* Mat4::translation(display_data.camera_position)
-										* Mat4::identity().swap_axes(1, 2);
+								let projection_mat =
+									Mat4::projection(0.1, 1.0 / info.viewport.aspect_ratio());
+
+								let model_mat = Mat4::translation(Vertex {
+									x: 0.0,
+									y: 0.0,
+									z: display_data.camera_distance,
+								}) * Mat4::rotation_x(display_data.camera_angle.1)
+									* Mat4::rotation_y(display_data.camera_angle.0)
+									* Mat4::translation(display_data.camera_position)
+									* Mat4::identity().swap_axes(1, 2);
 
 								/*for ((vao, _, _, num_faces, _, _), transform) in state.subsets.iter()
 									.zip(iter::once(ident_transform)
@@ -1016,12 +1031,15 @@ impl Editor for GeometricDataContainer {
 
 								gl.bind_buffer(glow::UNIFORM_BUFFER, None);
 
-								let display_mode = if display_data.display_mode <= 3 {
-									gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
-									display_data.display_mode
-								} else {
-									gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
-									3
+								let display_mode = match display_data.display_mode {
+									DisplayMode::Wireframe => {
+										gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+										DisplayMode::Depth as i32
+									}
+									mode => {
+										gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+										mode as i32
+									}
 								};
 
 								gl.uniform_1_i32(
@@ -1047,6 +1065,16 @@ impl Editor for GeometricDataContainer {
 									gl.bind_vertex_array(Some(mesh.vao));
 
 									gl.uniform_matrix_4_f32_slice(
+										gl.get_uniform_location(
+											gl_state.program,
+											"projection_matrix",
+										)
+										.as_ref(),
+										false,
+										&projection_mat.transpose().0,
+									);
+
+									gl.uniform_matrix_4_f32_slice(
 										gl.get_uniform_location(gl_state.program, "view_matrix")
 											.as_ref(),
 										false,
@@ -1069,6 +1097,7 @@ impl Editor for GeometricDataContainer {
 								gl.bind_framebuffer(glow::FRAMEBUFFER, painter.intermediate_fbo());
 
 								gl.disable(glow::DEPTH_TEST);
+								gl.depth_func(glow::LESS);
 								gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
 
 								gl.viewport(0, 0, width, height);
