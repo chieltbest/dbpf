@@ -8,6 +8,11 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
+use crate::editor::resource_collection::geometric_data_container::GMDCEditorCreationError::{
+	Create, GetAttrib, GetUniform, GetUniformBlock, IncompleteFramebuffer, NoContext, OpenGL,
+	ProgramLink, ShaderCompile,
+};
+use crate::{async_execute, editor::Editor};
 use dbpf::internal_file::resource_collection::geometric_data_container::{
 	math::{Mat4, Vertex},
 	AttributeType, GeometricDataContainer, PrimitiveType,
@@ -25,17 +30,41 @@ use rfd::FileHandle;
 use thiserror::Error;
 use tracing::{debug, error, span, warn, Level};
 
-use crate::editor::resource_collection::geometric_data_container::GMDCEditorCreationError::{
-	Create, GetAttrib, GetUniform, GetUniformBlock, IncompleteFramebuffer, NoContext, ProgramLink,
-	ShaderCompile,
-};
-use crate::{async_execute, editor::Editor};
-
 const VERTEX_SHADER_SOURCE: &str = include_str!("shaders/main.vert");
 const FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/main.frag");
 
 const OFFSCREEN_RENDER_VERTEX_SHADER_SOURCE: &str = include_str!("shaders/blit.vert");
 const OFFSCREEN_RENDER_FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/blit.frag");
+
+macro_rules! gl_check {
+	($gl:expr) => {
+		if cfg!(debug_assertions) {
+			let err = $gl.get_error();
+			if err != glow::NO_ERROR {
+				error!(error = %OpenGL(err));
+			}
+		}
+	};
+	($gl:expr, $func:ident) => {
+		if cfg!(debug_assertions) {
+			let err = $gl.get_error();
+			let func_name = stringify!($func);
+			if err != glow::NO_ERROR {
+				error!(error = %OpenGL(err), function = func_name);
+			}
+		}
+	};
+}
+
+macro_rules! gl {
+	($gl:expr, $func:ident $(, $params:expr)* $(,)?) => {
+		{
+			let res = $gl.$func($($params),*);
+			gl_check!($gl, $func);
+			res
+		}
+	};
+}
 
 #[derive(Clone, Debug)]
 struct GlMesh {
@@ -143,7 +172,7 @@ impl Default for GMDCEditorState {
 pub enum GMDCEditorCreationError {
 	#[error("Could not get a OpenGL context, does this device support OpenGL?")]
 	NoContext,
-	#[error("OpenGL error: {0}")]
+	#[error("OpenGL error: 0x{0:x}")]
 	OpenGL(u32),
 	#[error("Failed to compile OpenGL shader: {0}")]
 	ShaderCompile(String),
@@ -157,7 +186,7 @@ pub enum GMDCEditorCreationError {
 	GetUniform(&'static str),
 	#[error("Could not get uniform block index for OpenGL uniform block {0}")]
 	GetUniformBlock(&'static str),
-	#[error("framebuffer is incomplete, OpenGL error code: {0}")]
+	#[error("framebuffer is incomplete, OpenGL error code: 0x{0}")]
 	IncompleteFramebuffer(u32),
 }
 
@@ -170,15 +199,25 @@ impl Fbo {
 		gl: &Arc<Context>,
 	) -> Result<Self, GMDCEditorCreationError> {
 		// TODO make fbo smaller
-		let fbo = gl.create_framebuffer().map_err(Create)?;
-		gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
+		let fbo = gl!(gl, create_framebuffer).map_err(Create)?;
+		gl!(gl, bind_framebuffer, glow::FRAMEBUFFER, Some(fbo));
 
-		gl.active_texture(glow::TEXTURE0);
-		let color_tex = gl.create_texture().map_err(Create)?;
-		gl.bind_texture(glow::TEXTURE_2D, Some(color_tex));
-		gl.tex_storage_2d(glow::TEXTURE_2D, 1, glow::RGBA8, width, height);
+		gl!(gl, active_texture, glow::TEXTURE0);
+		let color_tex = gl!(gl, create_texture).map_err(Create)?;
+		gl!(gl, bind_texture, glow::TEXTURE_2D, Some(color_tex));
+		gl!(
+			gl,
+			tex_storage_2d,
+			glow::TEXTURE_2D,
+			1,
+			glow::RGBA8,
+			width,
+			height
+		);
 
-		gl.framebuffer_texture_2d(
+		gl!(
+			gl,
+			framebuffer_texture_2d,
 			glow::FRAMEBUFFER,
 			glow::COLOR_ATTACHMENT0,
 			glow::TEXTURE_2D,
@@ -186,19 +225,28 @@ impl Fbo {
 			0,
 		);
 
-		let depth_buf = gl.create_renderbuffer().unwrap();
-		gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buf));
-		gl.renderbuffer_storage(glow::RENDERBUFFER, glow::DEPTH_COMPONENT32F, width, height);
-		gl.framebuffer_renderbuffer(
+		let depth_buf = gl!(gl, create_renderbuffer).unwrap();
+		gl!(gl, bind_renderbuffer, glow::RENDERBUFFER, Some(depth_buf));
+		gl!(
+			gl,
+			renderbuffer_storage,
+			glow::RENDERBUFFER,
+			glow::DEPTH_COMPONENT32F,
+			width,
+			height
+		);
+		gl!(
+			gl,
+			framebuffer_renderbuffer,
 			glow::FRAMEBUFFER,
 			glow::DEPTH_ATTACHMENT,
 			glow::RENDERBUFFER,
 			Some(depth_buf),
 		);
 
-		gl.bind_renderbuffer(glow::RENDERBUFFER, None);
+		gl!(gl, bind_renderbuffer, glow::RENDERBUFFER, None);
 
-		let fbstatus = gl.check_framebuffer_status(glow::FRAMEBUFFER);
+		let fbstatus = gl!(gl, check_framebuffer_status, glow::FRAMEBUFFER);
 		if fbstatus != glow::FRAMEBUFFER_COMPLETE {
 			return Err(IncompleteFramebuffer(fbstatus));
 		}
@@ -214,15 +262,15 @@ impl Fbo {
 	}
 
 	unsafe fn bind(&self, gl: &Arc<Context>) {
-		gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.fbo));
-		gl.active_texture(glow::TEXTURE0);
-		gl.bind_texture(glow::TEXTURE_2D, Some(self.color_tex));
+		gl!(gl, bind_framebuffer, glow::FRAMEBUFFER, Some(self.fbo));
+		gl!(gl, active_texture, glow::TEXTURE0);
+		gl!(gl, bind_texture, glow::TEXTURE_2D, Some(self.color_tex));
 	}
 
 	unsafe fn drop(&self, gl: &Arc<Context>) {
-		gl.delete_framebuffer(self.fbo);
-		gl.delete_texture(self.color_tex);
-		gl.delete_renderbuffer(self.depth_buf);
+		gl!(gl, delete_framebuffer, self.fbo);
+		gl!(gl, delete_texture, self.color_tex);
+		gl!(gl, delete_renderbuffer, self.depth_buf);
 	}
 }
 
@@ -245,32 +293,32 @@ impl GMDCEditorStateData {
 			let shaders = shader_sources
 				.iter()
 				.map(|(shader_type, shader_source)| {
-					let shader = gl.create_shader(*shader_type).map_err(Create)?;
-					gl.shader_source(shader, shader_source);
-					gl.compile_shader(shader);
+					let shader = gl!(gl, create_shader, *shader_type).map_err(Create)?;
+					gl!(gl, shader_source, shader, shader_source);
+					gl!(gl, compile_shader, shader);
 
-					if gl.get_shader_compile_status(shader) {
+					if gl!(gl, get_shader_compile_status, shader) {
 						Ok(shader)
 					} else {
-						Err(ShaderCompile(gl.get_shader_info_log(shader)))
+						Err(ShaderCompile(gl!(gl, get_shader_info_log, shader)))
 					}
 				})
 				.collect::<Result<Vec<_>, _>>()?;
 
-			let main_program = gl.create_program().map_err(Create)?;
+			let main_program = gl!(gl, create_program).map_err(Create)?;
 
 			for shader in &shaders[0..2] {
-				gl.attach_shader(main_program, *shader);
+				gl!(gl, attach_shader, main_program, *shader);
 			}
 
-			gl.link_program(main_program);
-			if !gl.get_program_link_status(main_program) {
-				return Err(ProgramLink(gl.get_program_info_log(main_program)));
+			gl!(gl, link_program, main_program);
+			if !gl!(gl, get_program_link_status, main_program) {
+				return Err(ProgramLink(gl!(gl, get_program_info_log, main_program)));
 			}
 
 			for shader in &shaders[0..2] {
-				gl.detach_shader(main_program, *shader);
-				gl.delete_shader(*shader);
+				gl!(gl, detach_shader, main_program, *shader);
+				gl!(gl, delete_shader, *shader);
 			}
 
 			let attribute_locations = [
@@ -292,7 +340,7 @@ impl GMDCEditorStateData {
 			]
 			.into_iter()
 			.map(|name| {
-				gl.get_attrib_location(main_program, name)
+				gl!(gl, get_attrib_location, main_program, name)
 					.map(|loc| (name, loc))
 					.ok_or(GetAttrib(name))
 			})
@@ -301,7 +349,7 @@ impl GMDCEditorStateData {
 			let uniform_locations = ["view_matrix", "display_mode", "dark_mode"]
 				.into_iter()
 				.map(|name| {
-					gl.get_uniform_location(main_program, name)
+					gl!(gl, get_uniform_location, main_program, name)
 						.map(|loc| (name, loc))
 						.ok_or(GetUniform(name))
 				})
@@ -310,69 +358,130 @@ impl GMDCEditorStateData {
 			let uniform_block_locations = ["BlendValues", "Bones"]
 				.into_iter()
 				.map(|name| {
-					gl.get_uniform_block_index(main_program, name)
+					gl!(gl, get_uniform_block_index, main_program, name)
 						.ok_or(GetUniformBlock(name))
 						.map(|loc| (name, loc))
 				})
 				.collect::<Result<BTreeMap<_, _>, _>>()?;
 
-			gl.uniform_block_binding(main_program, uniform_block_locations["BlendValues"], 0);
-			gl.uniform_block_binding(main_program, uniform_block_locations["Bones"], 1);
+			gl!(
+				gl,
+				uniform_block_binding,
+				main_program,
+				uniform_block_locations["BlendValues"],
+				0
+			);
+			gl!(
+				gl,
+				uniform_block_binding,
+				main_program,
+				uniform_block_locations["Bones"],
+				1
+			);
 
-			let blend_values_buffer = gl.create_buffer().map_err(Create)?;
-			gl.bind_buffer(glow::UNIFORM_BUFFER, Some(blend_values_buffer));
-			gl.buffer_data_size(
+			let blend_values_buffer = gl!(gl, create_buffer).map_err(Create)?;
+			gl!(
+				gl,
+				bind_buffer,
+				glow::UNIFORM_BUFFER,
+				Some(blend_values_buffer)
+			);
+			gl!(
+				gl,
+				buffer_data_size,
 				glow::UNIFORM_BUFFER,
 				// padded to vec4 as in std140
 				(size_of::<f32>() * 256 * 4) as i32,
 				glow::STREAM_DRAW,
 			);
 
-			let bones_buffer = gl.create_buffer().map_err(Create)?;
-			gl.bind_buffer(glow::UNIFORM_BUFFER, Some(bones_buffer));
-			gl.buffer_data_size(
+			let bones_buffer = gl!(gl, create_buffer).map_err(Create)?;
+			gl!(gl, bind_buffer, glow::UNIFORM_BUFFER, Some(bones_buffer));
+			gl!(
+				gl,
+				buffer_data_size,
 				glow::UNIFORM_BUFFER,
 				(size_of::<f32>() * 256 * 16) as i32,
 				glow::STREAM_DRAW,
 			);
 
-			gl.bind_buffer(glow::UNIFORM_BUFFER, None);
+			gl!(gl, bind_buffer, glow::UNIFORM_BUFFER, None);
 
-			gl.bind_buffer_base(glow::UNIFORM_BUFFER, 0, Some(blend_values_buffer));
-			gl.bind_buffer_base(glow::UNIFORM_BUFFER, 1, Some(bones_buffer));
-
-			debug!(
-				GL_ACTIVE_ATOMIC_COUNTER_BUFFERS =
-					gl.get_program_parameter_i32(main_program, glow::ACTIVE_ATOMIC_COUNTER_BUFFERS)
+			gl!(
+				gl,
+				bind_buffer_base,
+				glow::UNIFORM_BUFFER,
+				0,
+				Some(blend_values_buffer)
 			);
-			debug!(
-				GL_ACTIVE_ATTRIBUTES =
-					gl.get_program_parameter_i32(main_program, glow::ACTIVE_ATTRIBUTES)
-			);
-			debug!(
-				GL_ACTIVE_ATTRIBUTE_MAX_LENGTH =
-					gl.get_program_parameter_i32(main_program, glow::ACTIVE_ATTRIBUTE_MAX_LENGTH)
-			);
-			debug!(
-				GL_ACTIVE_UNIFORMS =
-					gl.get_program_parameter_i32(main_program, glow::ACTIVE_UNIFORMS)
-			);
-			debug!(
-				GL_ACTIVE_UNIFORM_MAX_LENGTH =
-					gl.get_program_parameter_i32(main_program, glow::ACTIVE_UNIFORM_MAX_LENGTH)
-			);
-			debug!(
-				GL_PROGRAM_BINARY_LENGTH =
-					gl.get_program_parameter_i32(main_program, glow::PROGRAM_BINARY_LENGTH)
-			);
-			debug!(
-				GL_COMPUTE_WORK_GROUP_SIZE =
-					gl.get_program_parameter_i32(main_program, glow::COMPUTE_WORK_GROUP_SIZE)
+			gl!(
+				gl,
+				bind_buffer_base,
+				glow::UNIFORM_BUFFER,
+				1,
+				Some(bones_buffer)
 			);
 
-			let active_attributes = gl.get_active_attributes(main_program);
+			debug!(
+				GL_ACTIVE_ATOMIC_COUNTER_BUFFERS = gl!(
+					gl,
+					get_program_parameter_i32,
+					main_program,
+					glow::ACTIVE_ATOMIC_COUNTER_BUFFERS
+				)
+			);
+			debug!(
+				GL_ACTIVE_ATTRIBUTES = gl!(
+					gl,
+					get_program_parameter_i32,
+					main_program,
+					glow::ACTIVE_ATTRIBUTES
+				)
+			);
+			debug!(
+				GL_ACTIVE_ATTRIBUTE_MAX_LENGTH = gl!(
+					gl,
+					get_program_parameter_i32,
+					main_program,
+					glow::ACTIVE_ATTRIBUTE_MAX_LENGTH
+				)
+			);
+			debug!(
+				GL_ACTIVE_UNIFORMS = gl!(
+					gl,
+					get_program_parameter_i32,
+					main_program,
+					glow::ACTIVE_UNIFORMS
+				)
+			);
+			debug!(
+				GL_ACTIVE_UNIFORM_MAX_LENGTH = gl!(
+					gl,
+					get_program_parameter_i32,
+					main_program,
+					glow::ACTIVE_UNIFORM_MAX_LENGTH
+				)
+			);
+			debug!(
+				GL_PROGRAM_BINARY_LENGTH = gl!(
+					gl,
+					get_program_parameter_i32,
+					main_program,
+					glow::PROGRAM_BINARY_LENGTH
+				)
+			);
+			debug!(
+				GL_COMPUTE_WORK_GROUP_SIZE = gl!(
+					gl,
+					get_program_parameter_i32,
+					main_program,
+					glow::COMPUTE_WORK_GROUP_SIZE
+				)
+			);
+
+			let active_attributes = gl!(gl, get_active_attributes, main_program);
 			for attribute in 0..active_attributes {
-				if let Some(attr) = gl.get_active_attribute(main_program, attribute) {
+				if let Some(attr) = gl!(gl, get_active_attribute, main_program, attribute) {
 					debug!(
 						attribute,
 						name = attr.name,
@@ -384,36 +493,36 @@ impl GMDCEditorStateData {
 				}
 			}
 
-			let active_uniforms = gl.get_active_uniforms(main_program);
+			let active_uniforms = gl!(gl, get_active_uniforms, main_program);
 			for uniform in 0..active_uniforms {
-				if let Some(uni) = gl.get_active_uniform(main_program, uniform) {
+				if let Some(uni) = gl!(gl, get_active_uniform, main_program, uniform) {
 					debug!(uniform, name = uni.name, utype = uni.utype, size = uni.size);
 				} else {
 					debug!(uniform);
 				}
 			}
 
-			let or_program = gl.create_program().map_err(Create)?;
+			let or_program = gl!(gl, create_program).map_err(Create)?;
 
 			for shader in &shaders[2..4] {
-				gl.attach_shader(or_program, *shader);
+				gl!(gl, attach_shader, or_program, *shader);
 			}
 
-			gl.link_program(or_program);
-			if !gl.get_program_link_status(main_program) {
-				return Err(ProgramLink(gl.get_program_info_log(or_program)));
+			gl!(gl, link_program, or_program);
+			if !gl!(gl, get_program_link_status, main_program) {
+				return Err(ProgramLink(gl!(gl, get_program_info_log, or_program)));
 			}
 
 			for shader in &shaders[2..4] {
-				gl.detach_shader(or_program, *shader);
-				gl.delete_shader(*shader);
+				gl!(gl, detach_shader, or_program, *shader);
+				gl!(gl, delete_shader, *shader);
 			}
 
 			let subsets = iter::once(&gmdc.bounding_mesh)
 				.chain(gmdc.dynamic_bounding_mesh.data.iter())
 				.map(|subset| {
-					let vao = gl.create_vertex_array().map_err(Create)?;
-					gl.bind_vertex_array(Some(vao));
+					let vao = gl!(gl, create_vertex_array).map_err(Create)?;
+					gl!(gl, bind_vertex_array, Some(vao));
 
 					let subset_vertex_data: Vec<u8> = subset
 						.vertices
@@ -429,14 +538,18 @@ impl GMDCEditorStateData {
 						.collect();
 					let subset_num_faces = subset.faces.len();
 
-					let vbo = gl.create_buffer().map_err(Create)?;
-					gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-					gl.buffer_data_u8_slice(
+					let vbo = gl!(gl, create_buffer).map_err(Create)?;
+					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, Some(vbo));
+					gl!(
+						gl,
+						buffer_data_u8_slice,
 						glow::ARRAY_BUFFER,
 						&subset_vertex_data,
 						glow::STATIC_DRAW,
 					);
-					gl.vertex_attrib_pointer_f32(
+					gl!(
+						gl,
+						vertex_attrib_pointer_f32,
 						attribute_locations["in_position"],
 						3,
 						glow::FLOAT,
@@ -444,12 +557,18 @@ impl GMDCEditorStateData {
 						3 * 4,
 						0,
 					);
-					gl.enable_vertex_attrib_array(attribute_locations["in_position"]);
-					gl.bind_buffer(glow::ARRAY_BUFFER, None);
+					gl!(
+						gl,
+						enable_vertex_attrib_array,
+						attribute_locations["in_position"]
+					);
+					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, None);
 
-					let veo = gl.create_buffer().map_err(Create)?;
-					gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(veo));
-					gl.buffer_data_u8_slice(
+					let veo = gl!(gl, create_buffer).map_err(Create)?;
+					gl!(gl, bind_buffer, glow::ELEMENT_ARRAY_BUFFER, Some(veo));
+					gl!(
+						gl,
+						buffer_data_u8_slice,
 						glow::ELEMENT_ARRAY_BUFFER,
 						&subset_index_data,
 						glow::STATIC_DRAW,
@@ -468,8 +587,8 @@ impl GMDCEditorStateData {
 				.attribute_groups
 				.iter()
 				.map(|group| {
-					let vao = gl.create_vertex_array().map_err(Create)?;
-					gl.bind_vertex_array(Some(vao));
+					let vao = gl!(gl, create_vertex_array).map_err(Create)?;
+					gl!(gl, bind_vertex_array, Some(vao));
 
 					span!(Level::DEBUG, "group");
 
@@ -483,10 +602,16 @@ impl GMDCEditorStateData {
 					let (buffer_it, stride, attributes) = group.construct_interleaved(gmdc);
 					let buffer = buffer_it.flatten().copied().collect::<Vec<_>>();
 
-					let vbo = gl.create_buffer().map_err(Create)?;
+					let vbo = gl!(gl, create_buffer).map_err(Create)?;
 					// buffers.push(vbo); // TODO just return
-					gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-					gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &buffer, glow::STATIC_DRAW);
+					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, Some(vbo));
+					gl!(
+						gl,
+						buffer_data_u8_slice,
+						glow::ARRAY_BUFFER,
+						&buffer,
+						glow::STATIC_DRAW
+					);
 
 					debug!(group.buffer_len = buffer.len());
 					debug!(group.stride = stride);
@@ -534,8 +659,10 @@ impl GMDCEditorStateData {
 						let attr_binding = attribute_locations[attr_binding_name];
 						let num_components = attr.block_format.num_components();
 
-						gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-						gl.vertex_attrib_pointer_f32(
+						gl!(gl, bind_buffer, glow::ARRAY_BUFFER, Some(vbo));
+						gl!(
+							gl,
+							vertex_attrib_pointer_f32,
 							attr_binding,
 							num_components as i32,
 							attr_type,
@@ -543,11 +670,11 @@ impl GMDCEditorStateData {
 							stride as i32,
 							offset as i32,
 						);
-						gl.enable_vertex_attrib_array(attr_binding);
-						gl.bind_buffer(glow::ARRAY_BUFFER, None);
+						gl!(gl, enable_vertex_attrib_array, attr_binding);
+						gl!(gl, bind_buffer, glow::ARRAY_BUFFER, None);
 					}
 
-					gl.bind_buffer(glow::ARRAY_BUFFER, None);
+					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, None);
 
 					Ok((vao, vbo))
 				})
@@ -558,7 +685,7 @@ impl GMDCEditorStateData {
 				.iter()
 				.map(|mesh| {
 					let vao = groups[mesh.attribute_group_index as usize].0;
-					let indices = gl.create_buffer().map_err(Create)?;
+					let indices = gl!(gl, create_buffer).map_err(Create)?;
 
 					let mesh_index_data: Vec<u8> = mesh
 						.indices
@@ -573,8 +700,10 @@ impl GMDCEditorStateData {
 						PrimitiveType::Triangles => glow::TRIANGLES,
 					};
 
-					gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(indices));
-					gl.buffer_data_u8_slice(
+					gl!(gl, bind_buffer, glow::ELEMENT_ARRAY_BUFFER, Some(indices));
+					gl!(
+						gl,
+						buffer_data_u8_slice,
 						glow::ELEMENT_ARRAY_BUFFER,
 						&mesh_index_data,
 						glow::STATIC_DRAW,
@@ -594,9 +723,9 @@ impl GMDCEditorStateData {
 				.into_iter()
 				.unzip();
 
-			let or_vao = gl.create_vertex_array().map_err(Create)?;
+			let or_vao = gl!(gl, create_vertex_array).map_err(Create)?;
 
-			gl.bind_vertex_array(None);
+			gl!(gl, bind_vertex_array, None);
 
 			Ok(GMDCEditorStateData {
 				gl_state: Rc::new(GlState {
@@ -930,13 +1059,7 @@ impl Editor for GeometricDataContainer {
 							// let width = viewport.width_px;
 							// let height = viewport.height_px;
 							unsafe {
-								gl.use_program(Some(gl_state.program));
-
-								// TODO opengl error handling
-								let err = gl.get_error();
-								if err != glow::NO_ERROR {
-									eprintln!("s {err:?}");
-								}
+								gl!(gl, use_program, Some(gl_state.program));
 
 								if let Some(fbo) = &mut gl_state.fbo {
 									if fbo.width != width || fbo.height != height {
@@ -957,15 +1080,15 @@ impl Editor for GeometricDataContainer {
 									}
 								};
 
-								gl.clear_color(0.0, 0.0, 0.0, 0.0);
-								gl.clear_depth(0.0);
-								gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+								gl!(gl, clear_color, 0.0, 0.0, 0.0, 0.0);
+								gl!(gl, clear_depth, 0.0);
+								gl!(gl, clear, glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
 
-								gl.enable(glow::DEPTH_TEST);
-								gl.depth_func(glow::GREATER);
+								gl!(gl, enable, glow::DEPTH_TEST);
+								gl!(gl, depth_func, glow::GREATER);
 
-								// gl.viewport(viewport.left_px, viewport.from_bottom_px, viewport.width_px, viewport.height_px);
-								// gl.scissor(clip.left_px, clip.from_bottom_px, clip.width_px, clip.height_px);
+								// gl!(gl, viewport, viewport.left_px, viewport.from_bottom_px, viewport.width_px, viewport.height_px);
+								// gl!(gl, scissor, clip.left_px, clip.from_bottom_px, clip.width_px, clip.height_px);
 
 								/*eprintln!("{} {} {} {} ({})", viewport.left_px, viewport.top_px, viewport.width_px, viewport.height_px, viewport.from_bottom_px);
 								eprintln!("{} {} {} {} ({})", clip.left_px, clip.top_px, clip.width_px, clip.height_px, clip.from_bottom_px);
@@ -988,16 +1111,16 @@ impl Editor for GeometricDataContainer {
 										.chain(transforms.data.clone().into_iter())
 										.chain(iter::repeat(ident_transform)))
 									.filter(|((_, _, _, _, _, enabled), _)| *enabled) {
-									gl.bind_vertex_array(Some(*vao));
+									gl!(gl, bind_vertex_array, Some(*vao));
 
 									let object_mat = model_mat * Mat4::transform(transform.inverse());
-									gl.uniform_matrix_4_f32_slice(
-										gl.get_uniform_location(state.program, "camera").as_ref(),
+									gl!(gl, uniform_matrix_4_f32_slice,
+										gl!(gl, get_uniform_location, state.program, "camera").as_ref(),
 										false,
 										&object_mat.0,
 									);
 
-									gl.draw_elements(glow::TRIANGLES, *num_faces as i32, glow::UNSIGNED_INT, 0);
+									gl!(gl, draw_elements, glow::TRIANGLES, *num_faces as i32, glow::UNSIGNED_INT, 0);
 								}*/
 
 								let blend_values_data = display_data
@@ -1008,11 +1131,15 @@ impl Editor for GeometricDataContainer {
 										f.to_ne_bytes().into_iter().chain(iter::repeat_n(0, 12))
 									})
 									.collect::<Vec<_>>();
-								gl.bind_buffer(
+								gl!(
+									gl,
+									bind_buffer,
 									glow::UNIFORM_BUFFER,
 									Some(gl_state.blend_values_buffer),
 								);
-								gl.buffer_sub_data_u8_slice(
+								gl!(
+									gl,
+									buffer_sub_data_u8_slice,
 									glow::UNIFORM_BUFFER,
 									0,
 									&blend_values_data,
@@ -1022,34 +1149,45 @@ impl Editor for GeometricDataContainer {
 									.flat_map(|eye| eye.0.map(|f| f.to_ne_bytes()))
 									.flatten()
 									.collect::<Vec<_>>();
-								gl.bind_buffer(glow::UNIFORM_BUFFER, Some(gl_state.bones_buffer));
-								gl.buffer_sub_data_u8_slice(
+								gl!(
+									gl,
+									bind_buffer,
+									glow::UNIFORM_BUFFER,
+									Some(gl_state.bones_buffer),
+								);
+								gl!(
+									gl,
+									buffer_sub_data_u8_slice,
 									glow::UNIFORM_BUFFER,
 									0,
 									&identity_bones,
 								);
 
-								gl.bind_buffer(glow::UNIFORM_BUFFER, None);
+								gl!(gl, bind_buffer, glow::UNIFORM_BUFFER, None);
 
 								let display_mode = match display_data.display_mode {
 									DisplayMode::Wireframe => {
-										gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+										gl!(gl, polygon_mode, glow::FRONT_AND_BACK, glow::LINE);
 										DisplayMode::Depth as i32
 									}
 									mode => {
-										gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+										gl!(gl, polygon_mode, glow::FRONT_AND_BACK, glow::FILL);
 										mode as i32
 									}
 								};
 
-								gl.uniform_1_i32(
-									gl.get_uniform_location(gl_state.program, "display_mode")
+								gl!(
+									gl,
+									uniform_1_i32,
+									gl!(gl, get_uniform_location, gl_state.program, "display_mode")
 										.as_ref(),
 									display_mode,
 								);
 
-								gl.uniform_1_i32(
-									gl.get_uniform_location(gl_state.program, "dark_mode")
+								gl!(
+									gl,
+									uniform_1_i32,
+									gl!(gl, get_uniform_location, gl_state.program, "dark_mode")
 										.as_ref(),
 									dark_mode as i32,
 								);
@@ -1062,10 +1200,14 @@ impl Editor for GeometricDataContainer {
 								{
 									// TODO bone bindings
 
-									gl.bind_vertex_array(Some(mesh.vao));
+									gl!(gl, bind_vertex_array, Some(mesh.vao));
 
-									gl.uniform_matrix_4_f32_slice(
-										gl.get_uniform_location(
+									gl!(
+										gl,
+										uniform_matrix_4_f32_slice,
+										gl!(
+											gl,
+											get_uniform_location,
 											gl_state.program,
 											"projection_matrix",
 										)
@@ -1074,16 +1216,30 @@ impl Editor for GeometricDataContainer {
 										&projection_mat.transpose().0,
 									);
 
-									gl.uniform_matrix_4_f32_slice(
-										gl.get_uniform_location(gl_state.program, "view_matrix")
-											.as_ref(),
+									gl!(
+										gl,
+										uniform_matrix_4_f32_slice,
+										gl!(
+											gl,
+											get_uniform_location,
+											gl_state.program,
+											"view_matrix",
+										)
+										.as_ref(),
 										false,
 										&model_mat.transpose().0,
 									);
 
-									gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(mesh.indices));
+									gl!(
+										gl,
+										bind_buffer,
+										glow::ELEMENT_ARRAY_BUFFER,
+										Some(mesh.indices),
+									);
 
-									gl.draw_elements(
+									gl!(
+										gl,
+										draw_elements,
 										mesh.primitive_type,
 										mesh.num_indices as i32,
 										glow::UNSIGNED_INT,
@@ -1092,26 +1248,38 @@ impl Editor for GeometricDataContainer {
 								}
 
 								// render the texture to the main buffer target
-								gl.use_program(Some(gl_state.offscreen_render_program));
-								gl.bind_vertex_array(Some(gl_state.offscreen_render_vao));
-								gl.bind_framebuffer(glow::FRAMEBUFFER, painter.intermediate_fbo());
+								gl!(gl, use_program, Some(gl_state.offscreen_render_program));
+								gl!(gl, bind_vertex_array, Some(gl_state.offscreen_render_vao));
+								gl!(
+									gl,
+									bind_framebuffer,
+									glow::FRAMEBUFFER,
+									painter.intermediate_fbo(),
+								);
 
-								gl.disable(glow::DEPTH_TEST);
-								gl.depth_func(glow::LESS);
-								gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+								gl!(gl, disable, glow::DEPTH_TEST);
+								gl!(gl, depth_func, glow::LESS);
+								gl!(gl, polygon_mode, glow::FRONT_AND_BACK, glow::FILL);
 
-								gl.viewport(0, 0, width, height);
+								gl!(gl, viewport, 0, 0, width, height);
 
-								gl.uniform_1_i32(
+								gl!(
+									gl,
+									uniform_1_i32,
 									// TODO store
-									gl.get_uniform_location(gl_state.offscreen_render_program, "t")
-										.as_ref(),
+									gl!(
+										gl,
+										get_uniform_location,
+										gl_state.offscreen_render_program,
+										"t",
+									)
+									.as_ref(),
 									0,
 								);
 
-								gl.draw_arrays(glow::TRIANGLES, 0, 3);
+								gl!(gl, draw_arrays, glow::TRIANGLES, 0, 3);
 
-								gl.bind_texture(glow::TEXTURE_2D, None);
+								gl!(gl, bind_texture, glow::TEXTURE_2D, None);
 							}
 						});
 
@@ -1144,27 +1312,25 @@ impl Drop for GlState {
 				..
 			} = guard.deref();
 			unsafe {
-				warn!("delete");
-
-				gl.delete_program(*program);
+				gl!(gl, delete_program, *program);
 
 				for (vao, vertices, indices, ..) in subsets {
-					gl.delete_vertex_array(*vao);
-					gl.delete_buffer(*vertices);
-					gl.delete_buffer(*indices);
+					gl!(gl, delete_vertex_array, *vao);
+					gl!(gl, delete_buffer, *vertices);
+					gl!(gl, delete_buffer, *indices);
 				}
 
 				for (vao, buffer) in groups {
-					gl.delete_vertex_array(*vao);
-					gl.delete_buffer(*buffer);
+					gl!(gl, delete_vertex_array, *vao);
+					gl!(gl, delete_buffer, *buffer);
 				}
 
 				for mesh in meshes {
-					gl.delete_buffer(mesh.indices);
+					gl!(gl, delete_buffer, mesh.indices);
 				}
 
-				gl.delete_program(*offscreen_render_program);
-				gl.delete_vertex_array(*offscreen_render_vao);
+				gl!(gl, delete_program, *offscreen_render_program);
+				gl!(gl, delete_vertex_array, *offscreen_render_vao);
 
 				if let Some(fbo) = fbo {
 					fbo.drop(gl);
