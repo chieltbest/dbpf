@@ -1064,19 +1064,20 @@ impl Editor for GeometricDataContainer {
 								if let Some(fbo) = &mut gl_state.fbo {
 									if fbo.width != width || fbo.height != height {
 										fbo.drop(gl);
+										gl_state.fbo = None;
 									}
 								}
 
-								let fbo = match &mut gl_state.fbo {
+								match &mut gl_state.fbo {
 									Some(fbo) => {
 										fbo.bind(gl);
-										fbo
 									}
 									fbo => {
-										let Ok(new_fbo) = Fbo::new(width, height, gl) else {
+										if let Ok(new_fbo) = Fbo::new(width, height, gl) {
+											*fbo = Some(new_fbo);
+										} else {
 											return;
 										};
-										fbo.insert(new_fbo)
 									}
 								};
 
