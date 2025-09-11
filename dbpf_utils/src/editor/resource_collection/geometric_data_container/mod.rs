@@ -28,7 +28,7 @@ use futures::channel::oneshot;
 use itertools::Either;
 use rfd::FileHandle;
 use thiserror::Error;
-use tracing::{debug, error, span, warn, Level};
+use tracing::{debug, error, span, Level};
 
 const VERTEX_SHADER_SOURCE: &str = include_str!("shaders/main.vert");
 const FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/main.frag");
@@ -345,15 +345,6 @@ impl GMDCEditorStateData {
 					.ok_or(GetAttrib(name))
 			})
 			.collect::<Result<BTreeMap<_, _>, _>>()?;
-
-			let uniform_locations = ["view_matrix", "display_mode", "dark_mode"]
-				.into_iter()
-				.map(|name| {
-					gl!(gl, get_uniform_location, main_program, name)
-						.map(|loc| (name, loc))
-						.ok_or(GetUniform(name))
-				})
-				.collect::<Result<BTreeMap<_, _>, _>>()?;
 
 			let uniform_block_locations = ["BlendValues", "Bones"]
 				.into_iter()
@@ -1053,16 +1044,17 @@ impl Editor for GeometricDataContainer {
 							let Ok(mut gl_state) = ptr.write() else {
 								return;
 							};
-							// let viewport = info.viewport_in_pixels();
-							// let clip = info.clip_rect_in_pixels();
-							let [width, height] = info.screen_size_px.map(|u| u as i32);
-							// let width = viewport.width_px;
-							// let height = viewport.height_px;
+
+							let viewport = info.viewport_in_pixels();
+							let clip = info.clip_rect_in_pixels();
+
 							unsafe {
 								gl!(gl, use_program, Some(gl_state.program));
 
 								if let Some(fbo) = &mut gl_state.fbo {
-									if fbo.width != width || fbo.height != height {
+									if fbo.width != viewport.width_px
+										|| fbo.height != viewport.height_px
+									{
 										fbo.drop(gl);
 										gl_state.fbo = None;
 									}
@@ -1073,7 +1065,9 @@ impl Editor for GeometricDataContainer {
 										fbo.bind(gl);
 									}
 									fbo => {
-										if let Ok(new_fbo) = Fbo::new(width, height, gl) {
+										if let Ok(new_fbo) =
+											Fbo::new(viewport.width_px, viewport.height_px, gl)
+										{
 											*fbo = Some(new_fbo);
 										} else {
 											return;
@@ -1081,19 +1075,15 @@ impl Editor for GeometricDataContainer {
 									}
 								};
 
+								gl!(gl, viewport, 0, 0, viewport.width_px, viewport.height_px);
+								gl!(gl, scissor, 0, 0, viewport.width_px, viewport.height_px);
+
 								gl!(gl, clear_color, 0.0, 0.0, 0.0, 0.0);
 								gl!(gl, clear_depth, 0.0);
 								gl!(gl, clear, glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
 
 								gl!(gl, enable, glow::DEPTH_TEST);
 								gl!(gl, depth_func, glow::GREATER);
-
-								// gl!(gl, viewport, viewport.left_px, viewport.from_bottom_px, viewport.width_px, viewport.height_px);
-								// gl!(gl, scissor, clip.left_px, clip.from_bottom_px, clip.width_px, clip.height_px);
-
-								/*eprintln!("{} {} {} {} ({})", viewport.left_px, viewport.top_px, viewport.width_px, viewport.height_px, viewport.from_bottom_px);
-								eprintln!("{} {} {} {} ({})", clip.left_px, clip.top_px, clip.width_px, clip.height_px, clip.from_bottom_px);
-								eprintln!("{} {}", width, height);*/
 
 								let projection_mat =
 									Mat4::projection(0.1, 1.0 / info.viewport.aspect_ratio());
@@ -1262,7 +1252,22 @@ impl Editor for GeometricDataContainer {
 								gl!(gl, depth_func, glow::LESS);
 								gl!(gl, polygon_mode, glow::FRONT_AND_BACK, glow::FILL);
 
-								gl!(gl, viewport, 0, 0, width, height);
+								gl!(
+									gl,
+									viewport,
+									viewport.left_px,
+									viewport.from_bottom_px,
+									viewport.width_px,
+									viewport.height_px
+								);
+								gl!(
+									gl,
+									scissor,
+									clip.left_px,
+									clip.from_bottom_px,
+									clip.width_px,
+									clip.height_px
+								);
 
 								gl!(
 									gl,
