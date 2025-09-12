@@ -35,6 +35,7 @@ layout (std140) uniform Bones {
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
 
+out vec3 v_position;
 out vec3 v_normal;
 out vec2 v_texcoord;
 out vec3 v_tangent;
@@ -58,7 +59,9 @@ void main() {
      + in_position_delta_2 * morph_weights[2]
      + in_position_delta_3 * morph_weights[3];
 
-    gl_Position = projection_matrix * view_matrix * model_matrix * vec4(in_position + morph_pos_delta, 1.0);
+    vec4 position = view_matrix * model_matrix * vec4(in_position + morph_pos_delta, 1.0);
+    v_position = vec3(position);
+    gl_Position = projection_matrix * position;
 
     vec3 morph_norm_delta = in_normal_delta_0 * morph_weights[0]
     + in_normal_delta_1 * morph_weights[1]
