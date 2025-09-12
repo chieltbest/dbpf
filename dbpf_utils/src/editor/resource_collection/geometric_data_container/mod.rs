@@ -726,7 +726,6 @@ impl GMDCEditorStateData {
 						program: main_program,
 
 						attribute_locations,
-						// uniform_locations,
 						uniform_block_locations,
 
 						blend_values_buffer,
@@ -734,8 +733,6 @@ impl GMDCEditorStateData {
 
 						subsets,
 
-						// buffers,
-						// attribute_objects,
 						groups,
 						meshes,
 
@@ -779,6 +776,10 @@ impl Editor for GeometricDataContainer {
 		} else {
 			Err(NoContext)
 		};
+
+		if let Err(error) = &data {
+			error!(%error);
+		}
 
 		let total_memory = self
 			.attribute_buffers
@@ -1084,6 +1085,9 @@ impl Editor for GeometricDataContainer {
 
 								gl!(gl, enable, glow::DEPTH_TEST);
 								gl!(gl, depth_func, glow::GREATER);
+
+								gl!(gl, enable, glow::CULL_FACE);
+								gl!(gl, cull_face, glow::BACK);
 
 								let projection_mat =
 									Mat4::projection(0.1, 1.0 / info.viewport.aspect_ratio());
