@@ -1090,7 +1090,7 @@ impl Editor for GeometricDataContainer {
 								gl!(gl, cull_face, glow::BACK);
 
 								let projection_mat =
-									Mat4::projection(0.1, 1.0 / info.viewport.aspect_ratio());
+									Mat4::projection(0.01, 1.0 / info.viewport.aspect_ratio());
 
 								let model_mat = Mat4::translation(Vertex {
 									x: 0.0,
