@@ -47,12 +47,15 @@ void main() {
     blend_values[int(in_blend_keys.z)],
     blend_values[int(in_blend_keys.w)]);
 
+    float weight_total = 0.0;
     mat4 model_matrix = mat4(0.0);
     for (int i = 0; i < 4; i++) {
        if (int(in_bone_keys[i]) != 0xff) {
+           weight_total += in_bone_weights[i];
            model_matrix += in_bone_weights[i] * bones[int(in_bone_keys[i])];
        }
     }
+    model_matrix /= weight_total;
 
     vec3 morph_pos_delta = in_position_delta_0 * morph_weights[0]
      + in_position_delta_1 * morph_weights[1]
