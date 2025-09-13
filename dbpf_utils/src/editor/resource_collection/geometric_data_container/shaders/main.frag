@@ -44,10 +44,10 @@ void main() {
             out_color = vec4(object_color * ambient + object_color * diffuse + vec3(specular), 1.0);
             break;
         case 1: // normals
-            out_color = vec4((v_normal + 1.0) / 2.0, 1.0);
+            out_color = vec4((v_normal * vec3(1.0, 1.0, -1.0) + 1.0) / 2.0, 1.0);
             break;
         case 2: // tangents
-            out_color = vec4((v_tangent + 1.0) / 2.0, 1.0);
+            out_color = vec4((v_tangent * vec3(1.0, 1.0, -1.0) + 1.0) / 2.0, 1.0);
             break;
         case 3: // uv
             out_color = vec4(v_texcoord, 0.0, 1.0);
