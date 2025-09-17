@@ -13,6 +13,7 @@ use crate::editor::resource_collection::geometric_data_container::GMDCEditorCrea
 	ProgramLink, ShaderCompile,
 };
 use crate::{async_execute, editor::Editor};
+use dbpf::internal_file::resource_collection::geometric_data_container::math::Transform;
 use dbpf::internal_file::resource_collection::geometric_data_container::{
 	math::{Mat4, Vertex},
 	AttributeType, GeometricDataContainer, PrimitiveType,
@@ -32,6 +33,9 @@ use tracing::{debug, error, span, Level};
 
 const VERTEX_SHADER_SOURCE: &str = include_str!("shaders/main.vert");
 const FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/main.frag");
+
+const BMESH_VERTEX_SHADER_SOURCE: &str = include_str!("shaders/b_mesh.vert");
+const BMESH_FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/b_mesh.frag");
 
 const OFFSCREEN_RENDER_VERTEX_SHADER_SOURCE: &str = include_str!("shaders/blit.vert");
 const OFFSCREEN_RENDER_FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/blit.frag");
@@ -76,6 +80,15 @@ struct GlMesh {
 }
 
 #[derive(Clone, Debug)]
+struct GlBoundingMesh {
+	vao: glow::VertexArray,
+	vertices: glow::Buffer,
+	indices: glow::Buffer,
+	num_vertices: usize,
+	num_indices: usize,
+}
+
+#[derive(Clone, Debug)]
 struct SharedGlState {
 	program: glow::Program,
 
@@ -85,10 +98,11 @@ struct SharedGlState {
 	blend_values_buffer: glow::Buffer,
 	bones_buffer: glow::Buffer,
 
-	subsets: Vec<(glow::VertexArray, glow::Buffer, glow::Buffer, usize, usize)>,
-
 	groups: Vec<(glow::VertexArray, glow::Buffer)>,
 	meshes: Vec<GlMesh>,
+
+	bmesh_program: glow::Program,
+	bounding_meshes: Vec<GlBoundingMesh>,
 
 	fbo: Option<Fbo>,
 
@@ -128,7 +142,7 @@ enum DisplayMode {
 
 #[derive(Clone, Debug)]
 struct DisplayState {
-	subsets_visible: Vec<bool>,
+	bounding_meshes_visible: Vec<bool>,
 	meshes_visible: Vec<bool>,
 
 	blend_values: [f32; 256],
@@ -280,46 +294,70 @@ impl GMDCEditorStateData {
 		gl: Arc<Context>,
 	) -> Result<Self, GMDCEditorCreationError> {
 		unsafe {
-			let shader_sources = [
-				(glow::VERTEX_SHADER, VERTEX_SHADER_SOURCE),
-				(glow::FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE),
-				(glow::VERTEX_SHADER, OFFSCREEN_RENDER_VERTEX_SHADER_SOURCE),
-				(
-					glow::FRAGMENT_SHADER,
-					OFFSCREEN_RENDER_FRAGMENT_SHADER_SOURCE,
-				),
-			];
+			unsafe fn make_program(
+				gl: &Arc<Context>,
+				shader_sources: &[(u32, &str)],
+			) -> Result<glow::Program, GMDCEditorCreationError> {
+				let shaders = shader_sources
+					.iter()
+					.map(|(shader_type, shader_source)| {
+						let shader = gl!(gl, create_shader, *shader_type).map_err(Create)?;
+						gl!(gl, shader_source, shader, shader_source);
+						gl!(gl, compile_shader, shader);
 
-			let shaders = shader_sources
-				.iter()
-				.map(|(shader_type, shader_source)| {
-					let shader = gl!(gl, create_shader, *shader_type).map_err(Create)?;
-					gl!(gl, shader_source, shader, shader_source);
-					gl!(gl, compile_shader, shader);
+						if gl!(gl, get_shader_compile_status, shader) {
+							Ok(shader)
+						} else {
+							Err(ShaderCompile(gl!(gl, get_shader_info_log, shader)))
+						}
+					})
+					.collect::<Result<Vec<_>, _>>()?;
 
-					if gl!(gl, get_shader_compile_status, shader) {
-						Ok(shader)
-					} else {
-						Err(ShaderCompile(gl!(gl, get_shader_info_log, shader)))
-					}
-				})
-				.collect::<Result<Vec<_>, _>>()?;
+				let program = gl!(gl, create_program).map_err(Create)?;
 
-			let main_program = gl!(gl, create_program).map_err(Create)?;
+				for shader in &shaders[0..2] {
+					gl!(gl, attach_shader, program, *shader);
+				}
 
-			for shader in &shaders[0..2] {
-				gl!(gl, attach_shader, main_program, *shader);
+				gl!(gl, link_program, program);
+				if !gl!(gl, get_program_link_status, program) {
+					return Err(ProgramLink(gl!(gl, get_program_info_log, program)));
+				}
+
+				for shader in &shaders {
+					gl!(gl, detach_shader, program, *shader);
+					gl!(gl, delete_shader, *shader);
+				}
+
+				Ok(program)
 			}
 
-			gl!(gl, link_program, main_program);
-			if !gl!(gl, get_program_link_status, main_program) {
-				return Err(ProgramLink(gl!(gl, get_program_info_log, main_program)));
-			}
+			let main_program = make_program(
+				&gl,
+				&[
+					(glow::VERTEX_SHADER, VERTEX_SHADER_SOURCE),
+					(glow::FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE),
+				],
+			)?;
 
-			for shader in &shaders[0..2] {
-				gl!(gl, detach_shader, main_program, *shader);
-				gl!(gl, delete_shader, *shader);
-			}
+			let bmesh_program = make_program(
+				&gl,
+				&[
+					(glow::VERTEX_SHADER, BMESH_VERTEX_SHADER_SOURCE),
+					(glow::FRAGMENT_SHADER, BMESH_FRAGMENT_SHADER_SOURCE),
+				],
+			)?;
+
+			let or_program = make_program(
+				&gl,
+				&[
+					(glow::VERTEX_SHADER, OFFSCREEN_RENDER_VERTEX_SHADER_SOURCE),
+					(
+						glow::FRAGMENT_SHADER,
+						OFFSCREEN_RENDER_FRAGMENT_SHADER_SOURCE,
+					),
+				],
+			)?;
 
 			let attribute_locations = [
 				"in_position",
@@ -493,87 +531,6 @@ impl GMDCEditorStateData {
 				}
 			}
 
-			let or_program = gl!(gl, create_program).map_err(Create)?;
-
-			for shader in &shaders[2..4] {
-				gl!(gl, attach_shader, or_program, *shader);
-			}
-
-			gl!(gl, link_program, or_program);
-			if !gl!(gl, get_program_link_status, main_program) {
-				return Err(ProgramLink(gl!(gl, get_program_info_log, or_program)));
-			}
-
-			for shader in &shaders[2..4] {
-				gl!(gl, detach_shader, or_program, *shader);
-				gl!(gl, delete_shader, *shader);
-			}
-
-			let subsets = iter::once(&gmdc.bounding_mesh)
-				.chain(gmdc.dynamic_bounding_mesh.data.iter())
-				.map(|subset| {
-					let vao = gl!(gl, create_vertex_array).map_err(Create)?;
-					gl!(gl, bind_vertex_array, Some(vao));
-
-					let subset_vertex_data: Vec<u8> = subset
-						.vertices
-						.iter()
-						.flat_map(|v| [v.x.to_le_bytes(), v.y.to_le_bytes(), v.z.to_le_bytes()])
-						.flatten()
-						.collect();
-					let subset_num_vertices = subset.vertices.len();
-					let subset_index_data: Vec<u8> = subset
-						.faces
-						.iter()
-						.flat_map(|f| f.0.to_le_bytes())
-						.collect();
-					let subset_num_faces = subset.faces.len();
-
-					let vbo = gl!(gl, create_buffer).map_err(Create)?;
-					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, Some(vbo));
-					gl!(
-						gl,
-						buffer_data_u8_slice,
-						glow::ARRAY_BUFFER,
-						&subset_vertex_data,
-						glow::STATIC_DRAW,
-					);
-					gl!(
-						gl,
-						vertex_attrib_pointer_f32,
-						attribute_locations["in_position"],
-						3,
-						glow::FLOAT,
-						false,
-						3 * 4,
-						0,
-					);
-					gl!(
-						gl,
-						enable_vertex_attrib_array,
-						attribute_locations["in_position"]
-					);
-					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, None);
-
-					let veo = gl!(gl, create_buffer).map_err(Create)?;
-					gl!(gl, bind_buffer, glow::ELEMENT_ARRAY_BUFFER, Some(veo));
-					gl!(
-						gl,
-						buffer_data_u8_slice,
-						glow::ELEMENT_ARRAY_BUFFER,
-						&subset_index_data,
-						glow::STATIC_DRAW,
-					);
-
-					Ok((
-						(vao, vbo, veo, subset_num_faces, subset_num_vertices),
-						false,
-					))
-				})
-				.collect::<Result<Vec<_>, _>>()?;
-
-			let (subsets, subsets_visible) = subsets.into_iter().unzip();
-
 			let groups = gmdc
 				.attribute_groups
 				.iter()
@@ -714,6 +671,77 @@ impl GMDCEditorStateData {
 				.into_iter()
 				.unzip();
 
+			let bmesh_in_position_location =
+				gl!(gl, get_attrib_location, main_program, "in_position")
+					.ok_or(GetAttrib("in_position"))?;
+
+			let subsets = iter::once(&gmdc.bounding_mesh)
+				.chain(gmdc.dynamic_bounding_mesh.data.iter())
+				.map(|subset| {
+					let vao = gl!(gl, create_vertex_array).map_err(Create)?;
+					gl!(gl, bind_vertex_array, Some(vao));
+
+					let subset_vertex_data: Vec<u8> = subset
+						.vertices
+						.iter()
+						.flat_map(|v| [v.x.to_le_bytes(), v.y.to_le_bytes(), v.z.to_le_bytes()])
+						.flatten()
+						.collect();
+					let num_vertices = subset.vertices.len();
+					let subset_index_data: Vec<u8> = subset
+						.faces
+						.iter()
+						.flat_map(|f| f.0.to_le_bytes())
+						.collect();
+					let num_indices = subset.faces.len();
+
+					let vbo = gl!(gl, create_buffer).map_err(Create)?;
+					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, Some(vbo));
+					gl!(
+						gl,
+						buffer_data_u8_slice,
+						glow::ARRAY_BUFFER,
+						&subset_vertex_data,
+						glow::STATIC_DRAW,
+					);
+					gl!(
+						gl,
+						vertex_attrib_pointer_f32,
+						bmesh_in_position_location,
+						3,
+						glow::FLOAT,
+						false,
+						3 * 4,
+						0,
+					);
+					gl!(gl, enable_vertex_attrib_array, bmesh_in_position_location,);
+					gl!(gl, bind_buffer, glow::ARRAY_BUFFER, None);
+
+					let veo = gl!(gl, create_buffer).map_err(Create)?;
+					gl!(gl, bind_buffer, glow::ELEMENT_ARRAY_BUFFER, Some(veo));
+					gl!(
+						gl,
+						buffer_data_u8_slice,
+						glow::ELEMENT_ARRAY_BUFFER,
+						&subset_index_data,
+						glow::STATIC_DRAW,
+					);
+
+					Ok((
+						GlBoundingMesh {
+							vao,
+							vertices: vbo,
+							indices: veo,
+							num_vertices,
+							num_indices,
+						},
+						true,
+					))
+				})
+				.collect::<Result<Vec<_>, _>>()?;
+
+			let (bounding_meshes, bounding_meshes_visible) = subsets.into_iter().unzip();
+
 			let or_vao = gl!(gl, create_vertex_array).map_err(Create)?;
 
 			gl!(gl, bind_vertex_array, None);
@@ -731,10 +759,11 @@ impl GMDCEditorStateData {
 						blend_values_buffer,
 						bones_buffer,
 
-						subsets,
-
 						groups,
 						meshes,
+
+						bmesh_program,
+						bounding_meshes,
 
 						fbo: None,
 
@@ -744,7 +773,7 @@ impl GMDCEditorStateData {
 				}),
 
 				display_state: DisplayState {
-					subsets_visible,
+					bounding_meshes_visible,
 					meshes_visible,
 					blend_values: [0.0; 256],
 
@@ -1034,7 +1063,7 @@ impl Editor for GeometricDataContainer {
 
 						let gl_state_ptr = Arc::downgrade(&state_data.gl_state.data);
 						let display_data = display_data.clone();
-						// let transforms = self.bones.clone();
+						let transforms = self.bones.clone();
 						let dark_mode = ui.style().visuals.dark_mode;
 
 						let cb = egui_glow::CallbackFn::new(move |info, painter| {
@@ -1100,23 +1129,6 @@ impl Editor for GeometricDataContainer {
 									* Mat4::rotation_y(display_data.camera_angle.0)
 									* Mat4::translation(display_data.camera_position)
 									* Mat4::identity().swap_axes(1, 2);
-
-								/*for ((vao, _, _, num_faces, _, _), transform) in state.subsets.iter()
-									.zip(iter::once(ident_transform)
-										.chain(transforms.data.clone().into_iter())
-										.chain(iter::repeat(ident_transform)))
-									.filter(|((_, _, _, _, _, enabled), _)| *enabled) {
-									gl!(gl, bind_vertex_array, Some(*vao));
-
-									let object_mat = model_mat * Mat4::transform(transform.inverse());
-									gl!(gl, uniform_matrix_4_f32_slice,
-										gl!(gl, get_uniform_location, state.program, "camera").as_ref(),
-										false,
-										&object_mat.0,
-									);
-
-									gl!(gl, draw_elements, glow::TRIANGLES, *num_faces as i32, glow::UNSIGNED_INT, 0);
-								}*/
 
 								let blend_values_data = display_data
 									.blend_values
@@ -1242,6 +1254,87 @@ impl Editor for GeometricDataContainer {
 									);
 								}
 
+								gl!(gl, use_program, Some(gl_state.bmesh_program));
+								gl!(gl, depth_mask, false);
+								gl!(gl, depth_func, glow::GEQUAL);
+
+								let ident_transform = Transform::identity();
+
+								for ((b_mesh, visible), transform) in gl_state
+									.bounding_meshes
+									.iter()
+									.zip(&display_data.bounding_meshes_visible)
+									.zip(
+										iter::once(ident_transform)
+											.chain(transforms.data.clone().into_iter())
+											.chain(iter::repeat(ident_transform)),
+									) {
+									if *visible {
+										gl!(gl, bind_vertex_array, Some(b_mesh.vao));
+
+										let object_mat = Mat4::transform(transform.inverse());
+										gl!(
+											gl,
+											uniform_matrix_4_f32_slice,
+											gl!(
+												gl,
+												get_uniform_location,
+												gl_state.bmesh_program,
+												"model_matrix",
+											)
+											.as_ref(),
+											false,
+											&object_mat.transpose().0,
+										);
+
+										gl!(
+											gl,
+											uniform_matrix_4_f32_slice,
+											gl!(
+												gl,
+												get_uniform_location,
+												gl_state.bmesh_program,
+												"view_matrix",
+											)
+											.as_ref(),
+											false,
+											&model_mat.transpose().0,
+										);
+
+										gl!(
+											gl,
+											uniform_matrix_4_f32_slice,
+											gl!(
+												gl,
+												get_uniform_location,
+												gl_state.bmesh_program,
+												"projection_matrix",
+											)
+											.as_ref(),
+											false,
+											&projection_mat.transpose().0,
+										);
+
+										gl!(
+											gl,
+											bind_buffer,
+											glow::ELEMENT_ARRAY_BUFFER,
+											Some(b_mesh.indices),
+										);
+
+										gl!(
+											gl,
+											draw_elements,
+											glow::TRIANGLES,
+											b_mesh.num_indices as i32,
+											glow::UNSIGNED_INT,
+											0,
+										);
+									}
+								}
+
+								gl!(gl, depth_mask, true);
+
 								// render the texture to the main buffer target
 								gl!(gl, use_program, Some(gl_state.offscreen_render_program));
 								gl!(gl, bind_vertex_array, Some(gl_state.offscreen_render_vao));
@@ -1313,7 +1406,7 @@ impl Drop for GlState {
 		if let Ok(guard) = data.read() {
 			let SharedGlState {
 				program,
-				subsets,
+				bounding_meshes,
 				groups,
 				meshes,
 				offscreen_render_program,
@@ -1324,10 +1417,10 @@ impl Drop for GlState {
 			unsafe {
 				gl!(gl, delete_program, *program);
 
-				for (vao, vertices, indices, ..) in subsets {
-					gl!(gl, delete_vertex_array, *vao);
-					gl!(gl, delete_buffer, *vertices);
-					gl!(gl, delete_buffer, *indices);
+				for b_mesh in bounding_meshes {
+					gl!(gl, delete_vertex_array, b_mesh.vao);
+					gl!(gl, delete_buffer, b_mesh.vertices);
+					gl!(gl, delete_buffer, b_mesh.indices);
 				}
 
 				for (vao, buffer) in groups {
