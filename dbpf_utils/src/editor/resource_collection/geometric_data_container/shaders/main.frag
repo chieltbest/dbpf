@@ -19,6 +19,11 @@ void main() {
     switch (display_mode) {
         case 0: // standard
             // blinn-phong with the light coming from behind the camera
+            float front = 1.0;
+            if (!gl_FrontFacing) {
+                front = -1.0;
+            }
+
             vec3 object_color = vec3(0.5);
 
             float ambient = 0.3;
@@ -36,10 +41,10 @@ void main() {
             vec3 camera_pos = vec3(0.0);
             vec3 view_dir = normalize(camera_pos - v_position);
 
-            float diffuse = max(dot(v_normal, light_dir), 0.0) * diffuse_strength;
+            float diffuse = max(dot(v_normal, light_dir) * front, 0.0) * diffuse_strength;
 
             vec3 halfwaydir = normalize(view_dir + light_dir);
-            float specular = pow(max(dot(v_normal, halfwaydir), 0.0), specular_exponent) * specular_strength;
+            float specular = pow(max(dot(v_normal, halfwaydir) * front, 0.0), specular_exponent) * specular_strength;
 
             out_color = vec4(object_color * ambient + object_color * diffuse + vec3(specular), 1.0);
             break;
