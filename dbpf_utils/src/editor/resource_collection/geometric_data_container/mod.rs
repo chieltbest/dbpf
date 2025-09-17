@@ -142,6 +142,7 @@ enum DisplayMode {
 
 #[derive(Clone, Debug)]
 struct DisplayState {
+	show_bounding_mesh: bool,
 	bounding_meshes_visible: Vec<bool>,
 	meshes_visible: Vec<bool>,
 
@@ -773,6 +774,7 @@ impl GMDCEditorStateData {
 				}),
 
 				display_state: DisplayState {
+					show_bounding_mesh: true,
 					bounding_meshes_visible,
 					meshes_visible,
 					blend_values: [0.0; 256],
@@ -848,46 +850,35 @@ impl Editor for GeometricDataContainer {
 			}
 		}
 
-		self.file_name.name.show_editor(&mut 300.0, ui);
-
-		ui.label(format!("poly: {} triangles", state.total_polys));
-		ui.label(format!(
-			"memory: {}",
-			humansize::format_size(state.total_memory, humansize::DECIMAL)
-		));
-		ui.label(format!(
-			"draw calls: {}",
-			self.meshes.len()
-				+ if !self.bounding_mesh.faces.is_empty()
-					|| self
-						.dynamic_bounding_mesh
-						.iter()
-						.any(|d| !d.faces.is_empty())
-				{
-					1
-				} else {
-					0
-				}
-		));
-
-		/*ui.horizontal_wrapped(|ui| {
-			for (i, (_, _, _, num_indices, num_vertices, subset_enabled)) in gl_state.subsets
-				.iter_mut().enumerate() {
-				ui.checkbox(subset_enabled, if i == 0 {
-					format!("main: {}v, {}i", num_vertices, num_indices)
-				} else {
-					format!("{}: {}v, {}i", i - 1, num_vertices, num_indices)
-				});
-			}
-		});*/
-
 		let available = ui.available_size_before_wrap();
 
 		egui::ScrollArea::vertical()
 			.auto_shrink([false, true])
 			.max_height(available.y / 3.0)
 			.show(ui, |ui| {
-				ui.horizontal_wrapped(|ui| {
+				self.file_name.name.show_editor(&mut 300.0, ui);
+
+				ui.label(format!("poly: {} triangles", state.total_polys));
+				ui.label(format!(
+					"memory: {}",
+					humansize::format_size(state.total_memory, humansize::DECIMAL)
+				));
+				ui.label(format!(
+					"draw calls: {}",
+					self.meshes.len()
+						+ if !self.bounding_mesh.faces.is_empty()
+							|| self
+								.dynamic_bounding_mesh
+								.iter()
+								.any(|d| !d.faces.is_empty())
+						{
+							1
+						} else {
+							0
+						}
+				));
+
+				ui.vertical(|ui| {
 					// TODO name in tooltip
 					ui.group(|ui| {
 						ui.vertical(|ui| {
@@ -969,6 +960,31 @@ impl Editor for GeometricDataContainer {
 											.show_editor(&mut 70.0, ui)
 											.on_hover_text("Element");
 									});
+								}
+							});
+						});
+					}
+
+					if let Ok(data) = &mut state.data {
+						ui.group(|ui| {
+							ui.checkbox(
+								&mut data.display_state.show_bounding_mesh,
+								"show bounding mesh",
+							);
+
+							ui.horizontal_wrapped(|ui| {
+								for (i, visible) in data
+									.display_state
+									.bounding_meshes_visible
+									.iter_mut()
+									.enumerate()
+								{
+									let text = if i == 0 {
+										"base".to_string()
+									} else {
+										format!("bone #{i}")
+									};
+									ui.checkbox(visible, text);
 								}
 							});
 						});
@@ -1254,86 +1270,88 @@ impl Editor for GeometricDataContainer {
 									);
 								}
 
-								gl!(gl, use_program, Some(gl_state.bmesh_program));
-								gl!(gl, depth_mask, false);
-								gl!(gl, depth_func, glow::GEQUAL);
+								if display_data.show_bounding_mesh {
+									gl!(gl, use_program, Some(gl_state.bmesh_program));
+									gl!(gl, depth_mask, false);
+									gl!(gl, depth_func, glow::GEQUAL);
 
-								let ident_transform = Transform::identity();
+									let ident_transform = Transform::identity();
 
-								for ((b_mesh, visible), transform) in gl_state
-									.bounding_meshes
-									.iter()
-									.zip(&display_data.bounding_meshes_visible)
-									.zip(
-										iter::once(ident_transform)
-											.chain(transforms.data.clone().into_iter())
-											.chain(iter::repeat(ident_transform)),
-									) {
-									if *visible {
-										gl!(gl, bind_vertex_array, Some(b_mesh.vao));
+									for ((b_mesh, visible), transform) in gl_state
+										.bounding_meshes
+										.iter()
+										.zip(&display_data.bounding_meshes_visible)
+										.zip(
+											iter::once(ident_transform)
+												.chain(transforms.data.clone().into_iter())
+												.chain(iter::repeat(ident_transform)),
+										) {
+										if *visible {
+											gl!(gl, bind_vertex_array, Some(b_mesh.vao));
 
-										let object_mat = Mat4::transform(transform.inverse());
-										gl!(
-											gl,
-											uniform_matrix_4_f32_slice,
+											let object_mat = Mat4::transform(transform.inverse());
 											gl!(
 												gl,
-												get_uniform_location,
-												gl_state.bmesh_program,
-												"model_matrix",
-											)
-											.as_ref(),
-											false,
-											&object_mat.transpose().0,
-										);
+												uniform_matrix_4_f32_slice,
+												gl!(
+													gl,
+													get_uniform_location,
+													gl_state.bmesh_program,
+													"model_matrix",
+												)
+												.as_ref(),
+												false,
+												&object_mat.transpose().0,
+											);
 
-										gl!(
-											gl,
-											uniform_matrix_4_f32_slice,
 											gl!(
 												gl,
-												get_uniform_location,
-												gl_state.bmesh_program,
-												"view_matrix",
-											)
-											.as_ref(),
-											false,
-											&model_mat.transpose().0,
-										);
+												uniform_matrix_4_f32_slice,
+												gl!(
+													gl,
+													get_uniform_location,
+													gl_state.bmesh_program,
+													"view_matrix",
+												)
+												.as_ref(),
+												false,
+												&model_mat.transpose().0,
+											);
 
-										gl!(
-											gl,
-											uniform_matrix_4_f32_slice,
 											gl!(
 												gl,
-												get_uniform_location,
-												gl_state.bmesh_program,
-												"projection_matrix",
-											)
-											.as_ref(),
-											false,
-											&projection_mat.transpose().0,
-										);
+												uniform_matrix_4_f32_slice,
+												gl!(
+													gl,
+													get_uniform_location,
+													gl_state.bmesh_program,
+													"projection_matrix",
+												)
+												.as_ref(),
+												false,
+												&projection_mat.transpose().0,
+											);
 
-										gl!(
-											gl,
-											bind_buffer,
-											glow::ELEMENT_ARRAY_BUFFER,
-											Some(b_mesh.indices),
-										);
+											gl!(
+												gl,
+												bind_buffer,
+												glow::ELEMENT_ARRAY_BUFFER,
+												Some(b_mesh.indices),
+											);
 
-										gl!(
-											gl,
-											draw_elements,
-											glow::TRIANGLES,
-											b_mesh.num_indices as i32,
-											glow::UNSIGNED_INT,
-											0,
-										);
+											gl!(
+												gl,
+												draw_elements,
+												glow::TRIANGLES,
+												b_mesh.num_indices as i32,
+												glow::UNSIGNED_INT,
+												0,
+											);
+										}
 									}
-								}
 
-								gl!(gl, depth_mask, true);
+									gl!(gl, depth_mask, true);
+								}
 
 								// render the texture to the main buffer target
 								gl!(gl, use_program, Some(gl_state.offscreen_render_program));
