@@ -1649,6 +1649,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_inbox"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "009ecee53675c5596174556fd3d7792301db56b9bd244b89b1cda269cfbcc256"
+dependencies = [
+ "egui",
+ "parking_lot",
+]
+
+[[package]]
 name = "egui_memory_editor"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6189,6 +6199,7 @@ dependencies = [
  "eframe",
  "egui_dock",
  "egui_extras",
+ "egui_inbox",
  "egui_memory_editor",
  "embed-resource",
  "futures",

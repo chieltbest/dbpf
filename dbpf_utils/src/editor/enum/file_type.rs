@@ -40,8 +40,15 @@ impl EnumEditor for DBPFFileType {
 		let mut str = String::new();
 		writeln!(str, "{}", file_type.properties().name).unwrap();
 		writeln!(str, "Abbreviation: {}", file_type.properties().abbreviation).unwrap();
-		if let Some(extension) = file_type.properties().extension {
-			writeln!(str, "Extension: {}", extension).unwrap();
+		let extensions = file_type.properties().extensions;
+		if !extensions.is_empty() {
+			writeln!(
+				str,
+				"Extension{}: {:?}",
+				if extensions.len() > 1 { "s" } else { "" },
+				extensions
+			)
+			.unwrap();
 		}
 		write!(str, "Id: {:08X}", *file_type as u32).unwrap();
 		str
@@ -61,9 +68,7 @@ impl EnumEditor for DBPFFileType {
 			prop.abbreviation.to_string(),
 			format!("{:08X}", *file_type as u32),
 		];
-		if let Some(ext) = prop.extension {
-			res.push(ext.to_string());
-		}
+		res.extend(prop.extensions.iter().map(|str| str.to_string()));
 		res
 	}
 

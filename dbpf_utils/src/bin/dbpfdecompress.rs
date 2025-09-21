@@ -52,7 +52,11 @@ fn unpack_header<R: Read + Seek>(header: DBPFFile, reader: &mut R, dir_path: &Pa
 					CompressionType::RefPack => "refpack",
 					CompressionType::Uncompressed => "raw",
 				},
-				type_id.extension()
+				type_id
+					.extensions()
+					.first()
+					.cloned()
+					.unwrap_or_else(|| format!("{:08x}", type_id.code()))
 			));
 			if let Err(err) = std::fs::write(&filename, &raw.data) {
 				eprintln!("{}: {err}", &filename.display());

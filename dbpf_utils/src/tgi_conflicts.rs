@@ -33,7 +33,7 @@ impl Debug for Tgi {
 			self.type_id
 				.properties()
 				.map(|prop| prop.name.to_string())
-				.unwrap_or_else(|| self.type_id.extension())
+				.unwrap_or_else(|| self.type_id.abbreviation())
 				.as_str(),
 		)
 		.field("group", &self.group_id)

@@ -42,6 +42,7 @@ egui_extras = "0.31"
 rfd = "0.15"
 egui_memory_editor = { version = "0.2.12", features = ["serde"] }
 egui_dock = { version = "0.16", features = ["serde"] }
+egui_inbox = "0.8"
 
 tracing = "0.1"
 

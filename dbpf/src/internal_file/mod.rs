@@ -320,7 +320,7 @@ impl DecodedFile {
 				| KnownDBPFFileType::SimDNA
 				| KnownDBPFFileType::VersionInformation,
 			) => Some(CPF::read(&mut cursor).map(DecodedFile::GenericCPF)),
-			DBPFFileType::Known(KnownDBPFFileType::SimOutfits) => {
+			DBPFFileType::Known(KnownDBPFFileType::IDReferenceFile) => {
 				Some(SimOutfits::read(&mut cursor).map(DecodedFile::SimOutfits))
 			}
 			DBPFFileType::Known(

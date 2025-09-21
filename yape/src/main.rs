@@ -7,6 +7,8 @@
 // TODO add open with resource tgi arguments
 // TODO add resource
 
+mod export_resource;
+
 use std::{
 	cell::RefCell,
 	fmt::{Debug, Formatter},
@@ -18,6 +20,7 @@ use std::{
 	sync::Arc,
 };
 
+use crate::export_resource::ExportResourceData;
 use binrw::{BinRead, BinResult};
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
@@ -211,6 +214,9 @@ struct YaPeAppData {
 
 	#[serde(skip)]
 	gl_context: Option<Arc<glow::Context>>,
+
+	#[serde(skip)]
+	export_resource_data: ExportResourceData,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -415,13 +421,12 @@ impl YaPeAppData {
 						.body(|body| {
 							body.rows(button_height, filtered_count, |mut row| {
 								let (ref i, entry_rc) = &filtered_entries[row.index()];
-								let mut entry = entry_rc.borrow_mut();
 
 								let mut sense_fun =
 									|ui: &mut Ui,
 									 res: Response,
 									 clicked: bool,
-									 entry: &IndexEntry| {
+									 entry: &Rc<RefCell<OpenResource>>| {
 										let interact_res = ui.interact(
 											Rect::everything_right_of(res.rect.right()),
 											Id::from(format!("row_interact_{i}")),
@@ -432,20 +437,27 @@ impl YaPeAppData {
 										}
 										(res | interact_res).context_menu(|ui| {
 											if ui.button("Filter on type").clicked() {
-												self.type_filter = (entry.type_id, true);
+												self.type_filter =
+													(entry.borrow().data.type_id, true);
 												ui.close_menu();
 											}
 											if ui.button("Open hex editor").clicked() {
 												open_hex_index = Some(*i);
 												ui.close_menu();
 											}
+											self.export_resource_data.button(
+												entry,
+												&self.open_file_path,
+												ui,
+											);
 										});
 									};
 
 								macro_rules! col {
 									($ui:expr) => {
 										row.col(|r_ui| {
-											r_ui.add_enabled_ui(!entry.ui_deleted, $ui);
+											let enabled = entry_rc.borrow().ui_deleted;
+											r_ui.add_enabled_ui(!enabled, $ui);
 										});
 									};
 								}
@@ -454,6 +466,7 @@ impl YaPeAppData {
 								row.set_selected(selected);
 
 								row.col(|ui| {
+									let mut entry = entry_rc.borrow_mut();
 									if entry.ui_deleted {
 										if ui.button("↩").clicked() {
 											entry.ui_deleted = false;
@@ -463,13 +476,14 @@ impl YaPeAppData {
 									}
 								});
 								row.col(|ui| {
-									let t = entry.data.type_id;
+									let t = entry_rc.borrow().data.type_id;
+									let deleted = entry_rc.borrow().ui_deleted;
 									let res = ui.horizontal_centered(|ui| {
 										let str = t.properties().map_or_else(
 											|| format!("{:08X}", t.code()),
 											|prop| prop.abbreviation.to_string(),
 										);
-										let text = if entry.ui_deleted {
+										let text = if deleted {
 											RichText::new(str).strikethrough()
 										} else {
 											RichText::new(str)
@@ -485,24 +499,25 @@ impl YaPeAppData {
 											t.code()
 										))
 									});
-									sense_fun(ui, res.inner, true, &entry.data);
+									sense_fun(ui, res.inner, true, entry_rc);
 								});
 								col!(|ui| {
 									let res = ui.add(
-										DragValue::new(&mut entry.data.group_id)
+										DragValue::new(&mut entry_rc.borrow_mut().data.group_id)
 											.hexadecimal(8, false, true),
 									);
-									sense_fun(ui, res, false, &entry.data);
+									sense_fun(ui, res, false, entry_rc);
 								});
 								col!(|ui| {
+									let mut entry = entry_rc.borrow_mut();
 									let res = ui.add(
 										DragValue::new(&mut entry.data.instance_id)
 											.hexadecimal(8, false, true),
 									);
-									sense_fun(ui, res, false, &entry.data);
+									sense_fun(ui, res, false, entry_rc);
 								});
 								col!(|ui| {
-									let entry = &mut entry.data;
+									let entry = &mut entry_rc.borrow_mut().data;
 									let res = ComboBox::from_id_salt(format!(
 										"{:?}{}{}",
 										entry.type_id, entry.group_id, entry.instance_id
@@ -536,7 +551,7 @@ impl YaPeAppData {
 											"Deleted",
 										);
 									});
-									sense_fun(ui, res.response, false, entry);
+									sense_fun(ui, res.response, false, entry_rc);
 								});
 							});
 						});
@@ -965,6 +980,9 @@ impl App for YaPeApp {
 				}
 			}
 		}
+		self.data
+			.export_resource_data
+			.update(&mut self.data.open_file, ctx);
 
 		if let Some(root) = self.dock_state.main_surface().root_node() {
 			match root {
@@ -1238,59 +1256,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		Box::new(|cc| Ok(Box::new(YaPeApp::new(cc, args)))),
 	)
 }
-
-/*fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-	graphical_application_main(
-		include_bytes!("../icon.png"),
-		"Yet Another Package Editor",
-		Box::new(|cc| Ok(Box::new(YaPeApp::new(cc, args)))),
-	)
-}*/
-
-/*// When compiling to web using trunk:
-#[cfg(target_arch = "wasm32")]
-fn main() {
-	use eframe::wasm_bindgen::JsCast as _;
-
-	// Redirect `log` message to `console.log` and friends:
-	eframe::WebLogger::init(log::LevelFilter::Debug).ok();
-
-	let web_options = eframe::WebOptions::default();
-
-	wasm_bindgen_futures::spawn_local(async {
-		let document = web_sys::window()
-			.expect("No window")
-			.document()
-			.expect("No document");
-
-		let canvas = document
-			.get_element_by_id("the_canvas_id")
-			.expect("Failed to find the_canvas_id")
-			.dyn_into::<web_sys::HtmlCanvasElement>()
-			.expect("the_canvas_id was not a HtmlCanvasElement");
-
-		let start_result = eframe::WebRunner::new()
-			.start(
-				canvas,
-				web_options,
-				Box::new(|cc| Ok(Box::new(YaPeApp::new(cc)))),
-			)
-			.await;
-
-		// Remove the loading text and spinner:
-		if let Some(loading_text) = document.get_element_by_id("loading_text") {
-			match start_result {
-				Ok(_) => {
-					loading_text.remove();
-				}
-				Err(e) => {
-					loading_text.set_inner_html(
-						"<p> The app has crashed. See the developer console for details. </p>",
-					);
-					panic!("Failed to start eframe: {e:?}");
-				}
-			}
-		}
-	});
-}*/

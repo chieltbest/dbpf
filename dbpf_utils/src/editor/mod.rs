@@ -131,7 +131,7 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
             KnownDBPFFileType::PropertySet |
             KnownDBPFFileType::SimDNA |
             KnownDBPFFileType::VersionInformation |
-            KnownDBPFFileType::SimOutfits |
+            KnownDBPFFileType::IDReferenceFile |
 
             // RCOL
             KnownDBPFFileType::TextureResource |
