@@ -10,7 +10,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-binrw = "0.14"
+binrw = "0.15"
 dbpf = { path = "../dbpf" }
 humansize = "2.1"
 fuzzy-matcher = "0.3"

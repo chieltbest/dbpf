@@ -8,6 +8,8 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
+// TODO bone display
+
 use crate::editor::resource_collection::geometric_data_container::GMDCEditorCreationError::{
 	Create, GetAttrib, GetUniform, GetUniformBlock, IncompleteFramebuffer, NoContext, OpenGL,
 	ProgramLink, ShaderCompile,

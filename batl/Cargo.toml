@@ -24,7 +24,7 @@ identifier = "nl.chieldouwes.batl"
 icons = ["icon.png"]
 
 [dependencies]
-binrw = "0.14"
+binrw = "0.15"
 dbpf = { path = "../dbpf" }
 dbpf_utils = { path = "../dbpf_utils" }
 
