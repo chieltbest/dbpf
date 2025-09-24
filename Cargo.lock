@@ -1280,7 +1280,7 @@ dependencies = [
  "serde_json",
  "test-strategy",
  "texpresso",
- "thiserror 1.0.69",
+ "thiserror 2.0.14",
  "xmltree",
 ]
 

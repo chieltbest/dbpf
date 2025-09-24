@@ -15,7 +15,7 @@ publish = false
 binrw = "0.15.0"
 refpack = "5.0"
 modular-bitfield = "0.12"
-thiserror = "1.0"
+thiserror = "2.0"
 enum-iterator = "2.1"
 itertools = "0.14.0"
 derive_more = { version = "2.0", features = ["try_from", "from", "try_into", "display", "deref", "deref_mut"] }
