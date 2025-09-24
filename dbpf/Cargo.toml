@@ -23,7 +23,7 @@ texpresso = "2.0.2"
 gltf_kun = "0.2.0"
 serde_json = { version = "1.0.141", features = ["raw_value"] }
 ddsfile = "0.5"
-miniz_oxide = { version = "0.7.4", features = ["simd"] }
+miniz_oxide = { version = "0.8", features = ["simd"] }
 xmltree = "0.11"
 log = "0.4.27"
 
