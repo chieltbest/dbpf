@@ -13,7 +13,7 @@ publish = false
 
 [dependencies]
 binrw = "0.15.0"
-refpack = "5.0.0"
+refpack = "5.0"
 modular-bitfield = "0.12"
 thiserror = "1.0"
 enum-iterator = "2.1"
