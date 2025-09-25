@@ -28,7 +28,7 @@ binrw = "0.15"
 dbpf = { path = "../dbpf" }
 dbpf_utils = { path = "../dbpf_utils" }
 
-lru = "0.13"
+lru = "0.16"
 
 futures = "0.3"
 
