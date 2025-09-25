@@ -131,7 +131,6 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
 		_inputs: &[InPin],
 		_outputs: &[OutPin],
 		ui: &mut Ui,
-		_scale: f32,
 		snarl: &mut Snarl<Instruction>,
 	) {
 		ui.label("Instruction");
@@ -146,7 +145,6 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
 		&mut self,
 		_pin: &InPin,
 		_ui: &mut Ui,
-		_scale: f32,
 		_snarl: &mut Snarl<Instruction>,
 	) -> impl SnarlPin + 'static {
 		PinInfo::circle()
@@ -160,7 +158,6 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
 		&mut self,
 		pin: &OutPin,
 		ui: &mut Ui,
-		_scale: f32,
 		snarl: &mut Snarl<Instruction>,
 	) -> impl SnarlPin + 'static {
 		let (target, color) = if pin.id.output == 0 {
@@ -182,7 +179,6 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
 		_inputs: &[InPin],
 		_outputs: &[OutPin],
 		ui: &mut Ui,
-		scale: f32,
 		snarl: &mut Snarl<Instruction>,
 	) {
 		let instr = &mut snarl[node];
@@ -193,8 +189,6 @@ impl<'a, 'b> SnarlViewer<Instruction> for BhavViewer<'a, 'b> {
 			});
 
 			ui.collapsing("parameters", |ui| {
-				ui.style_mut().spacing.interact_size.x = 25.0 * scale;
-				ui.style_mut().spacing.item_spacing.x = 5.0 * scale;
 				ui.horizontal(|ui| {
 					for u in &mut instr.operands[..8] {
 						ui.add(DragValue::new(u).hexadecimal(2, false, false));

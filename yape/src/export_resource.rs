@@ -1,9 +1,7 @@
 use crate::{OpenFileState, OpenResource};
-use binrw::BinWrite;
 use dbpf_utils::async_execute;
 use eframe::egui;
 use eframe::egui::{Button, Ui};
-use eframe::emath::Numeric;
 use egui_inbox::UiInbox;
 use std::cell::RefCell;
 use std::path::Path;
@@ -92,8 +90,6 @@ impl ExportResourceData {
 			async_execute(async move {
 				let _ = sender.send(dialog.await);
 			});
-
-			ui.close_menu();
 		}
 	}
 }

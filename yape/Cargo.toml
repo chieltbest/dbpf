@@ -36,13 +36,13 @@ dbpf_utils = { path = "../dbpf_utils" }
 
 futures = "0.3"
 
-eframe = { version = "0.31", features = ["persistence"] }
+eframe = { version = "0.32", features = ["persistence"] }
 serde = "1.0.203"
-egui_extras = "0.31"
+egui_extras = "0.32"
 rfd = "0.15"
-egui_memory_editor = { version = "0.2.12", features = ["serde"] }
-egui_dock = { version = "0.16", features = ["serde"] }
-egui_inbox = "0.8"
+egui_memory_editor = { version = "0.2.13", features = ["serde"] }
+egui_dock = { version = "0.17", features = ["serde"] }
+egui_inbox = "0.9"
 
 tracing = "0.1"
 

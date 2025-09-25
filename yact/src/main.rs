@@ -329,7 +329,6 @@ impl DBPFApp {
 									.context_menu(|ui| {
 										ui.button("Forget known conflict").clicked().then(|| {
 											remove = Some(i);
-											ui.close_menu();
 										});
 									});
 								};
@@ -363,7 +362,6 @@ impl DBPFApp {
 				conflict.original.clone(),
 				conflict.new.clone(),
 			));
-			ui.close_menu();
 		});
 
 		ui.button("Copy name").clicked().then(|| {
@@ -372,7 +370,6 @@ impl DBPFApp {
 			} else {
 				warn!("could not get file stem");
 			}
-			ui.close_menu();
 		});
 		ui.button("Copy name.package").clicked().then(|| {
 			if let Some(name) = path.file_name().and_then(|str| str.to_str()) {
@@ -380,15 +377,12 @@ impl DBPFApp {
 			} else {
 				warn!("could not get filename");
 			}
-			ui.close_menu();
 		});
 		ui.button("Copy full path").clicked().then(|| {
 			ui.ctx().copy_text(path.to_string_lossy().to_string());
-			ui.close_menu();
 		});
 		ui.button("Copy full conflict data").clicked().then(|| {
 			ui.ctx().copy_text(format!("{}", conflict));
-			ui.close_menu();
 		});
 	}
 

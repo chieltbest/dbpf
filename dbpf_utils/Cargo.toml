@@ -18,10 +18,10 @@ fuzzy-matcher = "0.3"
 futures = "0.3"
 itertools = "0.14"
 
-eframe = { version = "0.31", features = ["persistence"] }
-egui_extras = { version = "0.31", features = ["datepicker", "serde"] }
+eframe = { version = "0.32", features = ["persistence"] }
+egui_extras = { version = "0.32", features = ["datepicker", "serde"] }
 rfd = "0.15"
-egui-snarl = "0.7"
+egui-snarl = "0.8"
 enum-iterator = "2.1"
 chrono = "0.4"
 

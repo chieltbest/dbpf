@@ -29,10 +29,10 @@ dbpf_utils = { path = "../dbpf_utils" }
 
 futures = "0.3"
 
-eframe = { version = "0.31", features = ["persistence"] }
+eframe = { version = "0.32", features = ["persistence"] }
 serde = "1.0.203"
 serde_json = "1.0.140"
-egui_extras = "0.31"
+egui_extras = "0.32"
 rfd = "0.15"
 
 tracing = "0.1"

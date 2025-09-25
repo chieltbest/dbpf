@@ -324,7 +324,6 @@ impl DBPFApp {
 									.context_menu(|ui| {
 										ui.button("Forget known texture").clicked().then(|| {
 											remove = Some(i);
-											ui.close_menu();
 										});
 									});
 								};
@@ -362,7 +361,6 @@ impl DBPFApp {
 	fn texture_menu(&mut self, path: &Path, texture: &FoundTexture, ui: &mut Ui) {
 		ui.button("Add to known textures").clicked().then(|| {
 			self.texture_list.add_known(texture.id.clone());
-			ui.close_menu();
 		});
 
 		ui.button("Copy name").clicked().then(|| {
@@ -371,7 +369,6 @@ impl DBPFApp {
 			} else {
 				warn!("could not get file stem");
 			}
-			ui.close_menu();
 		});
 		ui.button("Copy name.package").clicked().then(|| {
 			if let Some(name) = path.file_name().and_then(|str| str.to_str()) {
@@ -379,16 +376,13 @@ impl DBPFApp {
 			} else {
 				warn!("could not get filename");
 			}
-			ui.close_menu();
 		});
 		ui.button("Copy full path").clicked().then(|| {
 			ui.ctx().copy_text(path.to_string_lossy().to_string());
-			ui.close_menu();
 		});
 		if let Some(parent) = path.parent() {
 			ui.button("Copy directory").clicked().then(|| {
 				ui.ctx().copy_text(parent.to_string_lossy().to_string());
-				ui.close_menu();
 			});
 		}
 	}

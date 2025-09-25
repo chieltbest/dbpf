@@ -51,10 +51,10 @@ pub trait EnumEditor {
 				text_edit_response
 					.state
 					.cursor
-					.set_char_range(Some(CCursorRange {
-						secondary: CCursor::new(0),
-						primary: CCursor::new(state.search_string.len()),
-					}));
+					.set_char_range(Some(CCursorRange::two(
+						CCursor::new(0),
+						CCursor::new(state.search_string.len()),
+					)));
 				text_edit_response
 					.state
 					.clone()
@@ -90,7 +90,6 @@ pub trait EnumEditor {
 						{
 							*self = Self::from_known(t);
 							text_edit_response.response.mark_changed();
-							ui.close_menu();
 						}
 					});
 				});
@@ -101,7 +100,7 @@ pub trait EnumEditor {
 				} else if let Some(new) = Self::from_string(&state.search_string) {
 					*self = new;
 				}
-				ui.close_menu();
+				ui.close();
 				text_edit_response.response.mark_changed();
 			}
 			text_edit_response
@@ -114,10 +113,6 @@ pub trait EnumEditor {
 			inner_res.response.clone().on_hover_text(str);
 		}
 
-		if let Some(inner) = inner_res.inner {
-			inner_res.response | inner.response
-		} else {
-			inner_res.response
-		}
+		inner_res.response
 	}
 }

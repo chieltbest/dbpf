@@ -439,11 +439,9 @@ impl YaPeAppData {
 											if ui.button("Filter on type").clicked() {
 												self.type_filter =
 													(entry.borrow().data.type_id, true);
-												ui.close_menu();
 											}
 											if ui.button("Open hex editor").clicked() {
 												open_hex_index = Some(*i);
-												ui.close_menu();
 											}
 											self.export_resource_data.button(
 												entry,
@@ -986,16 +984,16 @@ impl App for YaPeApp {
 
 		if let Some(root) = self.dock_state.main_surface().root_node() {
 			match root {
-				Node::Vertical { fraction, .. } => {
+				Node::Vertical(node) => {
 					self.root_node_state.split = SplitDirection::Vertical;
-					self.root_node_state.fraction = *fraction;
+					self.root_node_state.fraction = node.fraction;
 				}
-				Node::Horizontal { fraction, .. } => {
+				Node::Horizontal(node) => {
 					self.root_node_state.split = SplitDirection::Horizontal;
-					self.root_node_state.fraction = *fraction;
+					self.root_node_state.fraction = node.fraction;
 				}
-				Node::Leaf { tabs, .. } => {
-					if tabs.len() > 1 {
+				Node::Leaf(node) => {
+					if node.tabs.len() > 1 {
 						self.root_node_state.split = SplitDirection::Tabs;
 					}
 				}
