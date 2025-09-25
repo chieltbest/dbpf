@@ -143,10 +143,6 @@ fn file_type_default() -> (DBPFFileType, bool) {
 	)
 }
 
-fn true_default() -> bool {
-	true
-}
-
 #[derive(Debug)]
 struct OpenResource {
 	ui_deleted: bool,
@@ -175,24 +171,18 @@ enum DeletedRememberPreference {
 	Remember,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct YaPeAppData {
-	#[serde(default = "true_default")]
 	backup_on_save: bool,
 
-	#[serde(default)]
 	backup_overwrite_preference: BackupOverwritePreference,
 
-	#[serde(default)]
 	deleted_remember_preference: DeletedRememberPreference,
 
-	#[serde(default)]
 	memory_editor_options: MemoryEditorOptions,
 
-	#[serde(default)]
 	open_file_path: Option<PathBuf>,
 
-	#[serde(default)]
 	highlight_index: Option<usize>,
 
 	#[serde(
@@ -219,8 +209,31 @@ struct YaPeAppData {
 	export_resource_data: ExportResourceData,
 }
 
+impl Default for YaPeAppData {
+	fn default() -> Self {
+		Self {
+			backup_on_save: true,
+			type_filter: (
+				DBPFFileType::Known(KnownDBPFFileType::TextureResource),
+				false,
+			),
+
+			backup_overwrite_preference: Default::default(),
+			deleted_remember_preference: Default::default(),
+			memory_editor_options: Default::default(),
+			open_file_path: None,
+			highlight_index: None,
+			type_filter_state: Default::default(),
+			open_file: None,
+			open_new_tab_index: None,
+			open_new_hex_tab_index: None,
+			gl_context: None,
+			export_resource_data: Default::default(),
+		}
+	}
+}
+
 #[derive(Serialize, Deserialize)]
-#[serde(default)]
 struct YaPeApp {
 	ui_scale: f32,
 	#[serde(default)]
