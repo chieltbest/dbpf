@@ -1202,6 +1202,7 @@ impl App for YaPeApp {
 		style.separator.color_hovered = Color32::GRAY;
 		egui_dock::DockArea::new(&mut self.dock_state)
 			.style(style)
+			.show_leaf_collapse_buttons(false)
 			.show(ctx, &mut self.data);
 
 		let gl_ctx = &self.data.gl_context.clone();
