@@ -9,5 +9,7 @@ out vec4 out_color;
 
 void main() {
     // values for premultiplied alpha
-    out_color = vec4(vec3(0.25), 0.5);
+    vec3 color = vec3(0.5);
+    float alpha = 0.15;
+    out_color = vec4(color * alpha, alpha);
 }
