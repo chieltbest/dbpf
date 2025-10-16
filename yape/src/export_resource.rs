@@ -1,12 +1,10 @@
 use crate::{OpenFileState, OpenResource};
-use dbpf::filetypes::{DBPFFileType, KnownDBPFFileType};
-use dbpf::IndexEntry;
+use dbpf::filetypes::DBPFFileType;
 use dbpf_utils::async_execute;
 use eframe::egui;
-use eframe::egui::{Button, Color32, DroppedFile, Event, HoveredFile, Sense, Ui};
+use eframe::egui::{Button, Color32, DroppedFile, HoveredFile, Ui};
 use egui_inbox::UiInbox;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read, Seek};
 use std::path::Path;
@@ -22,7 +20,7 @@ fn file_drop_area<R>(
 
 	let mut prepared = frame.begin(ui);
 	let inner = contents(&mut prepared.content_ui);
-	let response = prepared.allocate_space(ui);
+	let _response = prepared.allocate_space(ui);
 
 	let (any_can_drop, any_hovered, dropped_files) = ui.input_mut(|i| {
 		(
@@ -64,7 +62,7 @@ fn file_drop_area<R>(
 	(dropped_files, inner)
 }
 
-fn tgi_from_filename(name: &str) -> (Option<DBPFFileType>, Option<u32>, Option<u64>) {
+/*fn tgi_from_filename(name: &str) -> (Option<DBPFFileType>, Option<u32>, Option<u64>) {
 	let mut t = None;
 	let mut g = None;
 	let mut i = None;
@@ -92,7 +90,7 @@ fn tgi_from_filename(name: &str) -> (Option<DBPFFileType>, Option<u32>, Option<u
 	// TODO i from name
 
 	(t, g, i)
-}
+}*/
 
 fn filename_from_tgi(t: DBPFFileType, g: u32, i: u64) -> String {
 	let extension = t
@@ -167,7 +165,7 @@ pub struct ExportResourceData {
 }
 
 impl ExportResourceData {
-	pub fn update_import_index<R>(
+	/*pub fn update_import_index<R>(
 		&mut self,
 		ui: &mut Ui,
 		open_file_state: &mut Option<OpenFileState>,
@@ -202,7 +200,7 @@ impl ExportResourceData {
 			}
 		}
 		response
-	}
+	}*/
 
 	/// call once per frame
 	pub fn update(&mut self, open_file_state: &mut Option<OpenFileState>, ctx: &egui::Context) {
