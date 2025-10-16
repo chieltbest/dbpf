@@ -316,7 +316,7 @@ impl EntryEditorTab {
 		if let Some(data) = self.data.upgrade() {
 			let mut data_ref = data.borrow_mut();
 
-			let (res, replaced) =
+			let (_, replaced) =
 				resource_import_overlay(ui, &mut data_ref, reader, |ui, data_ref, reader| {
 					ui.add_enabled_ui(!data_ref.ui_deleted, |ui| match &mut self.state {
 						EditorType::Error(err) => {
@@ -687,7 +687,7 @@ impl TabViewer for YaPeAppData {
 		}
 	}
 
-	fn closeable(&mut self, tab: &mut Self::Tab) -> bool {
+	fn is_closeable(&self, tab: &Self::Tab) -> bool {
 		match tab {
 			YaPeTab::File => false,
 			YaPeTab::Entry(_) => true,
