@@ -34,6 +34,7 @@ use dbpf_utils::{
 	editor::{editor_supported, DecodedFileEditorState, Editor},
 	graphical_application_main,
 };
+use eframe::epaint::AlphaFromCoverage;
 use eframe::{
 	egui,
 	egui::{
@@ -1049,6 +1050,13 @@ impl App for YaPeApp {
 				_ => {}
 			}
 		}
+
+		ctx.style_mut(|style| {
+			style.visuals.widgets.inactive.fg_stroke.color = Color32::BLACK;
+			style.visuals.widgets.active.fg_stroke.color = Color32::BLACK;
+			style.visuals.widgets.noninteractive.fg_stroke.color = Color32::BLACK;
+			style.visuals.widgets.open.fg_stroke.color = Color32::BLACK;
+		});
 
 		egui::TopBottomPanel::top("top_panel")
 			.resizable(false)
