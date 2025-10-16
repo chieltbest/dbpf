@@ -6254,6 +6254,7 @@ dependencies = [
  "egui_inbox",
  "egui_memory_editor",
  "embed-resource",
+ "enum-iterator",
  "futures",
  "log",
  "rfd",

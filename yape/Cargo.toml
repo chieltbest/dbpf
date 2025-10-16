@@ -45,6 +45,7 @@ egui_dock = { version = "0.17", features = ["serde"] }
 egui_inbox = "0.9"
 
 tracing = "0.1"
+enum-iterator = "2.3.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 walkdir = "2"

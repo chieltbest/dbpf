@@ -20,7 +20,7 @@ use std::{
 	sync::Arc,
 };
 
-use crate::export_resource::ExportResourceData;
+use crate::export_resource::{resource_import_overlay, ExportResourceData};
 use binrw::{BinRead, BinResult};
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
@@ -76,6 +76,36 @@ impl Debug for EditorType {
 impl Default for EditorType {
 	fn default() -> Self {
 		Self::HexEditor(MemoryEditor::default())
+	}
+}
+
+impl EditorType {
+	pub fn new<R: Read + Seek>(
+		entry_ref: &mut IndexEntry,
+		reader: &mut R,
+		file_type: DBPFFileType,
+		hex_editor: bool,
+		ui_ctx: &Context,
+		gl_ctx: &Option<Arc<glow::Context>>,
+	) -> Self {
+		entry_ref
+			.data(reader)
+			.map_err(CompressionError::BinResult)
+			.and_then(|entry| {
+				if editor_supported(file_type) && !hex_editor {
+					let decoded = entry.decoded()?.unwrap();
+					Ok(EditorType::DecodedEditor(
+						decoded.new_editor(ui_ctx, gl_ctx),
+					))
+				} else {
+					let decompressed = entry.decompressed()?;
+					Ok(EditorType::HexEditor(
+						MemoryEditor::new().with_address_range("", 0..decompressed.data.len()),
+					))
+				}
+			})
+			.inspect_err(|err| error!(?err))
+			.unwrap_or_else(EditorType::Error)
 	}
 }
 
@@ -277,47 +307,68 @@ impl Default for YaPeApp {
 }
 
 impl EntryEditorTab {
-	fn show<R: Read + Seek>(&mut self, ui: &mut Ui, reader: &mut R) {
+	fn show<R: Read + Seek>(
+		&mut self,
+		ui: &mut Ui,
+		reader: &mut R,
+		gl_ctx: &Option<Arc<glow::Context>>,
+	) {
 		if let Some(data) = self.data.upgrade() {
 			let mut data_ref = data.borrow_mut();
-			ui.add_enabled_ui(!data_ref.ui_deleted, |ui| match &mut self.state {
-				EditorType::Error(err) => {
-					ScrollArea::vertical().show(ui, |ui| {
-						ui.label(format!("{err:?}"));
-					});
-				}
-				EditorType::HexEditor(editor) => {
-					let data = data_ref.data.data(reader).unwrap().decompressed().unwrap();
-					if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-						if !self.is_hex_editor {
-							ui.centered_and_justified(|ui| {
-								ScrollArea::vertical().show(ui, |ui| {
-									if ui.code_editor(&mut str).changed() {
-										data.data = str.into_bytes();
-									}
-								})
+
+			let (res, replaced) =
+				resource_import_overlay(ui, &mut data_ref, reader, |ui, data_ref, reader| {
+					ui.add_enabled_ui(!data_ref.ui_deleted, |ui| match &mut self.state {
+						EditorType::Error(err) => {
+							ScrollArea::vertical().show(ui, |ui| {
+								ui.label(format!("{err:?}"));
 							});
-							return;
 						}
-					}
-					editor.draw_editor_contents(
-						ui,
-						data,
-						|mem, addr| Some(mem.data[addr]),
-						|mem, addr, byte| mem.data[addr] = byte,
-					);
-				}
-				EditorType::DecodedEditor(state) => {
-					let decoded = data_ref
-						.data
-						.data(reader)
-						.unwrap()
-						.decoded()
-						.unwrap()
-						.unwrap();
-					decoded.show_editor(state, ui);
-				}
-			});
+						EditorType::HexEditor(editor) => {
+							let data = data_ref.data.data(reader).unwrap().decompressed().unwrap();
+							if let Ok(mut str) = String::from_utf8(data.data.clone()) {
+								if !self.is_hex_editor {
+									ui.centered_and_justified(|ui| {
+										ScrollArea::vertical().show(ui, |ui| {
+											if ui.code_editor(&mut str).changed() {
+												data.data = str.into_bytes();
+											}
+										})
+									});
+									return;
+								}
+							}
+							editor.draw_editor_contents(
+								ui,
+								data,
+								|mem, addr| Some(mem.data[addr]),
+								|mem, addr, byte| mem.data[addr] = byte,
+							);
+						}
+						EditorType::DecodedEditor(state) => {
+							let decoded = data_ref
+								.data
+								.data(reader)
+								.unwrap()
+								.decoded()
+								.unwrap()
+								.unwrap();
+							decoded.show_editor(state, ui);
+						}
+					});
+				});
+
+			if replaced {
+				let type_id = data_ref.data.type_id;
+				self.state = EditorType::new(
+					&mut data_ref.data,
+					reader,
+					type_id,
+					self.is_hex_editor,
+					ui.ctx(),
+					gl_ctx,
+				);
+			}
 		}
 	}
 }
@@ -614,7 +665,7 @@ impl TabViewer for YaPeAppData {
 			YaPeTab::File => self.show_index(ui),
 			YaPeTab::Entry(entry) => {
 				if let Some(file) = &mut self.open_file {
-					entry.show(ui, &mut file.bytes);
+					entry.show(ui, &mut file.bytes, &self.gl_context);
 				}
 			}
 		}
@@ -775,26 +826,11 @@ impl YaPeApp {
 		let index_entry = file_resources.get(index)?;
 		let entry_ref = &mut index_entry.borrow_mut().data;
 		let file_type = entry_ref.type_id;
-		let res = entry_ref
-			.data(reader)
-			.map_err(CompressionError::BinResult)
-			.and_then(|entry| {
-				if editor_supported(file_type) && !hex_editor {
-					let decoded = entry.decoded()?.unwrap();
-					Ok(EditorType::DecodedEditor(
-						decoded.new_editor(ui_ctx, gl_ctx),
-					))
-				} else {
-					let decompressed = entry.decompressed()?;
-					Ok(EditorType::HexEditor(
-						MemoryEditor::new().with_address_range("", 0..decompressed.data.len()),
-					))
-				}
-			})
-			.inspect_err(|err| error!(?err));
+
+		let res = EditorType::new(entry_ref, reader, file_type, hex_editor, ui_ctx, gl_ctx);
 
 		Some(EntryEditorTab {
-			state: res.unwrap_or_else(EditorType::Error),
+			state: res,
 			data: Rc::downgrade(index_entry),
 			index: Some(index),
 			is_hex_editor: hex_editor,
