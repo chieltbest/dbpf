@@ -34,7 +34,6 @@ use dbpf_utils::{
 	editor::{editor_supported, DecodedFileEditorState, Editor},
 	graphical_application_main,
 };
-use eframe::epaint::AlphaFromCoverage;
 use eframe::{
 	egui,
 	egui::{
