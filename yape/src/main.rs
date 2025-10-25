@@ -34,6 +34,7 @@ use dbpf_utils::{
 	editor::{editor_supported, DecodedFileEditorState, Editor},
 	graphical_application_main,
 };
+use eframe::egui::PopupCloseBehavior;
 use eframe::epaint::AlphaFromCoverage;
 use eframe::{
 	egui,
@@ -614,7 +615,6 @@ impl YaPeAppData {
 											"Deleted",
 										);
 									});
-									sense_fun(ui, res.response, false, entry_rc);
 								});
 							});
 						});
