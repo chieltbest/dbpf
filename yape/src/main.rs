@@ -574,15 +574,12 @@ impl YaPeAppData {
 								});
 								col!(|ui| {
 									let mut entry = entry_rc.borrow_mut();
-									let res = ui.add(
-										DragValue::new(&mut entry.data.instance_id)
-											.hexadecimal(8, false, true),
-									);
+									let res = entry.data.instance_id.show_editor(&mut (), ui);
 									sense_fun(ui, res, false, entry_rc);
 								});
 								col!(|ui| {
 									let entry = &mut entry_rc.borrow_mut().data;
-									let res = ComboBox::from_id_salt(format!(
+									ComboBox::from_id_salt(format!(
 										"{:?}{}{}",
 										entry.type_id, entry.group_id, entry.instance_id
 									))

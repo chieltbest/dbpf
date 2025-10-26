@@ -4,15 +4,15 @@
 
 use std::sync::Arc;
 
+use crate::editor::Editor;
 use binrw::NullWideString;
 use dbpf::common::{BigString, ByteString, NullString, PascalString};
+use eframe::egui::DragValue;
 use eframe::{
 	egui,
 	egui::{Response, TextEdit, Ui, Vec2},
 	glow,
 };
-
-use crate::editor::Editor;
 
 trait StringEditor: TryInto<String> + From<String> + Clone {}
 
@@ -60,3 +60,30 @@ impl StringEditor for BigString {}
 
 impl StringEditor for NullString {}
 impl StringEditor for NullWideString {}
+
+impl Editor for u64 {
+	type EditorState = ();
+
+	fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+		ui.horizontal(|ui| {
+			ui.add(
+				DragValue::from_get_set(|v| {
+					if let Some(v) = v {
+						*self = ((v as u64) << 32) + (*self & 0xFFFF_FFFF);
+					}
+					(*self >> 32) as f64
+				})
+				.hexadecimal(8, false, true),
+			) | ui.add(
+				DragValue::from_get_set(|v| {
+					if let Some(v) = v {
+						*self = (*self & 0xFFFF_FFFF_0000_0000) + ((v as u64) & 0xFFFF_FFFF);
+					}
+					(*self & 0xFFFF_FFFF) as f64
+				})
+				.hexadecimal(8, false, true),
+			)
+		})
+		.inner
+	}
+}
