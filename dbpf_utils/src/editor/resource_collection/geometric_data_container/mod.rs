@@ -995,7 +995,7 @@ impl Editor for GeometricDataContainer {
 			});
 
 		ui.horizontal_wrapped(|ui| {
-			if ui
+			/*if ui
 				.button("Export glTF")
 				.on_hover_text("export the mesh to a .gltf file")
 				.clicked() && state.save_file_picker.is_none()
@@ -1018,7 +1018,7 @@ impl Editor for GeometricDataContainer {
 					};
 				});
 				state.save_file_picker = Some(rx);
-			}
+			}*/
 
 			if let Ok(state_data) = &mut state.data {
 				for mode in all::<DisplayMode>() {
