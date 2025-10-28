@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+// the bitfield macro will create unused parens, ignore them
+#![allow(unused_parens)]
+
 use std::io::{Read, Seek, Write};
 
 use binrw::{args, binread, BinRead, BinResult, BinWrite};

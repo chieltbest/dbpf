@@ -11,10 +11,10 @@ use std::sync::{Arc, RwLock};
 // TODO bone display
 
 use crate::editor::resource_collection::geometric_data_container::GMDCEditorCreationError::{
-	Create, GetAttrib, GetUniform, GetUniformBlock, IncompleteFramebuffer, NoContext, OpenGL,
-	ProgramLink, ShaderCompile,
+	Create, GetAttrib, GetUniformBlock, IncompleteFramebuffer, NoContext, OpenGL, ProgramLink,
+	ShaderCompile,
 };
-use crate::{async_execute, editor::Editor};
+use crate::editor::Editor;
 use dbpf::internal_file::resource_collection::geometric_data_container::math::Transform;
 use dbpf::internal_file::resource_collection::geometric_data_container::{
 	math::{Mat4, Vertex},
@@ -86,16 +86,12 @@ struct GlBoundingMesh {
 	vao: glow::VertexArray,
 	vertices: glow::Buffer,
 	indices: glow::Buffer,
-	num_vertices: usize,
 	num_indices: usize,
 }
 
 #[derive(Clone, Debug)]
 struct SharedGlState {
 	program: glow::Program,
-
-	attribute_locations: BTreeMap<&'static str, u32>,
-	uniform_block_locations: BTreeMap<&'static str, u32>,
 
 	blend_values_buffer: glow::Buffer,
 	bones_buffer: glow::Buffer,
@@ -199,8 +195,8 @@ pub enum GMDCEditorCreationError {
 	Create(String),
 	#[error("Could not get attribute location for OpenGL attribute {0}")]
 	GetAttrib(&'static str),
-	#[error("Could not get uniform location for OpenGL uniform {0}")]
-	GetUniform(&'static str),
+	/*#[error("Could not get uniform location for OpenGL uniform {0}")]
+	GetUniform(&'static str),*/
 	#[error("Could not get uniform block index for OpenGL uniform block {0}")]
 	GetUniformBlock(&'static str),
 	#[error("framebuffer is incomplete, OpenGL error code: 0x{0}")]
@@ -690,7 +686,6 @@ impl GMDCEditorStateData {
 						.flat_map(|v| [v.x.to_le_bytes(), v.y.to_le_bytes(), v.z.to_le_bytes()])
 						.flatten()
 						.collect();
-					let num_vertices = subset.vertices.len();
 					let subset_index_data: Vec<u8> = subset
 						.faces
 						.iter()
@@ -735,7 +730,6 @@ impl GMDCEditorStateData {
 							vao,
 							vertices: vbo,
 							indices: veo,
-							num_vertices,
 							num_indices,
 						},
 						true,
@@ -755,9 +749,6 @@ impl GMDCEditorStateData {
 
 					data: Arc::new(RwLock::new(SharedGlState {
 						program: main_program,
-
-						attribute_locations,
-						uniform_block_locations,
 
 						blend_values_buffer,
 						bones_buffer,
