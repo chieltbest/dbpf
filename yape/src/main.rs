@@ -34,13 +34,13 @@ use dbpf_utils::{
 	editor::{editor_supported, DecodedFileEditorState, Editor},
 	graphical_application_main,
 };
+use eframe::egui::{Align2, Window};
 use eframe::epaint::AlphaFromCoverage;
 use eframe::{
 	egui,
 	egui::{
 		Button, Color32, ComboBox, Context, DragValue, Id, Key, KeyboardShortcut, Label, Modifiers,
-		Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, TextWrapMode, Ui, Visuals,
-		WidgetText,
+		Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText,
 	},
 	glow, App, Frame, Storage,
 };
@@ -216,6 +216,8 @@ struct YaPeAppData {
 
 	highlight_index: Option<usize>,
 
+	settings_open: bool,
+
 	#[serde(
 		default = "file_type_default",
 		serialize_with = "file_type_ser",
@@ -260,6 +262,7 @@ impl Default for YaPeAppData {
 			open_new_hex_tab_index: None,
 			gl_context: None,
 			export_resource_data: Default::default(),
+			settings_open: false,
 		}
 	}
 }
@@ -1083,54 +1086,100 @@ impl App for YaPeApp {
 						ui.label("UI Scale");
 					});
 
-					ui.menu_button("⚙", |ui| {
-						#[cfg(not(target_arch = "wasm32"))]
-						{
-							ui.checkbox(&mut self.data.backup_on_save, "create backup files")
-								.on_hover_text("make a backup file every time you save a package");
+					// this is a temporary workaround for the broken combobox-in-popup behaviour in egui >= 0.32
+					// ref: https://github.com/emilk/egui/discussions/4463
+					let settings_button = ui.button("⚙");
+					if settings_button.clicked() {
+						self.data.settings_open = !self.data.settings_open;
+					}
 
-							ui.add_enabled_ui(self.data.backup_on_save, |ui| {
-								ComboBox::new("backup_overwrite_preference", "backups")
-									.width(0.0)
-									.wrap_mode(TextWrapMode::Extend)
-									.selected_text(format!(
-										"{:?}",
-										self.data.backup_overwrite_preference
-									))
-									.show_ui(ui, |ui| {
-										for pref in [
-											BackupOverwritePreference::Keep,
-											BackupOverwritePreference::Overwrite,
-											BackupOverwritePreference::Numbered,
-										] {
-											ui.selectable_value(
-												&mut self.data.backup_overwrite_preference,
-												pref,
-												format!("{pref:?}"),
-											);
-										}
-									});
-							});
-						}
+					let settings_window = Window::new("Settings")
+						.open(&mut self.data.settings_open)
+						.collapsible(false)
+						.auto_sized()
+						.title_bar(false)
+						.anchor(
+							Align2::LEFT_TOP,
+							settings_button.rect.left_bottom().to_vec2(),
+						)
+						.show(ctx, |ui| {
+							let mut clicked_inside = false;
 
-						ComboBox::new("deleted_remember_preference", "deleted resources on saving")
+							#[cfg(not(target_arch = "wasm32"))]
+							{
+								ui.checkbox(&mut self.data.backup_on_save, "create backup files")
+									.on_hover_text(
+										"make a backup file every time you save a package",
+									);
+
+								ui.add_enabled_ui(self.data.backup_on_save, |ui| {
+									let backup_setting =
+										ComboBox::new("backup_overwrite_preference", "backups")
+											.width(0.0)
+											.selected_text(format!(
+												"{:?}",
+												self.data.backup_overwrite_preference
+											))
+											.show_ui(ui, |ui| {
+												[
+													BackupOverwritePreference::Keep,
+													BackupOverwritePreference::Overwrite,
+													BackupOverwritePreference::Numbered,
+												]
+												.map(|pref| {
+													ui.selectable_value(
+														&mut self.data.backup_overwrite_preference,
+														pref,
+														format!("{pref:?}"),
+													)
+													.clicked()
+												})
+												.into_iter()
+												.any(|b| b)
+											});
+									if backup_setting.inner.unwrap_or(false) {
+										clicked_inside = true;
+									}
+								});
+							}
+
+							let delete_setting = ComboBox::new(
+								"deleted_remember_preference",
+								"deleted resources on saving",
+							)
 							.selected_text(format!("{:?}", self.data.deleted_remember_preference))
 							.width(0.0)
 							.show_ui(ui, |ui| {
-								for pref in [
+								[
 									DeletedRememberPreference::Forget,
 									DeletedRememberPreference::Remember,
-								] {
+								]
+								.map(|pref| {
 									ui.selectable_value(
 										&mut self.data.deleted_remember_preference,
 										pref,
 										format!("{pref:?}"),
-									);
-								}
+									)
+									.clicked()
+								})
+								.into_iter()
+								.any(|b| b)
 							});
+							if delete_setting.inner.unwrap_or(false) {
+								clicked_inside = true;
+							}
 
-						ui.add_space(50.0);
-					});
+							clicked_inside
+						});
+
+					if let Some(settings_window) = settings_window {
+						if !settings_button.clicked()
+							&& settings_window.response.clicked_elsewhere()
+							&& !settings_window.inner.unwrap_or(false)
+						{
+							self.data.settings_open = false;
+						}
+					}
 
 					if ui.button("🗁").on_hover_text("open file...").clicked()
 						&& self.file_picker.is_none()
