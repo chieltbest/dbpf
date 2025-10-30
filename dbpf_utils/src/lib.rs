@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::{future::Future, io::Cursor};
+use std::future::Future;
 
 use eframe::AppCreator;
-use tracing_panic::panic_hook;
 
 pub mod editor;
 #[cfg(not(target_arch = "wasm32"))]
@@ -70,9 +69,9 @@ pub fn graphical_application_main(
 	)
 	.expect("set up the subscriber");
 
-	std::panic::set_hook(Box::new(panic_hook));
+	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 
-	let image = image::ImageReader::new(Cursor::new(icon))
+	let image = image::ImageReader::new(std::io::Cursor::new(icon))
 		.with_guessed_format()?
 		.decode()?;
 	let buf = Vec::from(image.as_bytes());
