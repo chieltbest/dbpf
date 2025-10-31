@@ -43,8 +43,9 @@ pub trait EnumEditor {
 		Self: PartialEq,
 		Self: Sized,
 	{
-		let inner_res = ui.menu_button(self.full_name() + " ⏷", |ui| {
+		let mut inner_res = ui.menu_button((self.full_name(), "⏷"), |ui| {
 			let mut text_edit_response = TextEdit::singleline(&mut state.search_string).show(ui);
+			let mut changed = false;
 
 			if state.focus_self {
 				state.focus_self = false;
@@ -89,7 +90,7 @@ pub trait EnumEditor {
 							.clicked()
 						{
 							*self = Self::from_known(t);
-							text_edit_response.response.mark_changed();
+							changed = true;
 						}
 					});
 				});
@@ -101,9 +102,10 @@ pub trait EnumEditor {
 					*self = new;
 				}
 				ui.close();
-				text_edit_response.response.mark_changed();
+				changed = true;
 			}
-			text_edit_response
+
+			changed
 		});
 		if inner_res.response.clicked() {
 			state.focus_self = true;
@@ -111,6 +113,10 @@ pub trait EnumEditor {
 
 		if let Some(str) = self.hover_string() {
 			inner_res.response.clone().on_hover_text(str);
+		}
+
+		if inner_res.inner.unwrap_or(false) {
+			inner_res.response.mark_changed();
 		}
 
 		inner_res.response
