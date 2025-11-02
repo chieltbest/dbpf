@@ -1,5 +1,86 @@
 # Changelog
 
+## [0.5.0] - 2025-11-02
+
+### 🚀 Features
+
+- GMDC viewer proof of concept
+- Add proper parsing and display for more GMDC attributes
+- Add GMDC glTF export
+- Add poly count and memory usage to GMDC viewer
+- Add draw call count to GMDC viewer
+- Add filename in GMDC editor
+- GMDC viewer blinn-phong shading
+- Add GMDC bounding mesh display
+- Add resource export
+- Add resource import function by dragging files
+
+### ♿ Accessibility
+
+- Make text darker in light mode
+
+### 🐛 Bug Fixes
+
+- Set filename during dds export
+- Set tracing console output to use compact output instead of pretty
+- Export all unknown attributes is glTF
+- Resolve wasm build errors
+- Free graphical memory objects when closing GMDC editor
+- Disable depth test during blit render pass
+- Enable backface culling
+- Set a closer near clipping plane
+- Properly calculate model bone transform matrix in the case of non-unitary bone weights
+- Properly display the backside of triangles if enabled
+- Properly set defaults on first time run
+- Disable DockArea leaf collapse function
+- Make the bounding mesh display more transparent
+- Make index tab not closable after egui_dock update
+- Set light mode text rendering to use dark mode alpha coverage instead
+- Fix broken compression edit combobox
+- Display instance field by splitting the u64 into two u32 text fields
+- Temporary workaround for broken popup-in-popup behaviour in egui 0.32
+- Properly mark EnumEditor as changed
+
+### 🚜 Refactor
+
+- Pass glow OpenGL context to editor
+- Do not pass opengl context to show_editor function
+- Clean up
+- *(dbpf)* Make SizedVec struct and refactor string to use it
+- Fix most clippy lints
+- Add code formatting with rustfmt
+- Add license and copyright information
+- Move gltf-kun patch to workspace Cargo.toml
+- Remove trunk dist folder
+- Remember vertex attribute and uniform locations on init
+- Properly handle and display OpenGL errors
+- Show OpenGL error in UI
+- Show mesh information editor even when OpenGL init failed
+- Use UBO instead of uniforms
+- Retain fbo across frames
+- Fix build on wasm again
+- Collect vao and buffer into a single vec
+- Reverse z-buffer
+- Improve opengl error handling
+- Properly recreate fbo on resize
+- Make intermediate fbo only as big as the actual viewport
+- Reverse z in normal and tangent display modes
+- Add bounding mesh checkboxes to ui
+- Comment out currently unused functions and fix warnings
+- Temporarily disable glTF export button
+
+### 📦️ Dependencies
+
+- *(dbpf)* Update refpack to 5.0.0
+- Update binrw to 0.15
+- Update modular-bitfield to 0.12
+- Update refpack
+- Update thiserror to 2.0
+- Update miniz-oxide to 0.8
+- Update log
+- Change serde_json dependency
+- Update egui and dependencies to 0.32
+
 ## [0.4.2] - 2025-06-12
 
 ### 🚀 Features
