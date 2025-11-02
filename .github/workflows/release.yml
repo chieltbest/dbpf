@@ -42,12 +42,12 @@ jobs:
         id: git-cliff
         with:
           config: cliff.toml
-          args: --latest \
-            "--tag=${{ steps.get-tag.outputs.release_version }}" \
-            "--tag-pattern=${{ steps.get-tag.outputs.release_program }}/v*" \
-            "--include-path=${{ steps.get-tag.outputs.release_program }}/" \
-            "--include-path=dbpf/" \
-            "--include-path=dbpf_utils/src/lib.rs" \
+          args: --latest
+            "--tag=${{ steps.get-tag.outputs.release_version }}"
+            "--tag-pattern=${{ steps.get-tag.outputs.release_program }}/v*"
+            "--include-path=${{ steps.get-tag.outputs.release_program }}/"
+            "--include-path=dbpf/"
+            "--include-path=dbpf_utils/src/lib.rs"
             ${{ steps.get-tag.outputs.git_cliff_include }}
 
   build-and-upload:
