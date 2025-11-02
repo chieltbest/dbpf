@@ -10,6 +10,9 @@ on:
       - "yact/v*.*.*"
       - "yape/v*.*.*"
 
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
 jobs:
   generate-changelog:
     name: Generate changelog
@@ -20,7 +23,7 @@ jobs:
       release_version: ${{ steps.get-tag.outputs.release_version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Get tag path
@@ -35,7 +38,7 @@ jobs:
               ;;
           esac
       - name: Generate a changelog
-        uses: orhun/git-cliff-action@main
+        uses: orhun/git-cliff-action@v4
         id: git-cliff
         with:
           config: cliff.toml
