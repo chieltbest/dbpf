@@ -14,6 +14,7 @@ use dbpf::internal_file::resource_collection::texture_resource::{
 	decoded_texture::{DecodedTexture, ShrinkDirection},
 	KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData,
 };
+use eframe::egui::Color32;
 use eframe::{
 	egui,
 	egui::{
@@ -96,6 +97,7 @@ pub struct TextureResourceEditorState {
 	preserve_transparency: u8,
 	save_file_picker: Option<oneshot::Receiver<Option<FileHandle>>>,
 	enum_editor_state: EnumEditorState,
+	alpha_texture_color: Color32,
 }
 
 impl Debug for TextureResourceEditorState {
@@ -119,6 +121,8 @@ impl TextureResourceEditorState {
 		res: &TextureResource,
 		context: &egui::Context,
 	) -> Vec<Vec<Option<egui::TextureHandle>>> {
+		let source_format = res.get_format();
+
 		res.decompress_all()
 			.into_iter()
 			.enumerate()
@@ -128,7 +132,16 @@ impl TextureResourceEditorState {
 					.enumerate()
 					.rev()
 					.map(|(mip_num, mip)| {
-						mip.inspect_err(|err| error!(?err)).ok().map(|decoded| {
+						mip.inspect_err(|err| error!(?err)).ok().map(|mut decoded| {
+							if source_format == TextureFormat::Alpha {
+								// display alpha as tinted white
+								decoded.data.chunks_exact_mut(4).for_each(|c| {
+									c[0] = 0xff;
+									c[1] = 0xff;
+									c[2] = 0xff;
+								});
+							}
+
 							context.load_texture(
 								format!("texture{tex_num}_mip{mip_num}"),
 								ColorImage::from_rgba_unmultiplied(
@@ -166,6 +179,7 @@ impl Editor for TextureResource {
 			original_texture_bgra: self
 				.recompress_with_format(TextureFormat::RawARGB32)
 				.unwrap(),
+			alpha_texture_color: Color32::from_rgb(127, 125, 120),
 			..Default::default()
 		};
 		new.refresh_textures_from(self, context);
@@ -356,9 +370,17 @@ impl Editor for TextureResource {
                         *self = new;
                     }
                     update_images = true;
+
+	                res.mark_changed();
                 }
-                res |= inner;
             }
+
+			if matches!(current_format, TextureFormat::Alpha) {
+				egui::widgets::color_picker::color_edit_button_srgba(
+					ui,
+					&mut state.alpha_texture_color,
+					egui::widgets::color_picker::Alpha::Opaque);
+			}
 
             if ui
                 .button("Replace original")
@@ -459,12 +481,19 @@ impl Editor for TextureResource {
 										[*cur_selected_mip_level]
 										.as_ref()
 									{
-										ui.add(egui::Image::new(image).fit_to_exact_size(
-											egui::Vec2::new(
-												original_size.0 as f32,
-												original_size.1 as f32,
-											),
-										));
+										ui.add(
+											egui::Image::new(image)
+												.tint(match current_format {
+													TextureFormat::Alpha => {
+														state.alpha_texture_color
+													}
+													_ => Color32::WHITE,
+												})
+												.fit_to_exact_size(egui::Vec2::new(
+													original_size.0 as f32,
+													original_size.1 as f32,
+												)),
+										);
 									}
 								}
 								TextureResourceData::LIFOFile { file_name } => {
