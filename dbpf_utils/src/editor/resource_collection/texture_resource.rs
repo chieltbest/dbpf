@@ -380,16 +380,6 @@ impl Editor for TextureResource {
 				"Raw red, green, blue\n\
 			8 bits per color, 24 bits per pixel",
 			),
-			(
-				TextureFormat::AltARGB32,
-				"Raw red, green, blue + transparency\n\
-			8 bits per color, 32 bits per pixel",
-			),
-			(
-				TextureFormat::AltRGB24,
-				"Raw red, green, blue\n\
-			8 bits per color, 24 bits per pixel",
-			),
 		];
 		let mut current_format = self.get_format();
 		ui.horizontal_wrapped(|ui| {
