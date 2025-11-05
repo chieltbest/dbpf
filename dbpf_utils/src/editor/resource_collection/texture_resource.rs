@@ -339,15 +339,57 @@ impl Editor for TextureResource {
 		});
 
 		let formats = [
-			TextureFormat::DXT5,
-			TextureFormat::DXT3,
-			TextureFormat::DXT1,
-			TextureFormat::Alpha,
-			TextureFormat::Grayscale,
-			TextureFormat::RawARGB32,
-			TextureFormat::RawRGB24,
-			TextureFormat::AltARGB32,
-			TextureFormat::AltRGB24,
+			(
+				TextureFormat::DXT5,
+				"Also known as Bc3\n\
+			128 bits per 4x4 pixels\n\
+			64 bits of color (identical to DXT1)\n\
+			64 bits of alpha: 2x8-bit palette, 3 bits per pixel (interpolated from palette)",
+			),
+			(
+				TextureFormat::DXT3,
+				"Also known as Bc2\n\
+			128 bits per 4x4 pixels\n\
+			64 bits of color (identical to DXT1)\n\
+			64 bits of alpha, 4 bits per pixel (values 0-15)",
+			),
+			(
+				TextureFormat::DXT1,
+				"Also known as Bc1\n\
+			64 bits per 4x4 pixels\n\
+			two 16-bit color palette (32 bits)\n\
+			2 bits per pixel (interpolated from palette)",
+			),
+			(
+				TextureFormat::Alpha,
+				"Raw8Bit/Transparency\n\
+			Used for shadows, lights, and specular maps",
+			),
+			(
+				TextureFormat::Grayscale,
+				"ExtRaw8Bit\n\
+			Used for bump maps",
+			),
+			(
+				TextureFormat::RawARGB32,
+				"Raw red, green, blue + transparency\n\
+			8 bits per color, 32 bits per pixel",
+			),
+			(
+				TextureFormat::RawRGB24,
+				"Raw red, green, blue\n\
+			8 bits per color, 24 bits per pixel",
+			),
+			(
+				TextureFormat::AltARGB32,
+				"Raw red, green, blue + transparency\n\
+			8 bits per color, 32 bits per pixel",
+			),
+			(
+				TextureFormat::AltRGB24,
+				"Raw red, green, blue\n\
+			8 bits per color, 24 bits per pixel",
+			),
 		];
 		let mut current_format = self.get_format();
 		ui.horizontal_wrapped(|ui| {
@@ -355,11 +397,19 @@ impl Editor for TextureResource {
                 .selected_text(format!("{:?}", current_format))
                 .show_ui(ui, |ui| {
                     formats
-                        .map(|format| ui.selectable_value(&mut current_format, format, format!("{:?}", format)))
+                        .map(|(format, tooltip)| {
+	                        ui.selectable_value(&mut current_format, format, format!("{:?}", format))
+		                        .on_hover_text(tooltip)
+                        })
                         .into_iter()
                         .reduce(|r1, r2| r1 | r2)
                         .unwrap()
                 });
+			if let Some((_, tooltip)) = formats.iter().find(|(format, _)| {
+				*format == current_format
+			}) {
+				cbres.response.on_hover_text(*tooltip);
+			}
             if let Some(inner) = cbres.inner {
                 if inner.changed() {
                     if let Ok(mut new) = state.original_texture_bgra.recompress_with_format(current_format) {
