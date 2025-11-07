@@ -11,10 +11,8 @@ use eframe::{
 	glow,
 };
 
-use crate::editor::{
-	cpf::reference_edit_fn, drag_checkbox_fn, drag_fn, drag_option_fn, Editor, VecEditorState,
-	VecEditorStateStorage,
-};
+use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::{cpf::reference_edit_fn, drag_checkbox_fn, drag_fn, drag_option_fn, Editor};
 
 impl Editor for Override {
 	type EditorState = ();

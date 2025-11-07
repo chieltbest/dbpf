@@ -16,7 +16,8 @@ use eframe::{
 	glow,
 };
 
-use crate::editor::{r#enum::EnumEditorState, Editor, VecEditorState, VecEditorStateStorage};
+use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::{r#enum::EnumEditorState, Editor};
 
 impl Editor for TaggedString {
 	type EditorState = <LanguageCode as Editor>::EditorState;

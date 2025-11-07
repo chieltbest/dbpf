@@ -4,6 +4,7 @@
 
 use std::{fmt::Debug, sync::Arc};
 
+use crate::editor::resource_collection::ResourceCollectionEditorState;
 use dbpf::{
 	filetypes::{DBPFFileType, KnownDBPFFileType},
 	internal_file::{
@@ -13,22 +14,21 @@ use dbpf::{
 };
 use eframe::{
 	egui,
-	egui::{Align, DragValue, Grid, Response, Ui},
+	egui::{Align, DragValue, Response, Ui},
 	emath::Numeric,
 	glow,
 };
 
-use crate::editor::resource_collection::ResourceCollectionEditorState;
-
-mod behaviour_function;
-mod common;
-mod cpf;
-mod r#enum;
-mod header;
-mod object_data;
-mod resource_collection;
-mod sim_outfits;
-mod text_list;
+pub mod behaviour_function;
+pub mod common;
+pub mod cpf;
+pub mod r#enum;
+pub mod header;
+pub mod object_data;
+pub mod resource_collection;
+pub mod sim_outfits;
+pub mod text_list;
+pub mod vector;
 
 pub trait Editor {
 	type EditorState: Default;
@@ -150,111 +150,6 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
         ) => true,
         _ => false,
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum VecEditorStateStorage<T: Editor>
-where
-	T::EditorState: Clone + Debug,
-{
-	Vec(Vec<T::EditorState>),
-	Shared(T::EditorState),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct VecEditorState<T: Editor>
-where
-	T::EditorState: Clone + Debug + PartialEq,
-{
-	/// number of columns (besides the delete button) that the editor for a single element will create
-	columns: usize,
-	storage: VecEditorStateStorage<T>,
-}
-
-impl<T: Editor> Default for VecEditorState<T>
-where
-	T::EditorState: Clone + Debug + PartialEq,
-{
-	fn default() -> Self {
-		Self {
-			columns: 1,
-			storage: VecEditorStateStorage::Vec(vec![]),
-		}
-	}
-}
-
-impl<T: Editor + Default> Editor for Vec<T>
-where
-	T::EditorState: Clone + Debug + PartialEq,
-{
-	type EditorState = VecEditorState<T>;
-
-	fn new_editor(
-		&self,
-		_context: &egui::Context,
-		_gl_context: &Option<Arc<glow::Context>>,
-	) -> Self::EditorState {
-		Self::EditorState {
-			columns: 1,
-			storage: VecEditorStateStorage::Vec(
-				self.iter()
-					.map(|elem| elem.new_editor(_context, _gl_context))
-					.collect(),
-			),
-		}
-	}
-
-	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-		let res = Grid::new("generic vector editor")
-			.min_col_width(0.0)
-			.striped(true)
-			.num_columns(state.columns + 1)
-			.show(ui, |ui| {
-				let (del, res): (Vec<_>, Vec<_>) = self
-					.iter_mut()
-					.enumerate()
-					.map(|(i, elem)| {
-						let state = match &mut state.storage {
-							VecEditorStateStorage::Vec(v) => &mut v[i],
-							VecEditorStateStorage::Shared(s) => s,
-						};
-
-						let del = ui.button("🗑").clicked();
-
-						let ires = ui.push_id(i, |ui| elem.show_editor(state, ui));
-						let mut res = ires.response | ires.inner;
-						if del {
-							res.mark_changed();
-						}
-
-						ui.end_row();
-
-						(del, res)
-					})
-					.collect();
-
-				let mut it = del.iter();
-				self.retain(|_| !*it.next().unwrap());
-				it = del.iter();
-				if let VecEditorStateStorage::Vec(v) = &mut state.storage {
-					v.retain(|_| !*it.next().unwrap());
-				}
-
-				// add new element
-				let mut bres = ui.button("➕");
-				if bres.clicked() {
-					let new = T::default();
-					if let VecEditorStateStorage::Vec(v) = &mut state.storage {
-						v.push(new.new_editor(ui.ctx(), &None));
-					}
-					self.push(new);
-					bres.mark_changed();
-				}
-
-				res.into_iter().fold(bres, |r1, r2| r1 | r2)
-			});
-		res.response | res.inner
-	}
 }
 
 pub(crate) fn drag_fn<T: Numeric>(name: &str, value: &mut T, ui: &mut Ui) -> Response {

@@ -5,7 +5,8 @@
 use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
 use eframe::egui::{ComboBox, DragValue, Response, Ui};
 
-use crate::editor::{Editor, VecEditorState, VecEditorStateStorage};
+use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::Editor;
 
 mod binary_index;
 mod property_set;

@@ -8,15 +8,15 @@ use std::{
 	sync::Arc,
 };
 
+use crate::texture_finder::{deser_texture_format, ser_texture_format, FoundTexture, TextureId};
 use dbpf::internal_file::resource_collection::texture_resource::TextureFormat;
-use dbpf_utils::editor::{Editor, VecEditorState};
+use dbpf_utils::editor::vector::VecEditorState;
+use dbpf_utils::editor::Editor;
 use eframe::{
 	egui::{ComboBox, Context, DragValue, Response, Ui, Window},
 	glow, Storage,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::texture_finder::{deser_texture_format, ser_texture_format, FoundTexture, TextureId};
 
 trait TextureFilterRule {
 	/// filter the texture according to this rule, returns true if the texture should be shown
