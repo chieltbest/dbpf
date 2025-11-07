@@ -8,7 +8,7 @@ pub mod language_code;
 use eframe::egui;
 use eframe::egui::{
 	text::{CCursor, CCursorRange},
-	Align, Key, Response, ScrollArea, TextEdit, Ui, Widget,
+	Align, Key, Response, ScrollArea, TextEdit, Ui,
 };
 use fuzzy_matcher::FuzzyMatcher;
 
