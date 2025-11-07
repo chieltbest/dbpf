@@ -75,15 +75,19 @@ impl Editor for InstanceId {
 					(self.id >> 32) as f64
 				})
 				.hexadecimal(8, false, true),
-			) | ui.add(
-				DragValue::from_get_set(|v| {
-					if let Some(v) = v {
-						self.id = (self.id & 0xFFFF_FFFF_0000_0000) + ((v as u64) & 0xFFFF_FFFF);
-					}
-					(self.id & 0xFFFF_FFFF) as f64
-				})
-				.hexadecimal(8, false, true),
 			)
+			.on_hover_text("resource / instance-high")
+				| ui.add(
+					DragValue::from_get_set(|v| {
+						if let Some(v) = v {
+							self.id =
+								(self.id & 0xFFFF_FFFF_0000_0000) + ((v as u64) & 0xFFFF_FFFF);
+						}
+						(self.id & 0xFFFF_FFFF) as f64
+					})
+					.hexadecimal(8, false, true),
+				)
+				.on_hover_text("instance / instance-low")
 		})
 		.inner
 	}
