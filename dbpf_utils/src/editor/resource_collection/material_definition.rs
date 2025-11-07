@@ -45,12 +45,12 @@ impl Editor for MaterialDefinition {
 			res |= self.material_description.show_editor(&mut 500.0, ui);
 		});
 
-		// ui.just
-
-		res |= ui.label("Properties");
-		res |= self
-			.properties
-			.show_editor(&mut VecEditorState::Shared(()), ui);
+		ui.push_id("Properties", |ui| {
+			res |= ui.label("Properties");
+			res |= self
+				.properties
+				.show_editor(&mut VecEditorState::Shared(()), ui);
+		});
 
 		ui.push_id("Names", |ui| {
 			ui.label("Names");

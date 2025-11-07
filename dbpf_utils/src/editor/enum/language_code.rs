@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::{fmt::Write, str::FromStr};
-
 use dbpf::common::{KnownLanguageCode, LanguageCode};
-use eframe::egui::{Response, Ui};
+use eframe::egui::{Context, Response, Ui};
+use std::sync::Arc;
+use std::{fmt::Write, str::FromStr};
 
 use crate::editor::{
 	r#enum::{EnumEditor, EnumEditorState},
@@ -59,6 +59,17 @@ impl EnumEditor for LanguageCode {
 
 impl Editor for LanguageCode {
 	type EditorState = EnumEditorState;
+
+	fn new_editor(
+		&self,
+		_context: &Context,
+		_gl_context: &Option<Arc<eframe::glow::Context>>,
+	) -> Self::EditorState {
+		EnumEditorState {
+			minimum_width: Some(100.0),
+			..Default::default()
+		}
+	}
 
 	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
 		Self::show_enum_editor(self, state, ui)

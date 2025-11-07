@@ -4,6 +4,9 @@
 
 use std::sync::Arc;
 
+use crate::editor::vector::VecEditorState;
+use crate::editor::Editor;
+use dbpf::common::KnownLanguageCode;
 use dbpf::{
 	common::LanguageCode,
 	internal_file::text_list::{
@@ -15,9 +18,6 @@ use eframe::{
 	egui::{ComboBox, Response, Ui},
 	glow,
 };
-
-use crate::editor::vector::VecEditorState;
-use crate::editor::{r#enum::EnumEditorState, Editor};
 
 impl Editor for TaggedString {
 	type EditorState = <LanguageCode as Editor>::EditorState;
@@ -50,10 +50,12 @@ impl Editor for TextList {
 
 	fn new_editor(
 		&self,
-		_context: &egui::Context,
-		_gl_context: &Option<Arc<glow::Context>>,
+		context: &egui::Context,
+		gl_context: &Option<Arc<glow::Context>>,
 	) -> Self::EditorState {
-		VecEditorState::Shared(EnumEditorState::default())
+		VecEditorState::Shared(
+			LanguageCode::Known(KnownLanguageCode::USEnglish).new_editor(context, gl_context),
+		)
 	}
 
 	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {

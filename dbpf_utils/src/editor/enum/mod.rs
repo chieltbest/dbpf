@@ -5,16 +5,18 @@
 pub mod file_type;
 pub mod language_code;
 
+use eframe::egui;
 use eframe::egui::{
 	text::{CCursor, CCursorRange},
-	Align, Key, Response, ScrollArea, TextEdit, Ui,
+	Align, Key, Response, ScrollArea, TextEdit, Ui, Widget,
 };
 use fuzzy_matcher::FuzzyMatcher;
 
-#[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct EnumEditorState {
 	search_string: String,
 	focus_self: bool,
+	minimum_width: Option<f32>,
 }
 
 pub trait EnumEditor {
@@ -43,7 +45,17 @@ pub trait EnumEditor {
 		Self: PartialEq,
 		Self: Sized,
 	{
-		let mut inner_res = ui.menu_button((self.full_name(), "⏷"), |ui| {
+		let button = egui::Button::new(self.full_name())
+			.right_text("⏷")
+			.truncate();
+
+		let mut button = if let Some(fixed_width) = state.minimum_width {
+			ui.add_sized([fixed_width, ui.style().spacing.interact_size.y], button)
+		} else {
+			ui.add(button)
+		};
+
+		let menu = egui::containers::Popup::menu(&button).show(|ui| {
 			let mut text_edit_response = TextEdit::singleline(&mut state.search_string).show(ui);
 			let mut changed = false;
 
@@ -107,18 +119,18 @@ pub trait EnumEditor {
 
 			changed
 		});
-		if inner_res.response.clicked() {
+		if button.clicked() {
 			state.focus_self = true;
 		}
 
 		if let Some(str) = self.hover_string() {
-			inner_res.response.clone().on_hover_text(str);
+			button.clone().on_hover_text(str);
 		}
 
-		if inner_res.inner.unwrap_or(false) {
-			inner_res.response.mark_changed();
+		if menu.map(|res| res.inner).unwrap_or(false) {
+			button.mark_changed();
 		}
 
-		inner_res.response
+		button
 	}
 }
