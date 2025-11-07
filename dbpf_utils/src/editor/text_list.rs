@@ -16,7 +16,7 @@ use eframe::{
 	glow,
 };
 
-use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::vector::VecEditorState;
 use crate::editor::{r#enum::EnumEditorState, Editor};
 
 impl Editor for TaggedString {
@@ -53,10 +53,7 @@ impl Editor for TextList {
 		_context: &egui::Context,
 		_gl_context: &Option<Arc<glow::Context>>,
 	) -> Self::EditorState {
-		VecEditorState {
-			columns: 3,
-			storage: VecEditorStateStorage::Shared(EnumEditorState::default()),
-		}
+		VecEditorState::Shared(EnumEditorState::default())
 	}
 
 	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
@@ -118,13 +115,9 @@ impl Editor for TextList {
 
 		res | match &mut self.data {
 			VersionedTextList::Tagged { sets, .. } => sets.show_editor(state, ui),
-			VersionedTextList::Untagged { sets } => sets.show_editor(
-				&mut VecEditorState {
-					columns: 1,
-					storage: VecEditorStateStorage::Shared(()),
-				},
-				ui,
-			),
+			VersionedTextList::Untagged { sets } => {
+				sets.show_editor(&mut VecEditorState::Shared(()), ui)
+			}
 		}
 	}
 }

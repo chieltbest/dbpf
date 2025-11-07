@@ -11,7 +11,7 @@ use eframe::{
 	glow,
 };
 
-use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::vector::VecEditorState;
 use crate::editor::{cpf::reference_edit_fn, drag_checkbox_fn, drag_fn, drag_option_fn, Editor};
 
 impl Editor for Override {
@@ -143,12 +143,8 @@ impl Editor for PropertySet {
 
 		ires.response
 			| ires.inner
-			| self.overrides.show_editor(
-				&mut VecEditorState {
-					columns: 3,
-					storage: VecEditorStateStorage::Shared(()),
-				},
-				ui,
-			)
+			| self
+				.overrides
+				.show_editor(&mut VecEditorState::Shared(()), ui)
 	}
 }

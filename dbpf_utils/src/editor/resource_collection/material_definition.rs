@@ -13,7 +13,7 @@ use eframe::{
 	glow,
 };
 
-use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::vector::VecEditorState;
 use crate::editor::Editor;
 
 impl Editor for Property {
@@ -48,23 +48,15 @@ impl Editor for MaterialDefinition {
 		// ui.just
 
 		res |= ui.label("Properties");
-		res |= self.properties.show_editor(
-			&mut VecEditorState {
-				columns: 3,
-				storage: VecEditorStateStorage::Shared(()),
-			},
-			ui,
-		);
+		res |= self
+			.properties
+			.show_editor(&mut VecEditorState::Shared(()), ui);
 
 		ui.push_id("Names", |ui| {
 			ui.label("Names");
-			res |= self.names.show_editor(
-				&mut VecEditorState {
-					columns: 1,
-					storage: VecEditorStateStorage::<BigString>::Shared(500.0),
-				},
-				ui,
-			);
+			res |= self
+				.names
+				.show_editor(&mut VecEditorState::<BigString>::Shared(500.0), ui);
 		});
 
 		res

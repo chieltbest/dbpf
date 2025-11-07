@@ -15,7 +15,7 @@ use eframe::{
 	glow,
 };
 
-use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::vector::VecEditorState;
 use crate::editor::Editor;
 
 impl Editor for Entry {
@@ -37,10 +37,7 @@ impl Editor for SimOutfits {
 		_context: &egui::Context,
 		_gl: &Option<Arc<glow::Context>>,
 	) -> Self::EditorState {
-		VecEditorState {
-			columns: 3,
-			storage: VecEditorStateStorage::Shared(Default::default()),
-		}
+		VecEditorState::Shared(Default::default())
 	}
 
 	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {

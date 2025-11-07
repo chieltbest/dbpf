@@ -5,7 +5,7 @@
 use dbpf::internal_file::cpf::{CPFVersion, Data, Item, Reference, XMLDataType, CPF};
 use eframe::egui::{ComboBox, DragValue, Response, Ui};
 
-use crate::editor::vector::{VecEditorState, VecEditorStateStorage};
+use crate::editor::vector::VecEditorState;
 use crate::editor::Editor;
 
 mod binary_index;
@@ -98,13 +98,9 @@ impl Editor for CPF {
 
 		ui.separator();
 
-		res |= self.entries.show_editor(
-			&mut VecEditorState {
-				columns: 3,
-				storage: VecEditorStateStorage::Shared(()),
-			},
-			ui,
-		);
+		res |= self
+			.entries
+			.show_editor(&mut VecEditorState::Shared(()), ui);
 
 		res
 	}

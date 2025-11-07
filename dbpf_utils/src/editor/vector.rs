@@ -18,7 +18,7 @@ impl<T> DragDropItem for EnumeratedItem<T> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum VecEditorStateStorage<T: Editor>
+pub enum VecEditorState<T: Editor>
 where
 	T::EditorState: Clone + Debug,
 {
@@ -26,25 +26,12 @@ where
 	Shared(T::EditorState),
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct VecEditorState<T: Editor>
-where
-	T::EditorState: Clone + Debug + PartialEq,
-{
-	/// number of columns (besides the delete button) that the editor for a single element will create
-	pub columns: usize,
-	pub storage: VecEditorStateStorage<T>,
-}
-
 impl<T: Editor> Default for VecEditorState<T>
 where
-	T::EditorState: Clone + Debug + PartialEq,
+	T::EditorState: Clone + Debug,
 {
 	fn default() -> Self {
-		Self {
-			columns: 1,
-			storage: VecEditorStateStorage::Vec(vec![]),
-		}
+		Self::Vec(vec![])
 	}
 }
 
@@ -59,14 +46,11 @@ where
 		_context: &egui::Context,
 		_gl_context: &Option<Arc<glow::Context>>,
 	) -> Self::EditorState {
-		Self::EditorState {
-			columns: 1,
-			storage: VecEditorStateStorage::Vec(
-				self.iter()
-					.map(|elem| elem.new_editor(_context, _gl_context))
-					.collect(),
-			),
-		}
+		VecEditorState::Vec(
+			self.iter()
+				.map(|elem| elem.new_editor(_context, _gl_context))
+				.collect(),
+		)
 	}
 
 	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
@@ -92,9 +76,9 @@ where
 								}
 							});
 
-							let state = match &mut state.storage {
-								VecEditorStateStorage::Vec(v) => &mut v[index],
-								VecEditorStateStorage::Shared(s) => s,
+							let state = match state {
+								VecEditorState::Vec(v) => &mut v[index],
+								VecEditorState::Shared(s) => s,
 							};
 
 							let res = ui.push_id(index, |ui| item.show_editor(state, ui));
@@ -107,7 +91,7 @@ where
 
 			if dnd_response.is_drag_finished() {
 				dnd_response.update_vec(self);
-				if let VecEditorStateStorage::Vec(state_vec) = &mut state.storage {
+				if let VecEditorState::Vec(state_vec) = state {
 					dnd_response.update_vec(state_vec);
 				}
 				changed = true;
@@ -116,7 +100,7 @@ where
 			// for now, assume that deletion cannot happen at the same time as drag and drop
 			if let Some(delete_index) = delete_index {
 				self.remove(delete_index);
-				if let VecEditorStateStorage::Vec(state_vec) = &mut state.storage {
+				if let VecEditorState::Vec(state_vec) = state {
 					state_vec.remove(delete_index);
 				}
 			}
@@ -124,7 +108,7 @@ where
 			let add_button = ui.button("➕");
 			if add_button.clicked() {
 				let new = T::default();
-				if let VecEditorStateStorage::Vec(v) = &mut state.storage {
+				if let VecEditorState::Vec(v) = state {
 					v.push(new.new_editor(ui.ctx(), &None));
 				}
 				self.push(new);
