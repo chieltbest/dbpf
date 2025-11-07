@@ -9,11 +9,12 @@ use std::sync::Arc;
 struct EnumeratedItem<T> {
 	item: T,
 	index: usize,
+	id: Id,
 }
 
 impl<T> DragDropItem for EnumeratedItem<T> {
 	fn id(&self) -> Id {
-		Id::new(self.index)
+		self.id.with(self.index)
 	}
 }
 
@@ -59,15 +60,17 @@ where
 		let mut res = ui.scope(|ui| {
 			let mut delete_index = None;
 
-			let dnd_response = egui_dnd::dnd(ui, "generic vector editor")
+			let id = ui.id().with("generic vector editor");
+
+			let dnd_response = egui_dnd::dnd(ui, id.clone())
 				.with_mouse_config(DragDropConfig::mouse())
 				.with_touch_config(Some(DragDropConfig::touch_scroll()))
 				.with_animation_time(0.0)
 				.show(
 					self.iter_mut()
 						.enumerate()
-						.map(|(index, item)| EnumeratedItem { index, item }),
-					|ui, EnumeratedItem { item, index }, handle, _item_state| {
+						.map(|(index, item)| EnumeratedItem { index, item, id }),
+					|ui, EnumeratedItem { item, index, .. }, handle, _item_state| {
 						ui.horizontal(|ui| {
 							handle.ui(ui, |ui| {
 								let delete_button = ui.button("🗑");
