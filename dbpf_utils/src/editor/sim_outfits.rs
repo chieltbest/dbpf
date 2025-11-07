@@ -23,7 +23,9 @@ impl Editor for Entry {
 
 	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
 		let mut res = self.type_id.show_editor(state, ui);
-		res |= ui.add(DragValue::new(&mut self.group_id).hexadecimal(8, false, true));
+		res |= ui
+			.add(DragValue::new(&mut self.group_id).hexadecimal(8, false, true))
+			.on_hover_text("group");
 		res |= self.instance_id.show_editor(&mut (), ui);
 		res
 	}
