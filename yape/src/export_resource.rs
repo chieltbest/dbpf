@@ -253,7 +253,7 @@ impl ExportResourceData {
 			let mut dialog = rfd::AsyncFileDialog::new().set_file_name(filename_from_tgi(
 				type_id,
 				res.group_id,
-				res.instance_id,
+				res.instance_id.id,
 			));
 
 			if !extensions.is_empty() {

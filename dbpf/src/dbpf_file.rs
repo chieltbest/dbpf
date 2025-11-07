@@ -6,6 +6,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 use binrw::{binread, binrw, parser, BinRead, BinResult, BinWrite};
 
+use crate::header_v1::InstanceId;
 use crate::{
 	filetypes::DBPFFileType,
 	header_v1::{IndexV1, IndexV1BinReadArgs},
@@ -92,7 +93,7 @@ fn parse_index(
 pub struct IndexEntry {
 	pub type_id: DBPFFileType,
 	pub group_id: u32,
-	pub instance_id: u64,
+	pub instance_id: InstanceId,
 
 	pub compression: CompressionType,
 	pub(crate) data: LazyFilePtr<Zero, FileData, FileDataBinReadArgs>,

@@ -138,7 +138,7 @@ fn get_textures<R: Read + Seek>(
 								tgi: Tgi {
 									type_id,
 									group_id,
-									instance_id,
+									instance_id: instance_id.id,
 								},
 							},
 							width: tex.width,

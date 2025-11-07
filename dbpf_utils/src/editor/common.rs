@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::editor::Editor;
 use binrw::NullWideString;
 use dbpf::common::{BigString, ByteString, NullString, PascalString};
+use dbpf::header_v1::InstanceId;
 use eframe::egui::DragValue;
 use eframe::{
 	egui,
@@ -61,7 +62,7 @@ impl StringEditor for BigString {}
 impl StringEditor for NullString {}
 impl StringEditor for NullWideString {}
 
-impl Editor for u64 {
+impl Editor for InstanceId {
 	type EditorState = ();
 
 	fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
@@ -69,17 +70,17 @@ impl Editor for u64 {
 			ui.add(
 				DragValue::from_get_set(|v| {
 					if let Some(v) = v {
-						*self = ((v as u64) << 32) + (*self & 0xFFFF_FFFF);
+						self.id = ((v as u64) << 32) + (self.id & 0xFFFF_FFFF);
 					}
-					(*self >> 32) as f64
+					(self.id >> 32) as f64
 				})
 				.hexadecimal(8, false, true),
 			) | ui.add(
 				DragValue::from_get_set(|v| {
 					if let Some(v) = v {
-						*self = (*self & 0xFFFF_FFFF_0000_0000) + ((v as u64) & 0xFFFF_FFFF);
+						self.id = (self.id & 0xFFFF_FFFF_0000_0000) + ((v as u64) & 0xFFFF_FFFF);
 					}
-					(*self & 0xFFFF_FFFF) as f64
+					(self.id & 0xFFFF_FFFF) as f64
 				})
 				.hexadecimal(8, false, true),
 			)

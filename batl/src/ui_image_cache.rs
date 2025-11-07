@@ -53,7 +53,7 @@ impl ImageCache {
 					.find(|entry| {
 						entry.type_id == id.tgi.type_id
 							&& entry.group_id == id.tgi.group_id
-							&& entry.instance_id == id.tgi.instance_id
+							&& entry.instance_id.id == id.tgi.instance_id
 					})
 					.unwrap();
 				let idata = index.data(&mut data).unwrap();

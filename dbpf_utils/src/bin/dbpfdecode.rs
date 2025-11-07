@@ -34,7 +34,7 @@ fn read_all<R: Read + Seek>(header: &mut DBPFFile, reader: &mut R, path: PathBuf
 	for (i, entry) in header.index.iter_mut().enumerate() {
 		let tid = entry.type_id;
 		let gid = entry.group_id;
-		let iid = entry.instance_id;
+		let iid = entry.instance_id.id;
 		match (tid, gid, iid) {
 			// known bad resources
 			(

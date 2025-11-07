@@ -10,6 +10,7 @@ use std::io::{Read, Seek, Write};
 use binrw::{args, binread, BinRead, BinResult, BinWrite};
 use modular_bitfield::{bitfield, prelude::*};
 
+use crate::header_v1::InstanceId;
 use crate::{
 	dbpf_file::Index,
 	filetypes::DBPFFileType,
@@ -17,7 +18,6 @@ use crate::{
 	lazy_file_ptr::{LazyFilePtr, Zero},
 	CompressionType, IndexEntry, IndexMinorVersion,
 };
-
 /*#[binread]
 #[derive(Clone, Debug)]
 pub(crate) struct HeaderV2 {
@@ -143,7 +143,9 @@ impl Index for IndexV2 {
 				Ok(IndexEntry {
 					type_id: entry.type_id,
 					group_id: entry.group_id,
-					instance_id: entry.instance_id as u64 | ((entry.instance_id_ex as u64) << 32),
+					instance_id: InstanceId {
+						id: entry.instance_id as u64 | ((entry.instance_id_ex as u64) << 32),
+					},
 
 					compression: entry.compression_type,
 

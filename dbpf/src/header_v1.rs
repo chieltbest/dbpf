@@ -88,10 +88,12 @@ impl Index for IndexV1 {
 						.decompressed()
 						.expect("Uncompressed data decompress is infallible")
 						.data;
-					let res: DBPFDirectory =
-						DBPFDirectory::read_args(&mut Cursor::new(raw_data), args! {
+					let res: DBPFDirectory = DBPFDirectory::read_args(
+						&mut Cursor::new(raw_data),
+						args! {
 							version: index_version
-						})?;
+						},
+					)?;
 					for entry in res.entries {
 						compressed_entries.insert(
 							(entry.type_id, entry.group_id, entry.instance_id),
@@ -128,7 +130,7 @@ impl Index for IndexV1 {
 				Some(Ok(IndexEntry {
 					type_id: entry.type_id,
 					group_id: entry.group_id,
-					instance_id: entry.instance_id.id,
+					instance_id: entry.instance_id,
 					compression,
 					data,
 				}))
@@ -174,9 +176,7 @@ impl Index for IndexV1 {
 						CompressionType::RefPack => Ok(DBPFDirectoryEntry {
 							type_id: entry.type_id,
 							group_id: entry.group_id,
-							instance_id: InstanceId {
-								id: entry.instance_id,
-							},
+							instance_id: entry.instance_id,
 							decompressed_size: entry
 								.data(reader)?
 								.compressed(CompressionType::RefPack)?
@@ -209,7 +209,7 @@ impl Index for IndexV1 {
 			let dir_entry = IndexEntry {
 				type_id: DBPFFileType::Known(KnownDBPFFileType::DBPFDirectory),
 				group_id: 0xE86B1EEF,
-				instance_id: 0x286B1F03,
+				instance_id: InstanceId { id: 0x286B1F03 },
 
 				compression: CompressionType::Uncompressed,
 
@@ -238,12 +238,12 @@ impl Index for IndexV1 {
 		for entry in &mut *entries {
 			entry.type_id.write_le(&mut index_buf)?;
 			entry.group_id.write_le(&mut index_buf)?;
-			InstanceId {
-				id: entry.instance_id,
-			}
-			.write_le_args(&mut index_buf, args! {
-				version: index_version
-			})?;
+			entry.instance_id.write_le_args(
+				&mut index_buf,
+				args! {
+					version: index_version
+				},
+			)?;
 
 			let location = writer.stream_position().map_err(Error::from)? as u32;
 			// this will cause all entries in the index to be opened, maybe do a clone?

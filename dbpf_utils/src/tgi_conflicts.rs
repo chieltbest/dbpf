@@ -67,7 +67,7 @@ fn get_tgis(header: DBPFFile) -> Vec<Tgi> {
 		.map(|file| Tgi {
 			type_id: file.type_id,
 			group_id: file.group_id,
-			instance_id: file.instance_id,
+			instance_id: file.instance_id.id,
 		})
 		.collect()
 }

@@ -583,7 +583,7 @@ impl YaPeAppData {
 									let entry = &mut entry_rc.borrow_mut().data;
 									ComboBox::from_id_salt(format!(
 										"{:?}{}{}",
-										entry.type_id, entry.group_id, entry.instance_id
+										entry.type_id, entry.group_id, entry.instance_id.id
 									))
 									.selected_text(format!("{:?}", entry.compression))
 									.width(110.0)
