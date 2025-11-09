@@ -862,7 +862,8 @@ impl YaPeApp {
 			if let Some((surf_i, node_i, tab_i)) = open_found {
 				// tab was already open, just focus it
 				self.dock_state.set_active_tab((surf_i, node_i, tab_i));
-				// self.dock_state.set_focused_node_and_surface((surf_i, node_i));
+				self.dock_state
+					.set_focused_node_and_surface((surf_i, node_i));
 				return;
 			}
 
@@ -883,10 +884,12 @@ impl YaPeApp {
 				.skip(1)
 				.last()
 				.map(|(pos, _tab)| pos);
-			if let Some(pos) = leaf_pos {
-				if let Some((_i, node)) = self.dock_state.iter_all_nodes_mut().nth(pos.1 .0) {
+			if let Some((surf_i, node_i)) = leaf_pos {
+				if let Some((_i, node)) = self.dock_state.iter_all_nodes_mut().nth(node_i.0) {
 					node.append_tab(YaPeTab::Entry(tab));
 				}
+				self.dock_state
+					.set_focused_node_and_surface((surf_i, node_i));
 			} else if let Some(focus) = self.dock_state.focused_leaf() {
 				match self.root_node_state.split {
 					SplitDirection::Tabs => {
