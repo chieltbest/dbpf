@@ -26,7 +26,7 @@ use enum_iterator::all;
 use futures::channel::oneshot;
 use image::ImageReader;
 use rfd::FileHandle;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
 	async_execute,
@@ -90,7 +90,7 @@ impl EnumEditor for Purpose {
 }
 
 pub struct TextureResourceEditorState {
-	textures: Vec<Vec<Option<egui::TextureHandle>>>,
+	textures: Vec<Vec<BinResult<egui::TextureHandle>>>,
 	zoom_state: Vec<(Rect, usize)>,
 	original_texture_bgra: BinResult<TextureResource>,
 	preserve_transparency: u8,
@@ -133,7 +133,7 @@ impl TextureResourceEditorState {
 	fn load_textures(
 		res: &TextureResource,
 		context: &egui::Context,
-	) -> Vec<Vec<Option<egui::TextureHandle>>> {
+	) -> Vec<Vec<BinResult<egui::TextureHandle>>> {
 		let source_format = res.get_format();
 
 		res.decompress_all()
@@ -145,7 +145,7 @@ impl TextureResourceEditorState {
 					.enumerate()
 					.rev()
 					.map(|(mip_num, mip)| {
-						mip.inspect_err(|err| error!(?err)).ok().map(|mut decoded| {
+						mip.inspect_err(|msg| warn!(%msg)).map(|mut decoded| {
 							if source_format == TextureFormat::Alpha {
 								// display alpha as tinted white
 								decoded.data.chunks_exact_mut(4).for_each(|c| {
@@ -228,14 +228,16 @@ impl Editor for TextureResource {
 					.unwrap_or(0)));
 			ui.label("Mip levels");
 
-			ui.horizontal(|ui| {
-				ui.add(Slider::new(&mut state.preserve_transparency, 0..=255)) |
-					ui.label("Preserve transparency")
-			}).inner.on_hover_text("makes sure that thin objects with transparency also show up correctly in mipmaps\n\
-            This option is intended for textures that use alpha testing, NOT for textures that have AlphaBlendMode set to \"blend\".\n\n\
-            To use this option, set the texture format to DXT1 and have a look at the mipmaps; does the texture show up correctly in all mipmaps? \
-            If not try adjusting this value, click \"Recalculate all mipmaps\" and look again.\n\
-            Don't forget to set the format back to DXT5 after you're done!");
+			if state.original_texture_bgra.is_ok() {
+				ui.horizontal(|ui| {
+					ui.add(Slider::new(&mut state.preserve_transparency, 0..=255)) |
+						ui.label("Preserve transparency")
+				}).inner.on_hover_text("makes sure that thin objects with transparency also show up correctly in mipmaps\n\
+	            This option is intended for textures that use alpha testing, NOT for textures that have AlphaBlendMode set to \"blend\".\n\n\
+	            To use this option, set the texture format to DXT1 and have a look at the mipmaps; does the texture show up correctly in all mipmaps? \
+	            If not try adjusting this value, click \"Recalculate all mipmaps\" and look again.\n\
+	            Don't forget to set the format back to DXT5 after you're done!");
+			}
 		});
 		let preserve_transparency = if state.preserve_transparency > 0 {
 			Some(state.preserve_transparency)
@@ -526,29 +528,33 @@ impl Editor for TextureResource {
 			});
 
 			egui::Frame::group(ui.style()).show(ui, |ui| {
-				egui::Scene::new()
+				let scene = egui::Scene::new()
 					.zoom_range(0.1..=16.0)
 					.show(ui, zoom, |ui| {
 						if let Some(mip_level) = texture.entries.get(*cur_selected_mip_level) {
 							match mip_level {
 								TextureResourceData::Embedded(_) => {
-									if let Some(image) = state.textures[texture_num]
-										[*cur_selected_mip_level]
+									match state.textures[texture_num][*cur_selected_mip_level]
 										.as_ref()
 									{
-										ui.add(
-											egui::Image::new(image)
-												.tint(match current_format {
-													TextureFormat::Alpha => {
-														state.alpha_texture_color
-													}
-													_ => Color32::WHITE,
-												})
-												.fit_to_exact_size(egui::Vec2::new(
-													original_size.0 as f32,
-													original_size.1 as f32,
-												)),
-										);
+										Ok(image) => {
+											ui.add(
+												egui::Image::new(image)
+													.tint(match current_format {
+														TextureFormat::Alpha => {
+															state.alpha_texture_color
+														}
+														_ => Color32::WHITE,
+													})
+													.fit_to_exact_size(egui::Vec2::new(
+														original_size.0 as f32,
+														original_size.1 as f32,
+													)),
+											);
+										}
+										Err(e) => {
+											ui.colored_label(Color32::RED, format!("{e:#?}"));
+										}
 									}
 								}
 								TextureResourceData::LIFOFile { file_name } => {
@@ -561,6 +567,9 @@ impl Editor for TextureResource {
 							}
 						}
 					});
+				if scene.response.double_clicked() {
+					*zoom = Rect::ZERO;
+				}
 			});
 		}
 
