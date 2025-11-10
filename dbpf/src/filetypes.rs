@@ -197,8 +197,8 @@ pub enum KnownDBPFFileType {
 	SoundEffects = 0x8DB5E4C2,
 	// KEYD
 	AcceleratorKeyDefinitions = 0xA2E3D533,
-	// PDAT
-	PersonData = 0xAACE2EFB,
+	// SDSC
+	SimDescription = 0xAACE2EFB,
 	// FPL
 	FencePostLayer = 0xAB4BA572,
 	// ROOF
@@ -474,7 +474,7 @@ impl KnownDBPFFileType {
 			AcceleratorKeyDefinitions => {
 				("Accelerator Key Definitions", "KEYD", vec!["keys.txt"], No)
 			}
-			PersonData => ("Person Data", "PDAT", vec![], No),
+			SimDescription => ("Sim Description", "SDSC", vec![], No),
 			FencePostLayer => ("Fence Post Layer", "FPL", vec![], No),
 			RoofData => ("Roof Data", "ROOF", vec![], No),
 			NeighbourhoodTerrainGeometry => ("Neighbourhood Terrain Geometry", "NHTG", vec![], No),
