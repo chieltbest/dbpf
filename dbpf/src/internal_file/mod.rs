@@ -31,6 +31,7 @@ use refpack::{
 };
 use thiserror::Error;
 
+use crate::internal_file::sim_description::SimDescription;
 use crate::{
 	filetypes::{DBPFFileType, KnownDBPFFileType},
 	internal_file::{
@@ -280,12 +281,13 @@ pub enum DecodedFile {
 	BehaviourConstants(BehaviourConstants),
 	BehaviourConstantsLabels(BehaviourConstantsLabels),
 	ObjectFunctions(ObjectFunctions),
-	ObjectData(ObjectData),
 
 	// others
 	SimOutfits(SimOutfits),
 	AudioReference(AudioReference),
 	TextList(TextList),
+	ObjectData(ObjectData),
+	SimDescription(SimDescription),
 }
 
 impl DecodedFile {
@@ -357,6 +359,9 @@ impl DecodedFile {
 			DBPFFileType::Known(KnownDBPFFileType::AudioReference) => {
 				Some(AudioReference::read(&mut cursor).map(DecodedFile::AudioReference))
 			}
+			DBPFFileType::Known(KnownDBPFFileType::SimDescription) => {
+				Some(SimDescription::read(&mut cursor).map(DecodedFile::SimDescription))
+			}
 			_ => None,
 		}
 	}
@@ -377,6 +382,7 @@ impl DecodedFile {
 			DecodedFile::ObjectFunctions(x) => x.write(&mut data)?,
 			DecodedFile::ObjectData(x) => x.write(&mut data)?,
 			DecodedFile::AudioReference(x) => x.write(&mut data)?,
+			DecodedFile::SimDescription(x) => x.write(&mut data)?,
 		}
 		// TODO write error handling?
 		Ok(RawFileData {
