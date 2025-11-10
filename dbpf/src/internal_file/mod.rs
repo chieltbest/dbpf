@@ -8,6 +8,7 @@ pub mod cpf;
 pub mod dbpf_directory;
 pub mod object_data;
 pub mod resource_collection;
+pub mod sim_description;
 pub mod sim_outfits;
 pub mod text_list;
 
