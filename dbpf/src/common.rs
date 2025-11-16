@@ -513,7 +513,7 @@ impl From<u8> for LanguageCode {
 #[binrw]
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct Guid {
-	id: u32,
+	pub id: u32,
 }
 
 #[cfg(test)]

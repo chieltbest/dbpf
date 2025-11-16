@@ -8,96 +8,277 @@ use modular_bitfield::prelude::*;
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ObjectID {
-	id: u16,
+	pub id: u16,
+}
+
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SimID {
+	pub id: u16,
 }
 
 #[binrw]
 #[brw(repr = u32)]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Version {
+	/// repeat only
+	V18 = 0x18,
+	/// repeat only
+	V19 = 0x19,
+	/// repeat only
+	V1a = 0x1a,
+	/// repeat only
+	V1c = 0x1c,
+	/// repeat only
+	V1e = 0x1e,
+	/// repeat only
+	V1f = 0x1f,
 	#[default]
+	/// Base Game
 	BaseGame = 0x20,
+	/// EP1
 	University = 0x22,
+	/// repeat only
+	V27 = 0x27,
+	/// EP2
 	Nightlife = 0x29,
+	/// EP3
 	Business = 0x2a,
+	/// EP4
 	Pets = 0x2c,
+	/// castaway/seasons?
 	Castaway = 0x2d,
+	/// EP6
 	BonVoyage = 0x2e,
+	/// store edition?
 	BonVoyageB = 0x2f,
+	/// EP7
 	FreeTime = 0x33,
+	/// SP8?
+	V35 = 0x35,
+	/// EP8
 	ApartmentLife = 0x36,
 }
 
 #[bitfield]
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct AspirationFlags {
+	romance: bool,
+	family: bool,
+	fortune: bool,
+	power: bool, // TODO real?
+	reputation: bool,
+	knowledge: bool,
+	grow_up: bool,
+	pleasure: bool,
+	cheese: bool,
+	unused: B7,
+}
+
+#[binrw]
+#[brw(repr = u32)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Grade {
+	#[default]
+	Unknown = 0x0,
+	F = 0x1,
+	DMinus = 0x2,
+	D = 0x3,
+	DPlus = 0x4,
+	CMinus = 0x5,
+	C = 0x6,
+	CPlus = 0x7,
+	BMinus = 0x8,
+	B = 0x9,
+	BPlus = 0xA,
+	AMinus = 0xB,
+	A = 0xC,
+	APlus = 0xD,
+}
+
+#[binrw]
+#[brw(repr = u32)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub enum LifeSection {
+	#[default]
+	Unknown = 0x0,
+	Baby = 0x1,
+	Toddler = 0x2,
+	Child = 0x3,
+	Teen = 0x10,
+	Adult = 0x13,
+	Elder = 0x33,
+	YoungAdult = 0x40,
+}
+
+#[binrw]
+#[brw(repr = u32)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Gender {
+	Male = 0,
+	#[default]
+	Female = 1,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct GhostFlags {
+	is_ghost: bool,
+	can_pass_through_objects: bool,
+	can_pass_through_walls: bool,
+	can_pass_through_people: bool,
+	ignore_traversal_costs: bool,
+	can_fly_over_low_objects: bool,
+	force_route_recalc: bool,
+	can_swim_in_ocean: bool,
+	unused: u8,
+}
+
+#[binrw]
+#[brw(repr = u32)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ZodiacSign {
+	#[default]
+	Aries = 1,
+	Taurus = 2,
+	Gemini = 3,
+	Cancer = 4,
+	Leo = 5,
+	Virgo = 6,
+	Libra = 7,
+	Scorpio = 8,
+	Sagittarius = 9,
+	Capricorn = 10,
+	Aquarius = 11,
+	Pices = 12,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BodyFlags {
+	fat: bool,
+	pregnant_3rd_trimester: bool,
+	pregnant_2nd_trimester: bool,
+	pregnant_1st_trimester: bool,
+	fit: bool,
+	hospital: bool,
+	birth_control: bool,
+	unused0: bool,
+	unused1: u8,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SelectionFlags {
+	selectable: bool,
+	not_selectable: bool,
+	hide_relationships: bool,
+	holiday_mate: bool,
+	unused: B12,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct PersonFlags0 {
+	zombie: bool,
+	perma_platinum: bool,
+	is_vampire: bool,
+	vampire_smoke: bool,
+	want_history: bool,
+	lycanthropy_carrier: bool,
+	lycanthropy_active: bool,
+	is_pet_runaway: bool,
+	is_plantsim: bool,
+	is_bigfoot: bool,
+	is_witch: bool,
+	is_roommate: bool,
+	unused: B4,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct PersonFlags1 {
+	is_owned: bool,
+	stay_naked: bool,
+	unused: B14,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct UniProgressionFlags {
-	year_1: bool,
-	year_2: bool,
-	year_3: bool,
-	year_4: bool,
-	semester: bool,
-	try_period: bool,
-	got_diploma: bool,
-	in_course_or_exam: bool,
-	unknown_0: bool,
-	unknown_1: bool,
-	unknown_2: bool,
-	unknown_3: bool,
-	abandon: bool,
-	fired: bool,
-	unknown_4: bool,
-	unknown_5: bool,
+	pub year_1: bool,
+	pub year_2: bool,
+	pub year_3: bool,
+	pub year_4: bool,
+	pub semester: bool,
+	pub try_period: bool,
+	pub got_diploma: bool,
+	pub in_course_or_exam: bool,
+	pub unknown_0: bool,
+	pub unknown_1: bool,
+	pub unknown_2: bool,
+	pub unknown_3: bool,
+	pub abandon: bool,
+	pub fired: bool,
+	pub unknown_4: bool,
+	pub unknown_5: bool,
 }
 
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct UniData {
-	uni_college_major_guid: Guid,
-	uni_semester_remaining_time: u16,
-	uni_progression_flags: UniProgressionFlags,
-	uni_semester: u16,
-	uni_on_campus: u16,
-	uni_unknown: u32,
-	uni_influence: u16,
+	pub uni_college_major_guid: Guid,
+	pub uni_semester_remaining_time: u16,
+	pub uni_progression_flags: UniProgressionFlags,
+	pub uni_semester: u16,
+	pub uni_on_campus: u16,
+	pub uni_unknown: u32,
+	pub uni_influence: u16,
 }
 
 #[bitfield]
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NightlifeTraits {
-	cologne: bool,
-	stink: bool,
-	fatness: bool,
-	fitness: bool,
-	formal_wear: bool,
-	swim_wear: bool,
-	underwear: bool,
-	vampirism: bool,
-	facial_hair: bool,
-	glasses: bool,
-	makeup: bool,
-	full_face_makeup: bool,
-	hats: bool,
-	jewelry: bool,
-	unused_0: bool,
-	unused_1: bool,
-	blonde_hair: bool,
-	red_hair: bool,
-	brown_hair: bool,
-	black_hair: bool,
-	custom_hair: bool,
-	grey_hair: bool,
-	hard_worker: bool,
-	unemployed: bool,
-	logical: bool,
-	charismatic: bool,
-	good_cook: bool,
-	mechanical: bool,
-	creative: bool,
-	athletic: bool,
-	good_cleaner: bool,
-	zombiism: bool,
+	pub cologne: bool,
+	pub stink: bool,
+	pub fatness: bool,
+	pub fitness: bool,
+	pub formal_wear: bool,
+	pub swim_wear: bool,
+	pub underwear: bool,
+	pub vampirism: bool,
+	pub facial_hair: bool,
+	pub glasses: bool,
+	pub makeup: bool,
+	pub full_face_makeup: bool,
+	pub hats: bool,
+	pub jewelry: bool,
+	pub unused_0: bool,
+	pub unused_1: bool,
+	pub blonde_hair: bool,
+	pub red_hair: bool,
+	pub brown_hair: bool,
+	pub black_hair: bool,
+	pub custom_hair: bool,
+	pub grey_hair: bool,
+	pub hard_worker: bool,
+	pub unemployed: bool,
+	pub logical: bool,
+	pub charismatic: bool,
+	pub good_cook: bool,
+	pub mechanical: bool,
+	pub creative: bool,
+	pub athletic: bool,
+	pub good_cleaner: bool,
+	pub zombiism: bool,
 }
 
 #[binrw]
@@ -114,53 +295,98 @@ pub enum Species {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NightlifeData {
-	route: u16,
-	traits: NightlifeTraits,
-	turn_ons: NightlifeTraits,
-	turn_offs: NightlifeTraits,
-	species: Species,
-	countdown: u16,
-	perfume_timer: u16,
-	date_timer: u16,
-	date_score: u16,
-	date_unlock_counter: u16,
-	love_potion_timer: u16,
+	pub route: u16,
+	pub traits: NightlifeTraits,
+	pub turn_ons: NightlifeTraits,
+	pub turn_offs: NightlifeTraits,
+	pub species: Species,
+	pub countdown: u16,
+	pub perfume_timer: u16,
+	pub date_timer: u16,
+	pub date_score: u16,
+	pub date_unlock_counter: u16,
+	pub love_potion_timer: u16,
+	pub aspiration_score_lock: u16,
+	pub date_neighbor_id: u16,
+}
+
+#[binrw]
+#[brw(repr = u16)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub enum JobAssignment {
+	#[default]
+	Nothing = 0x0,
+	Chef = 0x1,
+	Host = 0x2,
+	Server = 0x3,
+	Cashier = 0x4,
+	Bartender = 0x5,
+	Barista = 0x6,
+	DJ = 0x7,
+	SellLemonade = 0x8,
+	Stylist = 0x9,
+	Tidy = 0xA,
+	Restock = 0xB,
+	Sales = 0xC,
+	MakeToys = 0xD,
+	ArrangeFlowers = 0xE,
+	BuildRobots = 0xF,
+	MakeFood = 0x10,
+	Masseuse = 0x11,
+	MakePottery = 0x12,
+	Sewing = 0x13,
 }
 
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BusinessData {
-	lot_id: u16,
-	salary: u16,
-	flags: u16, // TODO bitfield
-	assignment: u16,
+	pub lot_id: u16,
+	pub salary: u16,
+	pub flags: u16, // TODO bitfield
+	pub assignment: JobAssignment,
 }
 
 #[bitfield]
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BonVoyageTraits {
-	robots: bool,
-	plants: bool,
-	lycanthropy: bool,
-	witchiness: bool,
-	unused: B12,
+	pub robots: bool,
+	pub plants: bool,
+	pub lycanthropy: bool,
+	pub witchiness: bool,
+	pub unused: B12,
 }
 
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BonVoyageData {
-	vacation_days_left: u16,
-	turn_ons: BonVoyageTraits,
-	turn_offs: BonVoyageTraits,
-	traits: BonVoyageTraits,
+	pub vacation_days_left: u16,
+	pub turn_ons: BonVoyageTraits,
+	pub turn_offs: BonVoyageTraits,
+	pub traits: BonVoyageTraits,
 }
 
 #[binrw]
 #[brw(repr = u16)]
+#[brw(import(version: Version))]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum PreferredHobby {
 	#[default]
+	None = 0x0,
+	// these unknown values are probably created by some faulty tool
+	// but they could also be an earlier encoding from earlier SP/EPs
+	// an EP9 installation will reset these unknown values to random valid ones
+	Unknown1 = 0x1,
+	Unknown2 = 0x2,
+	Unknown3 = 0x3,
+	Unknown4 = 0x4,
+	Unknown5 = 0x5,
+	Unknown6 = 0x6,
+	Unknown7 = 0x7,
+	Unknown8 = 0x8,
+	Unknown9 = 0x9,
+	UnknownA = 0xa,
+	UnknownCB = 0xcb,
 	Cooking = 0xcc,
 	Arts = 0xcd,
 	Film = 0xce,
@@ -176,259 +402,289 @@ pub enum PreferredHobby {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct FreeTimeData {
-	hobbies_cuisine: u16,
-	hobbies_arts: u16,
-	hobbies_film: u16,
-	hobbies_sports: u16,
-	hobbies_games: u16,
-	hobbies_nature: u16,
-	hobbies_tinkering: u16,
-	hobbies_fitness: u16,
-	hobbies_science: u16,
-	hobbies_music: u16,
-	unknown: u16,
-	preferred_hobby: PreferredHobby,
-	lifetime_aspiration: u16,
-	lifetime_aspiration_points: u16,
-	lifetime_aspiration_points_spent: u16,
-	decay_hunger_modifier: u16,
-	decay_comfort_modifier: u16,
-	decay_bladder_modifier: u16,
-	decay_energy_modifier: u16,
-	decay_hygiene_modifier: u16,
-	decay_fun_modifier: u16,
-	decay_social_modifier: u16,
-	bugs_collection: u32, // TODO bitfield
+	pub hobbies_cooking: u16,
+	pub hobbies_arts: u16,
+	pub hobbies_film: u16,
+	pub hobbies_sports: u16,
+	pub hobbies_games: u16,
+	pub hobbies_nature: u16,
+	pub hobbies_tinkering: u16,
+	pub hobbies_fitness: u16,
+	pub hobbies_science: u16,
+	pub hobbies_music: u16,
+	pub unknown: u16,
+	pub preferred_hobby: PreferredHobby,
+	pub lifetime_aspiration: u16,
+	pub lifetime_aspiration_points: u16,
+	pub lifetime_aspiration_points_spent: u16,
+	pub decay_hunger_modifier: u16,
+	pub decay_comfort_modifier: u16,
+	pub decay_bladder_modifier: u16,
+	pub decay_energy_modifier: u16,
+	pub decay_hygiene_modifier: u16,
+	pub decay_fun_modifier: u16,
+	pub decay_social_modifier: u16,
+	pub bugs_collection: u32, // TODO bitfield
+}
+
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct V35Data {
+	pub reputation: u16,
+	pub probability_to_appear: u16,
 }
 
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ApartmentLifeData {
-	reputation: u16,
-	probability_to_appear: u16,
-	title_post_name: u16,
+	pub title_post_name: u16,
 }
+
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SimRelation {
+	pub relation: SimID,
+	pub unknown: u16,
+}
+
+// TODO CultFlags
+// TODO PetTraits
 
 #[binrw]
 #[brw(little)]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SimDescription {
-	unknown_0: u32,
-	version: Version,
-	#[br(temp, assert(version_repeat == version))]
-	#[bw(calc(version.clone()))]
-	version_repeat: Version,
+	pub unknown_0: u32,
+	pub version: Version,
+	pub version_repeat: Version,
 
-	sitting: u16,
-	money_over_head: u16,
+	pub sitting: u16,
+	pub money_over_head: u16,
 
-	personality_nice: u16,
-	personality_active: u16,
+	pub personality_nice: u16,
+	pub personality_active: u16,
 	/// also: personality - generosity
-	uni_effort: u16,
-	personality_playful: u16,
-	personality_outgoing: u16,
-	personality_neat: u16,
-	current_outfit: u16,
-	skill_cleaning: u16,
-	skill_cooking: u16,
-	skill_charisma: u16,
-	skill_mechanical: u16,
-	hot_date_exercise: u16,
-	hot_date_food: u16,
-	skill_creativity: u16,
-	hot_date_parties: u16,
-	skill_body: u16,
-	skill_logic: u16,
-	group_talk_state: u16,
-	hot_date_style: u16,
-	interaction_current_index: u16,
-	preference_gender_male: u16,
-	preference_gender_female: u16,
-	job_data: u16,
-	interaction_data_field_1: u16,
-	interaction_sub_queue_count: u16,
-	tick_counter: u16,
-	interaction_data_field_2: u16,
-	motives_static: u16,
-	censorship_flags: u16, // TODO bitfield
-	neighbor_id: u16,
-	person_type: u16,
-	priority: u16,
-	greet_status: u16,
-	visitor_schedule: u16,
-	autonomy_level: u16,
-	route_slot: u16,
-	route_multi_slot_index: u16,
-	route_status: u16,
-	route_goal: u16,
-	look_at_object_id: ObjectID,
-	look_at_slot_id: u16,
-	look_at_state: u16,
-	look_at_time_remaining: u16,
-	interaction_next_queued_index: u16,
-	aspiration: u16,
-	original_personality_neat: u16,
-	original_personality_nice: u16,
-	original_personality_active: u16,
-	original_personality_outgoing: u16,
-	original_personality_playful: u16,
-	ui_icon_flags: u16, // TODO bitfield
-	interaction_findbestaction_object_id: ObjectID,
-	memory_score: u16,
-	route_start_slot: u16,
-	school_grade: u16,
-	job_promotion_level: u16,
-	age: u16,
-	social_menu_object_id: ObjectID,
-	skin_color: u16,
-	family_number: u16,
-	route_result: u16,
-	job_performance: u16,
-	swimming: u16,
-	gender: u16,
-	private: u16,
-	lingering_house_number: u16,
-	route_ghost_flags: u16, // TODO bitfield
-	job_pto: u16,
-	zodiac: u16,
-	non_interruptable: u16,
-	interaction_next_queued_continuation: u16,
-	footprint_extension: u16,
-	render_display_flags: u16, // TODO bitfield
-	interaction_sub_queue_master_object_id: ObjectID,
-	interaction_sub_queue_master_interaction_index: u16,
-	interaction_sub_queue_next_interaction_index: u16,
-	interaction_sub_queue_next_interaction_object_id: ObjectID,
-	interaction_sub_queue_current_interaction_object_id: ObjectID,
-	body_flags: u16, // TODO bitfield
-	fatness: u16,
+	pub uni_effort: u16,
+	pub personality_playful: u16,
+	pub personality_outgoing: u16,
+	pub personality_neat: u16,
+	pub current_outfit: u16,
+	pub skill_cleaning: u16,
+	pub skill_cooking: u16,
+	pub skill_charisma: u16,
+	pub skill_mechanical: u16,
+	/// also: hot date exercise
+	/// also: LazyDutchess' height mod height
+	pub skill_music: u16,
+	/// also: hot date food
+	pub partner_id: SimID,
+	pub skill_creativity: u16,
+	/// also: hot date parties
+	pub skill_art: u16,
+	pub skill_body: u16,
+	pub skill_logic: u16,
+	pub group_talk_state: u16, // TODO bitfield
+	pub hot_date_style: u16,
+	pub interaction_current_index: u16,
+	pub preference_gender_male: u16,
+	pub preference_gender_female: u16,
+	pub job_data: u16, // TODO bitfield
+	pub interaction_data_field_1: u16,
+	pub interaction_sub_queue_count: u16,
+	pub tick_counter: u16,
+	pub interaction_data_field_2: u16,
+	pub motives_static: u16,
+	pub censorship_flags: u16, // TODO bitfield
+	pub neighbor_id: u16,      // TODO SimID?
+	pub person_type: u16,
+	pub priority: u16,
+	pub greet_status: u16,
+	pub visitor_schedule: u16,
+	pub autonomy_level: u16,
+	pub route_slot: u16,
+	pub route_multi_slot_index: u16,
+	pub route_status: u16,
+	pub route_goal: u16,
+	pub look_at_object_id: ObjectID,
+	pub look_at_slot_id: u16,
+	pub look_at_state: u16,
+	pub look_at_time_remaining: u16,
+	pub interaction_next_queued_index: u16,
+	pub aspiration: AspirationFlags,
+	pub genetic_personality_neat: u16,
+	pub genetic_personality_nice: u16,
+	pub genetic_personality_active: u16,
+	pub genetic_personality_outgoing: u16,
+	pub genetic_personality_playful: u16,
+	pub ui_icon_flags: u16, // TODO bitfield
+	pub interaction_findbestaction_object_id: ObjectID,
+	pub memory_score: u16,
+	pub route_start_slot: u16,
+	pub school_grade: Grade,
+	pub job_promotion_level: u16,
+	pub age: LifeSection,
+	pub social_menu_object_id: ObjectID,
+	pub skin_color: u16,
+	pub family_number: u16,
+	pub route_result: u16,
+	pub job_performance: u16,
+	pub swimming: u16,
+	pub gender: Gender,
+	pub private: u16,
+	pub lingering_house_number: u16,
+	pub route_ghost_flags: GhostFlags,
+	pub job_pto: u16,
+	pub zodiac: ZodiacSign,
+	pub non_interruptable: u16,
+	pub interaction_next_queued_continuation: u16,
+	pub footprint_extension: u16,
+	pub render_display_flags: u16, // TODO bitfield
+	pub interaction_sub_queue_master_object_id: ObjectID,
+	pub interaction_sub_queue_master_interaction_index: u16,
+	pub interaction_sub_queue_next_interaction_index: u16,
+	pub interaction_sub_queue_next_interaction_object_id: ObjectID,
+	pub interaction_queue_next_interaction_object_id: ObjectID,
+	pub interaction_queue_current_interaction_object_id: ObjectID,
+	pub body_flags: BodyFlags,
+	/// 0-1000
+	pub fatness: u16,
 	/// also: life score toddler
-	uni_grade: u16,
-	life_score_child: u16,
-	life_score_teen: u16,
-	life_score_adult: u16,
-	life_score_elder: u16,
-	voice_type: u16,
-	job_object_guid: Guid,
-	age_days_left: u16,
-	age_previous_days: u16,
+	pub uni_grade: u16,
+	/// also: life score child
+	pub person_flags_0: PersonFlags0,
+	/// also: romance skill?
+	pub life_score_teen: u16,
+	pub life_score_adult: u16,
+	/// also: voice type?
+	pub life_score_elder: u16,
+	pub voice_type: u16,
+	pub job_object_guid: Guid,
+	pub age_days_left: u16,
+	pub age_previous_days: u16,
 	/// per day
-	decay_hunger: u16,
+	pub decay_hunger: u16,
 	/// per day
-	decay_comfort: u16,
+	pub decay_comfort: u16,
 	/// per day
-	decay_bladder: u16,
+	pub decay_bladder: u16,
 	/// per day
-	decay_energy: u16,
+	pub decay_energy: u16,
 	/// per day
-	decay_hygiene: u16,
+	pub decay_hygiene: u16,
 	/// per day
-	decay_social_family: u16,
+	pub decay_social_family: u16,
 	/// per day
-	decay_social: u16,
+	pub decay_social: u16,
 	/// per day
-	decay_unknown: u16,
+	pub decay_unknown: u16,
 	/// per day
-	decay_fun: u16,
-	interaction_current_running_index: u16,
-	interaction_current_running_object_id: ObjectID,
-	genetics_data_1: u16,
-	genetics_data_2: u16,
-	genetics_data_3: u16,
-	school_object_guid: Guid,
-	interaction_current_guid: u16,
-	interaction_linked_deleted: u16,
-	skill_romance: u16,
-	loco_weight_0: u16,
-	loco_weight_1: u16,
-	loco_personality_index: u16,
-	loco_personality_weight: u16,
-	loco_mood_index: u16,
-	loco_mood_weight: u16,
-	loco_motives: u16, // TODO bitfield?
-	outfit_source_guid: Guid,
-	environment_score_override: u16,
-	fitness_preference: u16,
-	pension: u16,
-	interest_politics: u16,
-	interest_money: u16,
-	interest_environment: u16,
-	interest_crime: u16,
-	interest_entertainment: u16,
-	interest_culture: u16,
-	interest_food: u16,
-	interest_health: u16,
-	interest_fashion: u16,
-	interest_sports: u16,
-	interest_paranormal: u16,
-	interest_travel: u16,
-	interest_work: u16,
-	interest_weather: u16,
-	interest_animals: u16,
-	interest_school: u16,
-	interest_toys: u16,
-	interest_scifi: u16,
-	interest_unused_0: u16,
-	interest_unused_1: u16,
-	interest_unused_2: u16,
-	interest_unused_3: u16,
-	interest_unused_4: u16,
-	interest_unused_5: u16,
-	interest_unused_6: u16,
-	interest_unused_7: u16,
-	interest_unused_8: u16,
-	interest_unused_9: u16,
-	interest_unused_10: u16,
-	interest_unused_11: u16,
-	unselectable: u16,
-	npc_type: u16,
-	age_duration: u16,
-	interaction_sub_queue_object_id: ObjectID,
-	selection_flags: u16,
-	person_flags: u16,
-	aspiration_score: u16,
+	pub decay_fun: u16,
+	pub interaction_current_running_index: u16,
+	pub interaction_current_running_object_id: ObjectID,
+	pub genetics_data_1: u16,
+	pub genetics_data_2: u16,
+	pub genetics_data_3: u16,
+	pub school_object_guid: Guid,
+	pub interaction_current_guid: u16,
+	pub interaction_linked_deleted: u16,
+	pub skill_romance: u16,
+	pub loco_weight_0: u16,
+	pub loco_weight_1: u16,
+	pub loco_personality_index: u16,
+	pub loco_personality_weight: u16,
+	pub loco_mood_index: u16,
+	pub loco_mood_weight: u16,
+	pub loco_motives: u16, // TODO bitfield?
+	pub outfit_source_guid: Guid,
+	pub environment_score_override: u16,
+	pub fitness_preference: u16,
+	pub pension: u16,
+	pub interest_politics: u16,
+	pub interest_money: u16,
+	pub interest_environment: u16,
+	pub interest_crime: u16,
+	pub interest_entertainment: u16,
+	pub interest_culture: u16,
+	pub interest_food: u16,
+	pub interest_health: u16,
+	pub interest_fashion: u16,
+	pub interest_sports: u16,
+	pub interest_paranormal: u16,
+	pub interest_travel: u16,
+	pub interest_work: u16,
+	pub interest_weather: u16,
+	pub interest_animals: u16,
+	pub interest_school: u16,
+	pub interest_toys: u16,
+	pub interest_scifi: u16,
+	pub interest_unused_0: u16,
+	pub interest_unused_1: u16,
+	pub interest_unused_2: u16,
+	pub interest_unused_3: u16,
+	pub interest_unused_4: u16,
+	pub interest_unused_5: u16,
+	pub interest_unused_6: u16,
+	pub interest_unused_7: u16,
+	pub interest_unused_8: u16,
+	pub interest_unused_9: u16,
+	pub interest_unused_10: u16,
+	pub interest_unused_11: u16,
+	pub unselectable: u16,
+	pub npc_type: u16, // TODO enum
+	pub age_duration: u16,
+	pub interaction_sub_queue_object_id: ObjectID,
+	pub selection_flags: SelectionFlags,
+	pub person_flags_1: PersonFlags1,
+	// also: bodyshape???
+	pub aspiration_score: u16,
 	/// divide by 10
-	aspiration_reward_points_spent: u16,
+	pub aspiration_reward_points_spent: u16,
 	/// divide by 10
-	aspiration_score_raw: u16,
-	mood_booster: u16,
-	interaction_current_joinable: u16,
-	unlinked: u16,
-	interaction_autonomous: u16,
-	job_retired_guid: Guid,
-	job_retired_level: u16,
+	pub aspiration_score_raw: u16,
+	pub mood_booster: u16,
+	pub interaction_current_joinable: u16,
+	pub unlinked: u16,
+	pub interaction_autonomous: u16,
+	pub job_retired_guid: Guid,
+	pub job_retired_level: u16,
 
 	#[brw(if(version.clone() >= Version::University))]
-	uni_data: UniData,
+	pub uni_data: UniData,
 
 	#[brw(if(version.clone() >= Version::Nightlife))]
-	nightlife_data: NightlifeData,
+	pub nightlife_data: NightlifeData,
 
 	#[brw(if(version.clone() >= Version::Business))]
-	open_for_business_data: BusinessData,
+	pub open_for_business_data: BusinessData,
 
 	#[brw(if(version.clone() >= Version::Pets))]
-	pet_traits: u16,
+	pub pet_traits: u16, // TODO bitfield
 
 	#[brw(if(version.clone() >= Version::BonVoyage))]
-	bon_voyage_data: BonVoyageData,
+	pub bon_voyage_data: BonVoyageData,
 
-	#[brw(if(version.clone() >= Version::Castaway))]
-	subspecies: u16,
+	#[brw(if(version.clone() == Version::Castaway))]
+	pub subspecies: u16,
 
 	#[brw(if(version.clone() >= Version::FreeTime))]
-	free_time_data: FreeTimeData,
+	pub free_time_data: FreeTimeData,
+
+	#[brw(if(version.clone() >= Version::V35))]
+	pub v35_data: V35Data,
 
 	#[brw(if(version.clone() >= Version::ApartmentLife))]
-	apartment_life_data: ApartmentLifeData,
+	pub apartment_life_data: ApartmentLifeData,
 
-	instance: u16,
-	guid: Guid,
+	pub instance: SimID,
+	pub guid: Guid,
 
-	unknown_1: u32,
+	#[br(assert(unknown_1 == 3))]
+	pub unknown_1: u32,
 
-	relations: SizedVec<u32, u16>,
+	pub relations: SizedVec<u32, SimRelation>,
 
-	unknown_2: [u8; 9],
+	#[brw(if(version.clone() >= Version::BonVoyage))]
+	pub collectibles: u64, // TODO flags
+
+	pub unknown_3: u8,
 }
