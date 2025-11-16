@@ -64,20 +64,20 @@ pub enum Version {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AspirationFlags {
-	romance: bool,
-	family: bool,
-	fortune: bool,
-	power: bool, // TODO real?
-	reputation: bool,
-	knowledge: bool,
-	grow_up: bool,
-	pleasure: bool,
-	cheese: bool,
+	pub romance: bool,
+	pub family: bool,
+	pub fortune: bool,
+	pub power: bool, // TODO real?
+	pub reputation: bool,
+	pub knowledge: bool,
+	pub grow_up: bool,
+	pub pleasure: bool,
+	pub cheese: bool,
 	unused: B7,
 }
 
 #[binrw]
-#[brw(repr = u32)]
+#[brw(repr = u16)]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Grade {
 	#[default]
@@ -98,7 +98,7 @@ pub enum Grade {
 }
 
 #[binrw]
-#[brw(repr = u32)]
+#[brw(repr = u16)]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 pub enum LifeSection {
 	#[default]
@@ -113,7 +113,7 @@ pub enum LifeSection {
 }
 
 #[binrw]
-#[brw(repr = u32)]
+#[brw(repr = u16)]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Gender {
 	Male = 0,
@@ -125,14 +125,14 @@ pub enum Gender {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GhostFlags {
-	is_ghost: bool,
-	can_pass_through_objects: bool,
-	can_pass_through_walls: bool,
-	can_pass_through_people: bool,
-	ignore_traversal_costs: bool,
-	can_fly_over_low_objects: bool,
-	force_route_recalc: bool,
-	can_swim_in_ocean: bool,
+	pub is_ghost: bool,
+	pub can_pass_through_objects: bool,
+	pub can_pass_through_walls: bool,
+	pub can_pass_through_people: bool,
+	pub ignore_traversal_costs: bool,
+	pub can_fly_over_low_objects: bool,
+	pub force_route_recalc: bool,
+	pub can_swim_in_ocean: bool,
 	unused: u8,
 }
 
@@ -159,25 +159,150 @@ pub enum ZodiacSign {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BodyFlags {
-	fat: bool,
-	pregnant_3rd_trimester: bool,
-	pregnant_2nd_trimester: bool,
-	pregnant_1st_trimester: bool,
-	fit: bool,
-	hospital: bool,
-	birth_control: bool,
+	pub fat: bool,
+	pub pregnant_3rd_trimester: bool,
+	pub pregnant_2nd_trimester: bool,
+	pub pregnant_1st_trimester: bool,
+	pub fit: bool,
+	pub hospital: bool,
+	pub birth_control: bool,
 	unused0: bool,
 	unused1: u8,
+}
+
+#[binrw]
+#[brw(repr = u16)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub enum BodyShape {
+	#[default]
+	Default = 0x0,
+	Tiny = 0x13,
+	Elder = 0x15,
+	Maxis = 0x1e,
+	Holiday = 0x1f,
+	Goth = 0x20,
+	SteamPunk = 0x21,
+	Medieval = 0x22,
+	StoneAge = 0x23,
+	Pirates = 0x24,
+	Grungy = 0x26,
+	Castaway = 0x27,
+	SuperHeros = 0x29,
+	Futuristic = 0x2a,
+	Various = 0x2c,
+	Werewolves = 0x2d,
+	Satyrs = 0x2f,
+	Centaurs = 0x30,
+	Mermaid = 0x31,
+	HugeBBBeast = 0x33,
+	Fannystein = 0x35,
+	Quarians = 0x36,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CultFlags {
+	pub allow_family: bool,
+	pub no_alcohol: bool,
+	pub no_auto_woohoo: bool,
+	pub marked_sim: bool,
+	pub not_used_f: bool, // TODO ?
+	unused: B11,
+}
+
+#[binrw]
+#[brw(repr = u16)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub enum NpcType {
+	#[default]
+	Normal = 0x0,
+	BartenderB = 0x1,
+	BartenderP = 0x2,
+	Boss = 0x3,
+	Burglar = 0x4,
+	Driver = 0x5,
+	Streaker = 0x6,
+	Coach = 0x7,
+	LunchLady = 0x8,
+	Cop = 0x9,
+	Delivery = 0xA,
+	Exterminator = 0xB,
+	FireFighter = 0xC,
+	Gardener = 0xD,
+	Barista = 0xE,
+	Grim = 0xF,
+	Handy = 0x10,
+	Headmistress = 0x11,
+	Matchmaker = 0x12,
+	Maid = 0x13,
+	MailCarrier = 0x14,
+	Nanny = 0x15,
+	Paper = 0x16,
+	Pizza = 0x17,
+	Professor = 0x18,
+	EvilMascot = 0x19,
+	Repo = 0x1A,
+	CheerLeader = 0x1B,
+	Mascot = 0x1C,
+	SocialBunny = 0x1D,
+	SocialWorker = 0x1E,
+	Register = 0x1F,
+	Therapist = 0x20,
+	Chinese = 0x21,
+	Podium = 0x22,
+	Waitress = 0x23,
+	Chef = 0x24,
+	DJ = 0x25,
+	Crumplebottom = 0x26,
+	Vampyre = 0x27,
+	Servo = 0x28,
+	Reporter = 0x29,
+	Salon = 0x2A,
+	Wolf = 0x2B,
+	WolfLOTP = 0x2C,
+	Skunk = 0x2D,
+	AnimalControl = 0x2E,
+	Obedience = 0x2F,
+	Masseuse = 0x30,
+	Bellhop = 0x31,
+	Villain = 0x32,
+	TourGuide = 0x33,
+	Hermit = 0x34,
+	Ninja = 0x35,
+	BigFoot = 0x36,
+	Housekeeper = 0x37,
+	FoodStandChef = 0x38,
+	FireDancer = 0x39,
+	WitchDoctor = 0x3A,
+	GhostCaptain = 0x3B,
+	FoodJudge = 0x3C,
+	Genie = 0x3D,
+	ExDj = 0x3E,
+	ExGypsy = 0x3F,
+	Witch1 = 0x40,
+	Breakdancer = 0x41,
+	SpectralCat = 0x42,
+	Statue = 0x43,
+	Landlord = 0x44,
+	Butler = 0x45,
+	HotdogChef = 0x46,
+	Assistant = 0x47,
+	ExWitch2 = 0x48,
+	TinySim = 0x4F,
+	Pandora = 0xAC,
+	DMASim = 0xDA,
+	Icontrol = 0xE9,
 }
 
 #[bitfield]
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SelectionFlags {
-	selectable: bool,
-	not_selectable: bool,
-	hide_relationships: bool,
-	holiday_mate: bool,
+	pub selectable: bool,
+	pub not_selectable: bool,
+	pub hide_relationships: bool,
+	pub holiday_mate: bool,
 	unused: B12,
 }
 
@@ -185,18 +310,18 @@ pub struct SelectionFlags {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PersonFlags0 {
-	zombie: bool,
-	perma_platinum: bool,
-	is_vampire: bool,
-	vampire_smoke: bool,
-	want_history: bool,
-	lycanthropy_carrier: bool,
-	lycanthropy_active: bool,
-	is_pet_runaway: bool,
-	is_plantsim: bool,
-	is_bigfoot: bool,
-	is_witch: bool,
-	is_roommate: bool,
+	pub zombie: bool,
+	pub perma_platinum: bool,
+	pub is_vampire: bool,
+	pub vampire_smoke: bool,
+	pub want_history: bool,
+	pub lycanthropy_carrier: bool,
+	pub lycanthropy_active: bool,
+	pub is_pet_runaway: bool,
+	pub is_plantsim: bool,
+	pub is_bigfoot: bool,
+	pub is_witch: bool,
+	pub is_roommate: bool,
 	unused: B4,
 }
 
@@ -204,8 +329,8 @@ pub struct PersonFlags0 {
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PersonFlags1 {
-	is_owned: bool,
-	stay_naked: bool,
+	pub is_owned: bool,
+	pub stay_naked: bool,
 	unused: B14,
 }
 
@@ -221,14 +346,14 @@ pub struct UniProgressionFlags {
 	pub try_period: bool,
 	pub got_diploma: bool,
 	pub in_course_or_exam: bool,
-	pub unknown_0: bool,
-	pub unknown_1: bool,
-	pub unknown_2: bool,
-	pub unknown_3: bool,
-	pub abandon: bool,
-	pub fired: bool,
-	pub unknown_4: bool,
-	pub unknown_5: bool,
+	pub gates_0: bool,
+	pub gates_1: bool,
+	pub gates_2: bool,
+	pub gates_3: bool,
+	pub dropped: bool,
+	pub expelled: bool,
+	unused_0: bool,
+	unused_1: bool,
 }
 
 #[binrw]
@@ -239,7 +364,8 @@ pub struct UniData {
 	pub uni_progression_flags: UniProgressionFlags,
 	pub uni_semester: u16,
 	pub uni_on_campus: u16,
-	pub uni_unknown: u32,
+	pub uni_influence_bar_level: u16,
+	pub uni_influence_minimum: u16,
 	pub uni_influence: u16,
 }
 
@@ -261,8 +387,8 @@ pub struct NightlifeTraits {
 	pub full_face_makeup: bool,
 	pub hats: bool,
 	pub jewelry: bool,
-	pub unused_0: bool,
-	pub unused_1: bool,
+	unused_0: bool,
+	unused_1: bool,
 	pub blonde_hair: bool,
 	pub red_hair: bool,
 	pub brown_hair: bool,
@@ -349,12 +475,29 @@ pub struct BusinessData {
 #[bitfield]
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct PetTraitFlags {
+	pub gifted: bool,
+	pub doofus: bool,
+	pub hyper: bool,
+	pub lazy: bool,
+	pub independent: bool,
+	pub friendly: bool,
+	pub aggressive: bool,
+	pub cowardly: bool,
+	pub pigpen: bool,
+	pub finicky: bool,
+	unused: B6,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BonVoyageTraits {
 	pub robots: bool,
 	pub plants: bool,
 	pub lycanthropy: bool,
 	pub witchiness: bool,
-	pub unused: B12,
+	unused: B12,
 }
 
 #[binrw]
@@ -412,7 +555,7 @@ pub struct FreeTimeData {
 	pub hobbies_fitness: u16,
 	pub hobbies_science: u16,
 	pub hobbies_music: u16,
-	pub unknown: u16,
+	pub hobbies_reserved: u16,
 	pub preferred_hobby: PreferredHobby,
 	pub lifetime_aspiration: u16,
 	pub lifetime_aspiration_points: u16,
@@ -447,9 +590,6 @@ pub struct SimRelation {
 	pub unknown: u16,
 }
 
-// TODO CultFlags
-// TODO PetTraits
-
 #[binrw]
 #[brw(little)]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -460,7 +600,6 @@ pub struct SimDescription {
 
 	pub sitting: u16,
 	pub money_over_head: u16,
-
 	pub personality_nice: u16,
 	pub personality_active: u16,
 	/// also: personality - generosity
@@ -484,10 +623,11 @@ pub struct SimDescription {
 	pub skill_body: u16,
 	pub skill_logic: u16,
 	pub group_talk_state: u16, // TODO bitfield
-	pub hot_date_style: u16,
+	/// also: hot date style
+	pub body_temperature: u16,
 	pub interaction_current_index: u16,
-	pub preference_gender_male: u16,
-	pub preference_gender_female: u16,
+	pub preference_gender_male: i16,
+	pub preference_gender_female: i16,
 	pub job_data: u16, // TODO bitfield
 	pub interaction_data_field_1: u16,
 	pub interaction_sub_queue_count: u16,
@@ -525,7 +665,7 @@ pub struct SimDescription {
 	pub age: LifeSection,
 	pub social_menu_object_id: ObjectID,
 	pub skin_color: u16,
-	pub family_number: u16,
+	pub family_instance: u16,
 	pub route_result: u16,
 	pub job_performance: u16,
 	pub swimming: u16,
@@ -581,9 +721,13 @@ pub struct SimDescription {
 	pub decay_fun: u16,
 	pub interaction_current_running_index: u16,
 	pub interaction_current_running_object_id: ObjectID,
-	pub genetics_data_1: u16,
-	pub genetics_data_2: u16,
-	pub genetics_data_3: u16,
+	/// also: genetics data 1
+	pub motive_power: u16,
+	/// also: genetics data 2
+	pub work_outfit_index: u16,
+	/// per day
+	/// also: genetics data 3
+	pub decay_scratch_chew: u16,
 	pub school_object_guid: Guid,
 	pub interaction_current_guid: u16,
 	pub interaction_linked_deleted: u16,
@@ -619,23 +763,27 @@ pub struct SimDescription {
 	pub interest_scifi: u16,
 	pub interest_unused_0: u16,
 	pub interest_unused_1: u16,
-	pub interest_unused_2: u16,
-	pub interest_unused_3: u16,
-	pub interest_unused_4: u16,
+	/// also: interest_unused_2
+	pub allocated_suburb: u16,
+	/// also: interest_unused_3
+	pub person_flags_1: PersonFlags1,
+	/// also: interest_unused_4
+	pub bodyshape: BodyShape,
 	pub interest_unused_5: u16,
-	pub interest_unused_6: u16,
+	/// also: interest_unused_6
+	pub cult_flags: CultFlags,
 	pub interest_unused_7: u16,
 	pub interest_unused_8: u16,
 	pub interest_unused_9: u16,
-	pub interest_unused_10: u16,
+	/// also: interest_unused_10
+	pub religion_id: u16,
 	pub interest_unused_11: u16,
 	pub unselectable: u16,
-	pub npc_type: u16, // TODO enum
+	pub npc_type: NpcType, // TODO enum
 	pub age_duration: u16,
 	pub interaction_sub_queue_object_id: ObjectID,
 	pub selection_flags: SelectionFlags,
-	pub person_flags_1: PersonFlags1,
-	// also: bodyshape???
+	pub person_flags_2: u16, // TODO bitfield
 	pub aspiration_score: u16,
 	/// divide by 10
 	pub aspiration_reward_points_spent: u16,
@@ -658,7 +806,7 @@ pub struct SimDescription {
 	pub open_for_business_data: BusinessData,
 
 	#[brw(if(version.clone() >= Version::Pets))]
-	pub pet_traits: u16, // TODO bitfield
+	pub pet_traits: PetTraitFlags, // TODO bitfield
 
 	#[brw(if(version.clone() >= Version::BonVoyage))]
 	pub bon_voyage_data: BonVoyageData,
