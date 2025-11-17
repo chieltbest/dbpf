@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #![allow(unused_parens, clippy::identity_op)]
 
 use crate::common::{Guid, SizedVec};
@@ -352,7 +356,7 @@ pub struct UniData {
 #[bitfield]
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct NightlifeTraits {
+pub struct NightlifeTraitFlags {
 	pub cologne: bool,
 	pub stink: bool,
 	pub fatness: bool,
@@ -402,9 +406,9 @@ pub enum Species {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NightlifeData {
 	pub route: u16,
-	pub traits: NightlifeTraits,
-	pub turn_ons: NightlifeTraits,
-	pub turn_offs: NightlifeTraits,
+	pub traits: NightlifeTraitFlags,
+	pub turn_ons: NightlifeTraitFlags,
+	pub turn_offs: NightlifeTraitFlags,
 	pub species: Species,
 	pub countdown: u16,
 	pub perfume_timer: u16,
@@ -472,7 +476,7 @@ pub struct PetTraitFlags {
 #[bitfield]
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BonVoyageTraits {
+pub struct BonVoyageTraitFlags {
 	pub robots: bool,
 	pub plants: bool,
 	pub lycanthropy: bool,
@@ -484,9 +488,9 @@ pub struct BonVoyageTraits {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BonVoyageData {
 	pub vacation_days_left: u16,
-	pub turn_ons: BonVoyageTraits,
-	pub turn_offs: BonVoyageTraits,
-	pub traits: BonVoyageTraits,
+	pub turn_ons: BonVoyageTraitFlags,
+	pub turn_offs: BonVoyageTraitFlags,
+	pub traits: BonVoyageTraitFlags,
 }
 
 #[binrw]
@@ -568,6 +572,48 @@ pub struct ApartmentLifeData {
 pub struct SimRelation {
 	pub relation: SimID,
 	pub unknown: u16,
+}
+
+#[bitfield]
+#[binrw]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BugCollectionFlags {
+	unknown_0: bool,
+
+	pub grey_widow_spider: bool,
+	pub striped_spindler_spider: bool,
+	pub huntsperson_spider: bool,
+	pub teddybear_spider: bool,
+	pub itsius_bitsius_spider: bool,
+	pub single_fanged_betsy_spider: bool,
+	pub hotdog_spider: bool,
+	pub queen_charlotte_spider: bool,
+	pub paratrooper_spider: bool,
+	pub mock_spider: bool,
+
+	pub socialus_butterfly: bool,
+	pub blue_featherwing_butterfly: bool,
+	pub pygmalion_butterfly: bool,
+	pub empress_butterfly: bool,
+	pub jelly_butterfly: bool,
+	pub peanut_butterfly: bool,
+	pub margarina_butterfly: bool,
+	pub copper_pot_butterfly: bool,
+	pub vampire_butterfly: bool,
+	pub madame_butterfly: bool,
+
+	pub prancer_beetle: bool,
+	pub jack_beetle: bool,
+	pub mock_ladybug_beetle: bool,
+	pub polka_beetle: bool,
+	pub green_bottle_beetle: bool,
+	pub dapper_pinstripe_beetle: bool,
+	pub couch_potato_beetle: bool,
+	pub ringo_beetle: bool,
+	pub trihorn_greaves_beetle: bool,
+	pub gentleman_beetle: bool,
+
+	unknown_1: bool,
 }
 
 #[binrw]
