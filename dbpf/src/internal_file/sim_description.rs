@@ -54,8 +54,8 @@ pub enum Version {
 	BonVoyageB = 0x2f,
 	/// EP7
 	FreeTime = 0x33,
-	/// SP8?
-	V35 = 0x35,
+	/// pre-release of EP8? only used for four pets in the magic subhood
+	ApartmentLifePreRelease = 0x35,
 	/// EP8
 	ApartmentLife = 0x36,
 }
@@ -74,27 +74,6 @@ pub struct AspirationFlags {
 	pub pleasure: bool,
 	pub cheese: bool,
 	unused: B7,
-}
-
-#[binrw]
-#[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Grade {
-	#[default]
-	Unknown = 0x0,
-	F = 0x1,
-	DMinus = 0x2,
-	D = 0x3,
-	DPlus = 0x4,
-	CMinus = 0x5,
-	C = 0x6,
-	CPlus = 0x7,
-	BMinus = 0x8,
-	B = 0x9,
-	BPlus = 0xA,
-	AMinus = 0xB,
-	A = 0xC,
-	APlus = 0xD,
 }
 
 #[binrw]
@@ -137,10 +116,11 @@ pub struct GhostFlags {
 }
 
 #[binrw]
-#[brw(repr = u32)]
+#[brw(repr = u16)]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ZodiacSign {
 	#[default]
+	Unknown = 0,
 	Aries = 1,
 	Taurus = 2,
 	Gemini = 3,
@@ -660,7 +640,9 @@ pub struct SimDescription {
 	pub interaction_findbestaction_object_id: ObjectID,
 	pub memory_score: u16,
 	pub route_start_slot: u16,
-	pub school_grade: Grade,
+	/// seems to be 0-1000
+	/// SimPE suggests this is an enum
+	pub school_grade: u16,
 	pub job_promotion_level: u16,
 	pub age: LifeSection,
 	pub social_menu_object_id: ObjectID,
@@ -806,7 +788,7 @@ pub struct SimDescription {
 	pub open_for_business_data: BusinessData,
 
 	#[brw(if(version.clone() >= Version::Pets))]
-	pub pet_traits: PetTraitFlags, // TODO bitfield
+	pub pet_traits: PetTraitFlags,
 
 	#[brw(if(version.clone() >= Version::BonVoyage))]
 	pub bon_voyage_data: BonVoyageData,
@@ -817,7 +799,7 @@ pub struct SimDescription {
 	#[brw(if(version.clone() >= Version::FreeTime))]
 	pub free_time_data: FreeTimeData,
 
-	#[brw(if(version.clone() >= Version::V35))]
+	#[brw(if(version.clone() >= Version::ApartmentLifePreRelease))]
 	pub v35_data: V35Data,
 
 	#[brw(if(version.clone() >= Version::ApartmentLife))]
