@@ -860,7 +860,7 @@ pub struct SimDescription {
 	pub relations: SizedVec<u32, SimRelation>,
 
 	#[brw(if(version.clone() >= Version::BonVoyage))]
-	pub collectibles: u64, // TODO flags
+	pub bug_collection_flags: BugCollectionFlags,
 
 	pub unknown_3: u8,
 }
