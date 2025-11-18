@@ -84,6 +84,31 @@ pub enum Version {
 	ApartmentLife = 0x36,
 }
 
+impl Version {
+	pub fn human_name(&self) -> &str {
+		match self {
+			Version::V18 => "V18",
+			Version::V19 => "V19",
+			Version::V1a => "V1a",
+			Version::V1c => "V1c",
+			Version::V1e => "V1e",
+			Version::V1f => "V1f",
+			Version::BaseGame => "Base Game",
+			Version::University => "University",
+			Version::V27 => "V27",
+			Version::Nightlife => "Nightlife",
+			Version::Business => "Business",
+			Version::Pets => "Pets",
+			Version::Castaway => "Castaway",
+			Version::BonVoyage => "Bon Voyage",
+			Version::BonVoyageB => "Bon Voyage (Version 2)",
+			Version::FreeTime => "Free Time",
+			Version::ApartmentLifePreRelease => "Apartment Life (pre-release)",
+			Version::ApartmentLife => "Apartment Life",
+		}
+	}
+}
+
 #[binrw]
 #[brw(little)]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -118,7 +143,7 @@ pub struct SimDescription {
 	pub skill_logic: u16,
 	pub group_talk_state: u16, // TODO bitfield
 	/// also: hot date style
-	pub body_temperature: u16,
+	pub body_temperature: i16,
 	pub interaction_current_index: u16,
 	pub preference_gender_male: i16,
 	pub preference_gender_female: i16,
@@ -198,23 +223,23 @@ pub struct SimDescription {
 	pub age_days_left: u16,
 	pub age_previous_days: u16,
 	/// per day
-	pub decay_hunger: u16,
+	pub decay_hunger: i16,
 	/// per day
-	pub decay_comfort: u16,
+	pub decay_comfort: i16,
 	/// per day
-	pub decay_bladder: u16,
+	pub decay_bladder: i16,
 	/// per day
-	pub decay_energy: u16,
+	pub decay_energy: i16,
 	/// per day
-	pub decay_hygiene: u16,
+	pub decay_hygiene: i16,
 	/// per day
-	pub decay_social_family: u16,
+	pub decay_social_family: i16,
 	/// per day
-	pub decay_social: u16,
+	pub decay_social: i16,
 	/// per day
-	pub decay_unknown: u16,
+	pub decay_unknown: i16,
 	/// per day
-	pub decay_fun: u16,
+	pub decay_fun: i16,
 	pub interaction_current_running_index: u16,
 	pub interaction_current_running_object_id: ObjectID,
 	/// also: genetics data 1
@@ -223,7 +248,7 @@ pub struct SimDescription {
 	pub work_outfit_index: u16,
 	/// per day
 	/// also: genetics data 3
-	pub decay_scratch_chew: u16,
+	pub decay_scratch_chew: i16,
 	pub school_object_guid: Guid,
 	pub interaction_current_guid: u16,
 	pub interaction_linked_deleted: u16,
