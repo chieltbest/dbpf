@@ -13,7 +13,7 @@ use crate::internal_file::sim_description::freetime::FreeTimeData;
 use crate::internal_file::sim_description::nightlife::NightlifeData;
 use crate::internal_file::sim_description::pets::PetTraitFlags;
 use crate::internal_file::sim_description::university::UniData;
-use crate::internal_file::sim_description::voyage::BonVoyageData;
+use crate::internal_file::sim_description::voyage::{BonVoyageData, BonVoyageMementosFlags};
 use binrw::binrw;
 use modular_bitfield::bitfield;
 use modular_bitfield::prelude::*;
@@ -588,5 +588,5 @@ pub struct SimDescription {
 	pub unknown_3: u8,
 
 	#[brw(if(version.clone() >= Version::BonVoyage))]
-	pub collectibles: u64,
+	pub mementos: BonVoyageMementosFlags,
 }
