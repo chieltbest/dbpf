@@ -5,9 +5,26 @@
 #![allow(unused_parens, clippy::identity_op)]
 
 use crate::common::{Guid, SizedVec};
+use crate::internal_file::sim_description::apartment::{
+	ApartmentLifeData, ApartmentLifePreReleaseData,
+};
+use crate::internal_file::sim_description::business::BusinessData;
+use crate::internal_file::sim_description::freetime::FreeTimeData;
+use crate::internal_file::sim_description::nightlife::NightlifeData;
+use crate::internal_file::sim_description::pets::PetTraitFlags;
+use crate::internal_file::sim_description::university::UniData;
+use crate::internal_file::sim_description::voyage::BonVoyageData;
 use binrw::binrw;
 use modular_bitfield::bitfield;
 use modular_bitfield::prelude::*;
+
+mod apartment;
+mod business;
+mod freetime;
+mod nightlife;
+mod pets;
+mod university;
+mod voyage;
 
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -76,7 +93,7 @@ pub struct AspirationFlags {
 	pub knowledge: bool,
 	pub grow_up: bool,
 	pub pleasure: bool,
-	pub cheese: bool,
+	pub grilled_cheese: bool,
 	unused: B7,
 }
 
@@ -201,8 +218,8 @@ pub struct CultFlags {
 pub enum NpcType {
 	#[default]
 	Normal = 0x0,
-	BartenderB = 0x1,
-	BartenderP = 0x2,
+	BartenderBars = 0x1,
+	BartenderPhone = 0x2,
 	Boss = 0x3,
 	Burglar = 0x4,
 	Driver = 0x5,
@@ -318,302 +335,11 @@ pub struct PersonFlags1 {
 	unused: B14,
 }
 
-#[bitfield]
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct UniProgressionFlags {
-	pub year_1: bool,
-	pub year_2: bool,
-	pub year_3: bool,
-	pub year_4: bool,
-	pub semester: bool,
-	pub try_period: bool,
-	pub got_diploma: bool,
-	pub in_course_or_exam: bool,
-	pub gates_0: bool,
-	pub gates_1: bool,
-	pub gates_2: bool,
-	pub gates_3: bool,
-	pub dropped: bool,
-	pub expelled: bool,
-	unused_0: bool,
-	unused_1: bool,
-}
-
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct UniData {
-	pub uni_college_major_guid: Guid,
-	pub uni_semester_remaining_time: u16,
-	pub uni_progression_flags: UniProgressionFlags,
-	pub uni_semester: u16,
-	pub uni_on_campus: u16,
-	pub uni_influence_bar_level: u16,
-	pub uni_influence_minimum: u16,
-	pub uni_influence: u16,
-}
-
-#[bitfield]
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct NightlifeTraitFlags {
-	pub cologne: bool,
-	pub stink: bool,
-	pub fatness: bool,
-	pub fitness: bool,
-	pub formal_wear: bool,
-	pub swim_wear: bool,
-	pub underwear: bool,
-	pub vampirism: bool,
-	pub facial_hair: bool,
-	pub glasses: bool,
-	pub makeup: bool,
-	pub full_face_makeup: bool,
-	pub hats: bool,
-	pub jewelry: bool,
-	unused_0: bool,
-	unused_1: bool,
-	pub blonde_hair: bool,
-	pub red_hair: bool,
-	pub brown_hair: bool,
-	pub black_hair: bool,
-	pub custom_hair: bool,
-	pub grey_hair: bool,
-	pub hard_worker: bool,
-	pub unemployed: bool,
-	pub logical: bool,
-	pub charismatic: bool,
-	pub good_cook: bool,
-	pub mechanical: bool,
-	pub creative: bool,
-	pub athletic: bool,
-	pub good_cleaner: bool,
-	pub zombiism: bool,
-}
-
-#[binrw]
-#[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum Species {
-	#[default]
-	Human = 0,
-	LargeDog = 1,
-	SmallDog = 2,
-	Cat = 3,
-}
-
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct NightlifeData {
-	pub route: u16,
-	pub traits: NightlifeTraitFlags,
-	pub turn_ons: NightlifeTraitFlags,
-	pub turn_offs: NightlifeTraitFlags,
-	pub species: Species,
-	pub countdown: u16,
-	pub perfume_timer: u16,
-	pub date_timer: u16,
-	pub date_score: u16,
-	pub date_unlock_counter: u16,
-	pub love_potion_timer: u16,
-	pub aspiration_score_lock: u16,
-	pub date_neighbor_id: u16,
-}
-
-#[binrw]
-#[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum JobAssignment {
-	#[default]
-	Nothing = 0x0,
-	Chef = 0x1,
-	Host = 0x2,
-	Server = 0x3,
-	Cashier = 0x4,
-	Bartender = 0x5,
-	Barista = 0x6,
-	DJ = 0x7,
-	SellLemonade = 0x8,
-	Stylist = 0x9,
-	Tidy = 0xA,
-	Restock = 0xB,
-	Sales = 0xC,
-	MakeToys = 0xD,
-	ArrangeFlowers = 0xE,
-	BuildRobots = 0xF,
-	MakeFood = 0x10,
-	Masseuse = 0x11,
-	MakePottery = 0x12,
-	Sewing = 0x13,
-}
-
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BusinessData {
-	pub lot_id: u16,
-	pub salary: u16,
-	pub flags: u16, // TODO bitfield
-	pub assignment: JobAssignment,
-}
-
-#[bitfield]
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct PetTraitFlags {
-	pub gifted: bool,
-	pub doofus: bool,
-	pub hyper: bool,
-	pub lazy: bool,
-	pub independent: bool,
-	pub friendly: bool,
-	pub aggressive: bool,
-	pub cowardly: bool,
-	pub pigpen: bool,
-	pub finicky: bool,
-	unused: B6,
-}
-
-#[bitfield]
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BonVoyageTraitFlags {
-	pub robots: bool,
-	pub plants: bool,
-	pub lycanthropy: bool,
-	pub witchiness: bool,
-	unused: B12,
-}
-
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BonVoyageData {
-	pub vacation_days_left: u16,
-	pub turn_ons: BonVoyageTraitFlags,
-	pub turn_offs: BonVoyageTraitFlags,
-	pub traits: BonVoyageTraitFlags,
-}
-
-#[binrw]
-#[brw(repr = u16)]
-#[brw(import(version: Version))]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum PreferredHobby {
-	#[default]
-	None = 0x0,
-	// these unknown values are probably created by some faulty tool
-	// but they could also be an earlier encoding from earlier SP/EPs
-	// an EP9 installation will reset these unknown values to random valid ones
-	Unknown1 = 0x1,
-	Unknown2 = 0x2,
-	Unknown3 = 0x3,
-	Unknown4 = 0x4,
-	Unknown5 = 0x5,
-	Unknown6 = 0x6,
-	Unknown7 = 0x7,
-	Unknown8 = 0x8,
-	Unknown9 = 0x9,
-	UnknownA = 0xa,
-	UnknownCB = 0xcb,
-	Cooking = 0xcc,
-	Arts = 0xcd,
-	Film = 0xce,
-	Sports = 0xcf,
-	Games = 0xd0,
-	Nature = 0xd1,
-	Tinkering = 0xd2,
-	Fitness = 0xd3,
-	Science = 0xd4,
-	Music = 0xd5,
-}
-
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct FreeTimeData {
-	pub hobbies_cooking: u16,
-	pub hobbies_arts: u16,
-	pub hobbies_film: u16,
-	pub hobbies_sports: u16,
-	pub hobbies_games: u16,
-	pub hobbies_nature: u16,
-	pub hobbies_tinkering: u16,
-	pub hobbies_fitness: u16,
-	pub hobbies_science: u16,
-	pub hobbies_music: u16,
-	pub hobbies_reserved: u16,
-	pub preferred_hobby: PreferredHobby,
-	pub lifetime_aspiration: u16,
-	pub lifetime_aspiration_points: u16,
-	pub lifetime_aspiration_points_spent: u16,
-	pub decay_hunger_modifier: u16,
-	pub decay_comfort_modifier: u16,
-	pub decay_bladder_modifier: u16,
-	pub decay_energy_modifier: u16,
-	pub decay_hygiene_modifier: u16,
-	pub decay_fun_modifier: u16,
-	pub decay_social_modifier: u16,
-	pub bugs_collection: u32, // TODO bitfield
-}
-
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct V35Data {
-	pub reputation: u16,
-	pub probability_to_appear: u16,
-}
-
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ApartmentLifeData {
-	pub title_post_name: u16,
-}
-
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SimRelation {
 	pub relation: SimID,
 	pub unknown: u16,
-}
-
-#[bitfield]
-#[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BugCollectionFlags {
-	unknown_0: bool,
-
-	pub grey_widow_spider: bool,
-	pub striped_spindler_spider: bool,
-	pub huntsperson_spider: bool,
-	pub teddybear_spider: bool,
-	pub itsius_bitsius_spider: bool,
-	pub single_fanged_betsy_spider: bool,
-	pub hotdog_spider: bool,
-	pub queen_charlotte_spider: bool,
-	pub paratrooper_spider: bool,
-	pub mock_spider: bool,
-
-	pub socialus_butterfly: bool,
-	pub blue_featherwing_butterfly: bool,
-	pub pygmalion_butterfly: bool,
-	pub empress_butterfly: bool,
-	pub jelly_butterfly: bool,
-	pub peanut_butterfly: bool,
-	pub margarina_butterfly: bool,
-	pub copper_pot_butterfly: bool,
-	pub vampire_butterfly: bool,
-	pub madame_butterfly: bool,
-
-	pub prancer_beetle: bool,
-	pub jack_beetle: bool,
-	pub mock_ladybug_beetle: bool,
-	pub polka_beetle: bool,
-	pub green_bottle_beetle: bool,
-	pub dapper_pinstripe_beetle: bool,
-	pub couch_potato_beetle: bool,
-	pub ringo_beetle: bool,
-	pub trihorn_greaves_beetle: bool,
-	pub gentleman_beetle: bool,
-
-	unknown_1: bool,
 }
 
 #[binrw]
@@ -846,7 +572,7 @@ pub struct SimDescription {
 	pub free_time_data: FreeTimeData,
 
 	#[brw(if(version.clone() >= Version::ApartmentLifePreRelease))]
-	pub v35_data: V35Data,
+	pub v35_data: ApartmentLifePreReleaseData,
 
 	#[brw(if(version.clone() >= Version::ApartmentLife))]
 	pub apartment_life_data: ApartmentLifeData,
@@ -859,8 +585,8 @@ pub struct SimDescription {
 
 	pub relations: SizedVec<u32, SimRelation>,
 
-	#[brw(if(version.clone() >= Version::BonVoyage))]
-	pub bug_collection_flags: BugCollectionFlags,
-
 	pub unknown_3: u8,
+
+	#[brw(if(version.clone() >= Version::BonVoyage))]
+	pub collectibles: u64,
 }
