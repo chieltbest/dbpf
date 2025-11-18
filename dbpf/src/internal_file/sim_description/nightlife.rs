@@ -3,7 +3,7 @@ use modular_bitfield::bitfield;
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct NightlifeTraitFlags {
 	pub cologne: bool,
 	pub stink: bool,
@@ -41,7 +41,7 @@ pub struct NightlifeTraitFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum Species {
 	#[default]
 	Human = 0,
@@ -51,7 +51,7 @@ pub enum Species {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct NightlifeData {
 	pub route: u16,
 	pub traits: NightlifeTraitFlags,

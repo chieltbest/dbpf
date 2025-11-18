@@ -4,7 +4,7 @@ use modular_bitfield::bitfield;
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Sequence)]
 pub enum PreferredHobby {
 	#[default]
 	None = 0x0,
@@ -36,7 +36,7 @@ pub enum PreferredHobby {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BugCollectionFlags {
 	unknown_0: bool,
 
@@ -77,7 +77,7 @@ pub struct BugCollectionFlags {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct FreeTimeData {
 	pub hobbies_cooking: u16,
 	pub hobbies_arts: u16,

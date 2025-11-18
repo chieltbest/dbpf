@@ -31,20 +31,20 @@ pub mod university;
 pub mod voyage;
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct ObjectID {
 	pub id: u16,
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct SimID {
 	pub id: u16,
 }
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum Version {
 	/// repeat only
 	V18 = 0x18,
@@ -318,31 +318,31 @@ pub struct SimDescription {
 	pub job_retired_guid: Guid,
 	pub job_retired_level: u16,
 
-	#[brw(if(version.clone() >= Version::University))]
+	#[brw(if(version.ge(&Version::University)))]
 	pub uni_data: UniData,
 
-	#[brw(if(version.clone() >= Version::Nightlife))]
+	#[brw(if(version.ge(&Version::Nightlife)))]
 	pub nightlife_data: NightlifeData,
 
-	#[brw(if(version.clone() >= Version::Business))]
+	#[brw(if(version.ge(&Version::Business)))]
 	pub open_for_business_data: BusinessData,
 
-	#[brw(if(version.clone() >= Version::Pets))]
+	#[brw(if(version.ge(&Version::Pets)))]
 	pub pet_traits: PetTraitFlags,
 
-	#[brw(if(version.clone() >= Version::BonVoyage))]
+	#[brw(if(version.ge(&Version::BonVoyage)))]
 	pub bon_voyage_data: BonVoyageData,
 
-	#[brw(if(version.clone() == Version::Castaway))]
+	#[brw(if(version.eq(&Version::Castaway)))]
 	pub subspecies: u16,
 
-	#[brw(if(version.clone() >= Version::FreeTime))]
+	#[brw(if(version.ge(&Version::FreeTime)))]
 	pub free_time_data: FreeTimeData,
 
-	#[brw(if(version.clone() >= Version::ApartmentLifePreRelease))]
+	#[brw(if(version.ge(&Version::ApartmentLifePreRelease)))]
 	pub apartment_life_pre_release_data: ApartmentLifePreReleaseData,
 
-	#[brw(if(version.clone() >= Version::ApartmentLife))]
+	#[brw(if(version.ge(&Version::ApartmentLife)))]
 	pub apartment_life_data: ApartmentLifeData,
 
 	pub instance: SimID,
@@ -355,6 +355,6 @@ pub struct SimDescription {
 
 	pub unknown_3: u8,
 
-	#[brw(if(version.clone() >= Version::BonVoyage))]
+	#[brw(if(version.ge(&Version::BonVoyage)))]
 	pub mementos: BonVoyageMementosFlags,
 }

@@ -4,7 +4,7 @@ use modular_bitfield::prelude::*;
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BonVoyageTraitFlags {
 	pub robots: bool,
 	pub plants: bool,
@@ -14,7 +14,7 @@ pub struct BonVoyageTraitFlags {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BonVoyageData {
 	pub vacation_days_left: u16,
 	pub turn_ons: BonVoyageTraitFlags,
@@ -24,7 +24,7 @@ pub struct BonVoyageData {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BonVoyageMementosFlags {
 	pub go_on_island_vacation: bool,
 	pub learn_island_greeting: bool,

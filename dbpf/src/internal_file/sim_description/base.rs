@@ -6,7 +6,7 @@ use modular_bitfield::prelude::{B11, B12, B14, B4, B7};
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct AspirationFlags {
 	pub romance: bool,
 	pub family: bool,
@@ -22,7 +22,7 @@ pub struct AspirationFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum LifeSection {
 	#[default]
 	Unknown = 0x0,
@@ -37,7 +37,7 @@ pub enum LifeSection {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum Gender {
 	Male = 0,
 	#[default]
@@ -46,7 +46,7 @@ pub enum Gender {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct GhostFlags {
 	pub is_ghost: bool,
 	pub can_pass_through_objects: bool,
@@ -61,7 +61,7 @@ pub struct GhostFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum ZodiacSign {
 	#[default]
 	Unknown = 0,
@@ -81,7 +81,7 @@ pub enum ZodiacSign {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BodyFlags {
 	pub fat: bool,
 	pub pregnant_3rd_trimester: bool,
@@ -96,7 +96,7 @@ pub struct BodyFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum BodyShape {
 	#[default]
 	Default = 0x0,
@@ -125,7 +125,7 @@ pub enum BodyShape {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct CultFlags {
 	pub allow_family: bool,
 	pub no_alcohol: bool,
@@ -137,7 +137,7 @@ pub struct CultFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum NpcType {
 	#[default]
 	Normal = 0x0,
@@ -221,7 +221,7 @@ pub enum NpcType {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct SelectionFlags {
 	pub selectable: bool,
 	pub not_selectable: bool,
@@ -232,7 +232,7 @@ pub struct SelectionFlags {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct PersonFlags0 {
 	pub zombie: bool,
 	pub perma_platinum: bool,
@@ -251,7 +251,7 @@ pub struct PersonFlags0 {
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct PersonFlags1 {
 	pub is_owned: bool,
 	pub stay_naked: bool,
@@ -259,7 +259,7 @@ pub struct PersonFlags1 {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct SimRelation {
 	pub relation: SimID,
 	pub unknown: u16,

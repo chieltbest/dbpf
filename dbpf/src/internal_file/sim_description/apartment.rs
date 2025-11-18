@@ -2,7 +2,7 @@ use binrw::binrw;
 use enum_iterator::Sequence;
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct ApartmentLifePreReleaseData {
 	/// -100 - 100
 	pub reputation: i16,
@@ -11,7 +11,7 @@ pub struct ApartmentLifePreReleaseData {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Sequence)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Sequence)]
 pub enum TitlePostName {
 	#[default]
 	None = 0x0,
@@ -32,7 +32,7 @@ pub enum TitlePostName {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct ApartmentLifeData {
 	pub title_post_name: TitlePostName,
 }

@@ -2,7 +2,7 @@ use binrw::binrw;
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum JobAssignment {
 	#[default]
 	Nothing = 0x0,
@@ -28,7 +28,7 @@ pub enum JobAssignment {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BusinessData {
 	pub lot_id: u16,
 	pub salary: u16,

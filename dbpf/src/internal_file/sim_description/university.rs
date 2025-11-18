@@ -4,7 +4,7 @@ use modular_bitfield::bitfield;
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct UniProgressionFlags {
 	pub year_1: bool,
 	pub year_2: bool,
@@ -25,7 +25,7 @@ pub struct UniProgressionFlags {
 }
 
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct UniData {
 	pub uni_college_major_guid: Guid,
 	pub uni_semester_remaining_time: u16,

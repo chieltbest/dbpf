@@ -4,7 +4,7 @@ use modular_bitfield::prelude::B6;
 
 #[bitfield]
 #[binrw]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct PetTraitFlags {
 	pub gifted: bool,
 	pub doofus: bool,
