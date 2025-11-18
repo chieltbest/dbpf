@@ -1,8 +1,7 @@
 <component name="CopyrightManager">
-  <settings>
+  <settings default="GPL-3.0-or-later">
     <LanguageOptions name="Rust">
       <option name="fileTypeOverride" value="3" />
-      <option name="addBlankAfter" value="false" />
       <option name="block" value="false" />
     </LanguageOptions>
   </settings>
