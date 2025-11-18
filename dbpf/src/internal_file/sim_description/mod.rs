@@ -19,15 +19,16 @@ use crate::internal_file::sim_description::pets::PetTraitFlags;
 use crate::internal_file::sim_description::university::UniData;
 use crate::internal_file::sim_description::voyage::{BonVoyageData, BonVoyageMementosFlags};
 use binrw::binrw;
+use enum_iterator::Sequence;
 
-mod apartment;
-mod base;
-mod business;
-mod freetime;
-mod nightlife;
-mod pets;
-mod university;
-mod voyage;
+pub mod apartment;
+pub mod base;
+pub mod business;
+pub mod freetime;
+pub mod nightlife;
+pub mod pets;
+pub mod university;
+pub mod voyage;
 
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -43,7 +44,7 @@ pub struct SimID {
 
 #[binrw]
 #[brw(repr = u32)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum Version {
 	/// repeat only
 	V18 = 0x18,
@@ -339,7 +340,7 @@ pub struct SimDescription {
 	pub free_time_data: FreeTimeData,
 
 	#[brw(if(version.clone() >= Version::ApartmentLifePreRelease))]
-	pub v35_data: ApartmentLifePreReleaseData,
+	pub apartment_life_pre_release_data: ApartmentLifePreReleaseData,
 
 	#[brw(if(version.clone() >= Version::ApartmentLife))]
 	pub apartment_life_data: ApartmentLifeData,

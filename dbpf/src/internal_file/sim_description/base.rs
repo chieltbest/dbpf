@@ -1,5 +1,6 @@
 use crate::internal_file::sim_description::SimID;
 use binrw::binrw;
+use enum_iterator::Sequence;
 use modular_bitfield::bitfield;
 use modular_bitfield::prelude::{B11, B12, B14, B4, B7};
 
@@ -21,7 +22,7 @@ pub struct AspirationFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum LifeSection {
 	#[default]
 	Unknown = 0x0,
@@ -36,7 +37,7 @@ pub enum LifeSection {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum Gender {
 	Male = 0,
 	#[default]
@@ -60,7 +61,7 @@ pub struct GhostFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum ZodiacSign {
 	#[default]
 	Unknown = 0,
@@ -95,7 +96,7 @@ pub struct BodyFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum BodyShape {
 	#[default]
 	Default = 0x0,
@@ -136,7 +137,7 @@ pub struct CultFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum NpcType {
 	#[default]
 	Normal = 0x0,

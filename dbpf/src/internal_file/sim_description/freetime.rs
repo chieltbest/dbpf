@@ -1,9 +1,10 @@
 use binrw::binrw;
+use enum_iterator::Sequence;
 use modular_bitfield::bitfield;
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Sequence)]
 pub enum PreferredHobby {
 	#[default]
 	None = 0x0,

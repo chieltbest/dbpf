@@ -1,4 +1,5 @@
 use binrw::binrw;
+use enum_iterator::Sequence;
 
 #[binrw]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -10,7 +11,7 @@ pub struct ApartmentLifePreReleaseData {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Sequence)]
 pub enum TitlePostName {
 	#[default]
 	None = 0x0,
