@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -26,6 +26,7 @@ pub mod r#enum;
 pub mod header;
 pub mod object_data;
 pub mod resource_collection;
+pub mod sim_description;
 pub mod sim_outfits;
 pub mod text_list;
 pub mod vector;
@@ -99,6 +100,7 @@ impl Editor for DecodedFile {
 				DecodedFile::BehaviourFunction(bhav),
 				DecodedFileEditorState::BehaviourFunction(state),
 			) => bhav.show_editor(state, ui),
+			(DecodedFile::SimDescription(sdsc), _) => sdsc.show_editor(&mut (), ui),
 			_ => panic!(),
 		}
 	}
@@ -146,7 +148,9 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
             // BHAV
             KnownDBPFFileType::SimanticsBehaviourFunction |
 
-            KnownDBPFFileType::ObjectData
+            KnownDBPFFileType::ObjectData |
+
+            KnownDBPFFileType::SimDescription
         ) => true,
         _ => false,
     }
