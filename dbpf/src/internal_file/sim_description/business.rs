@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use binrw::binrw;
+use enum_iterator::Sequence;
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Sequence)]
 pub enum JobAssignment {
 	#[default]
 	Nothing = 0x0,

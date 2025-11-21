@@ -238,13 +238,13 @@ pub struct SelectionFlags {
 #[binrw]
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct PersonFlags0 {
-	pub zombie: bool,
+	pub is_zombie: bool,
 	pub perma_platinum: bool,
 	pub is_vampire: bool,
 	pub vampire_smoke: bool,
 	pub want_history: bool,
 	pub lycanthropy_carrier: bool,
-	pub lycanthropy_active: bool,
+	pub is_werewolf: bool,
 	pub is_pet_runaway: bool,
 	pub is_plantsim: bool,
 	pub is_bigfoot: bool,

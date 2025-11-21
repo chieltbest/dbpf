@@ -201,7 +201,7 @@ pub struct SimDescription {
 	pub interaction_next_queued_continuation: u16,
 	pub footprint_extension: u16,
 	pub render_display_flags: u16, // TODO bitfield
-	pub interaction_sub_queue_master_object_id: ObjectID,
+	pub interaction_sub_queue_master_interaction_object_id: ObjectID,
 	pub interaction_sub_queue_master_interaction_index: u16,
 	pub interaction_sub_queue_next_interaction_index: u16,
 	pub interaction_sub_queue_next_interaction_object_id: ObjectID,
@@ -238,7 +238,7 @@ pub struct SimDescription {
 	/// per day
 	pub decay_social: i16,
 	/// per day
-	pub decay_unknown: i16,
+	pub decay_shopping: i16,
 	/// per day
 	pub decay_fun: i16,
 	pub interaction_current_running_index: u16,
@@ -325,7 +325,7 @@ pub struct SimDescription {
 	pub nightlife_data: NightlifeData,
 
 	#[brw(if(version.ge(&Version::Business)))]
-	pub open_for_business_data: BusinessData,
+	pub business_data: BusinessData,
 
 	#[brw(if(version.ge(&Version::Pets)))]
 	pub pet_traits: PetTraitFlags,

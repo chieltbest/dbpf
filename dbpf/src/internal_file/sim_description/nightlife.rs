@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use binrw::binrw;
+use enum_iterator::Sequence;
 use modular_bitfield::bitfield;
 
 #[bitfield]
@@ -45,7 +46,7 @@ pub struct NightlifeTraitFlags {
 
 #[binrw]
 #[brw(repr = u16)]
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Sequence)]
 pub enum Species {
 	#[default]
 	Human = 0,
@@ -57,7 +58,7 @@ pub enum Species {
 #[binrw]
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct NightlifeData {
-	pub route: u16,
+	pub route_start_slot_owner_id: u16,
 	pub traits: NightlifeTraitFlags,
 	pub turn_ons: NightlifeTraitFlags,
 	pub turn_offs: NightlifeTraitFlags,
