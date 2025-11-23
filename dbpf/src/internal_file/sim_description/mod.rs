@@ -132,7 +132,7 @@ pub struct SimDescription {
 	pub skill_mechanical: u16,
 	/// also: hot date exercise
 	/// also: LazyDutchess' height mod height
-	pub skill_music: u16,
+	pub skill_music: i16,
 	/// also: hot date food
 	pub partner_id: SimID,
 	pub skill_creativity: u16,

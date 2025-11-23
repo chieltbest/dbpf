@@ -408,7 +408,9 @@ impl Editor for SimDescription {
 					ui.end_row();
 
 					ui.label("height (LD asi mod)");
-					ui.add(egui::Slider::new(skill_music, 0..=100).clamping(SliderClamping::Edits));
+					ui.add(
+						egui::Slider::new(skill_music, -100..=100).clamping(SliderClamping::Edits),
+					);
 					ui.end_row();
 
 					drag_fn("autonomy level", autonomy_level, ui);
