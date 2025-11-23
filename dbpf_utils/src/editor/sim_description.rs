@@ -665,7 +665,7 @@ impl Editor for SimDescription {
 					macro_rules! decay_modifier {
 						($name:expr, $var:expr, $mod_var:expr) => {
 							ui.label($name);
-							ui.add(egui::Slider::new($var, -1000..=0));
+							ui.add(egui::Slider::new($var, -1000..=1000));
 							ui.add_enabled(
 								*version >= Version::FreeTime,
 								egui::Slider::new($mod_var, -1000..=1000),
@@ -788,6 +788,134 @@ impl Editor for SimDescription {
 				});
 				ui.label("relations (sim ID)");
 				relations.show_editor(&mut VecEditorState::Shared(()), ui)
+			});
+
+		egui::CollapsingHeader::new("Traits")
+			.default_open(false) // TODO global state
+			.show(ui, |ui| {
+				egui::Grid::new("SimDescription editor bon voyage traits")
+					.striped(true)
+					.show(ui, |ui| {
+						if *version < Version::Nightlife {
+							ui.disable();
+						}
+
+						ui.label("");
+						ui.label("trait");
+						ui.label("turn-on");
+						ui.label("turn-off");
+						ui.end_row();
+
+						let NightlifeData {
+							traits,
+							turn_ons,
+							turn_offs,
+							..
+						} = nightlife_data;
+
+						macro_rules! trait_cb {
+							($name:expr, $get_fn:ident, $set_fun:ident) => {
+								ui.label($name);
+								checkbox_member_get_set(
+									ui,
+									"",
+									traits,
+									NightlifeTraitFlags::$get_fn,
+									NightlifeTraitFlags::$set_fun,
+								);
+								checkbox_member_get_set(
+									ui,
+									"",
+									turn_ons,
+									NightlifeTraitFlags::$get_fn,
+									NightlifeTraitFlags::$set_fun,
+								);
+								checkbox_member_get_set(
+									ui,
+									"",
+									turn_offs,
+									NightlifeTraitFlags::$get_fn,
+									NightlifeTraitFlags::$set_fun,
+								);
+								ui.end_row();
+							};
+						}
+
+						trait_cb!("cologne", cologne, set_cologne);
+						trait_cb!("stink", stink, set_stink);
+						trait_cb!("fatness", fatness, set_fatness);
+						trait_cb!("fitness", fitness, set_fitness);
+						trait_cb!("formal wear", formal_wear, set_formal_wear);
+						trait_cb!("swim wear", swim_wear, set_swim_wear);
+						trait_cb!("underwear", underwear, set_underwear);
+						trait_cb!("vampirism", vampirism, set_vampirism);
+						trait_cb!("facial hair", facial_hair, set_facial_hair);
+						trait_cb!("glasses", glasses, set_glasses);
+						trait_cb!("makeup", makeup, set_makeup);
+						trait_cb!("full face makeup", full_face_makeup, set_full_face_makeup);
+						trait_cb!("hats", hats, set_hats);
+						trait_cb!("jewelry", jewelry, set_jewelry);
+						trait_cb!("blonde hair", blonde_hair, set_blonde_hair);
+						trait_cb!("red hair", red_hair, set_red_hair);
+						trait_cb!("brown hair", brown_hair, set_brown_hair);
+						trait_cb!("black hair", black_hair, set_black_hair);
+						trait_cb!("custom hair", custom_hair, set_custom_hair);
+						trait_cb!("grey hair", grey_hair, set_grey_hair);
+						trait_cb!("hard worker", hard_worker, set_hard_worker);
+						trait_cb!("unemployed", unemployed, set_unemployed);
+						trait_cb!("logical", logical, set_logical);
+						trait_cb!("charismatic", charismatic, set_charismatic);
+						trait_cb!("good cook", good_cook, set_good_cook);
+						trait_cb!("mechanical", mechanical, set_mechanical);
+						trait_cb!("creative", creative, set_creative);
+						trait_cb!("athletic", athletic, set_athletic);
+						trait_cb!("good cleaner", good_cleaner, set_good_cleaner);
+						trait_cb!("zombiism", zombiism, set_zombiism);
+
+						if *version < Version::BonVoyage && *version >= Version::Nightlife {
+							ui.disable();
+						}
+
+						let BonVoyageData {
+							turn_ons,
+							turn_offs,
+							traits,
+							..
+						} = bon_voyage_data;
+
+						macro_rules! trait_cb {
+							($name:expr, $get_fn:ident, $set_fun:ident) => {
+								ui.label($name);
+								checkbox_member_get_set(
+									ui,
+									"",
+									traits,
+									BonVoyageTraitFlags::$get_fn,
+									BonVoyageTraitFlags::$set_fun,
+								);
+								checkbox_member_get_set(
+									ui,
+									"",
+									turn_ons,
+									BonVoyageTraitFlags::$get_fn,
+									BonVoyageTraitFlags::$set_fun,
+								);
+								checkbox_member_get_set(
+									ui,
+									"",
+									turn_offs,
+									BonVoyageTraitFlags::$get_fn,
+									BonVoyageTraitFlags::$set_fun,
+								);
+								ui.end_row();
+							};
+						}
+
+						trait_cb!("robots", robots, set_robots);
+						trait_cb!("plants", plants, set_plants);
+						trait_cb!("lycanthropy", lycanthropy, set_lycanthropy);
+						trait_cb!("witchiness", witchiness, set_witchiness);
+					})
 			});
 
 		egui::CollapsingHeader::new("University")
@@ -927,9 +1055,6 @@ impl Editor for SimDescription {
 				ui.add_enabled_ui(*version >= Version::Nightlife, |ui| {
 					let NightlifeData {
 						route_start_slot_owner_id,
-						traits,
-						turn_ons,
-						turn_offs,
 						species,
 						countdown,
 						perfume_timer,
@@ -939,76 +1064,8 @@ impl Editor for SimDescription {
 						love_potion_timer,
 						aspiration_score_lock,
 						date_neighbor_id,
+						..
 					} = nightlife_data;
-
-					egui::Grid::new("SimDescription editor traits")
-						.striped(true)
-						.show(ui, |ui| {
-							ui.label("");
-							ui.label("trait");
-							ui.label("turn-on");
-							ui.label("turn-off");
-							ui.end_row();
-
-							macro_rules! trait_cb {
-								($name:expr, $get_fn:ident, $set_fun:ident) => {
-									ui.label($name);
-									checkbox_member_get_set(
-										ui,
-										"",
-										traits,
-										NightlifeTraitFlags::$get_fn,
-										NightlifeTraitFlags::$set_fun,
-									);
-									checkbox_member_get_set(
-										ui,
-										"",
-										turn_ons,
-										NightlifeTraitFlags::$get_fn,
-										NightlifeTraitFlags::$set_fun,
-									);
-									checkbox_member_get_set(
-										ui,
-										"",
-										turn_offs,
-										NightlifeTraitFlags::$get_fn,
-										NightlifeTraitFlags::$set_fun,
-									);
-									ui.end_row();
-								};
-							}
-
-							trait_cb!("cologne", cologne, set_cologne);
-							trait_cb!("stink", stink, set_stink);
-							trait_cb!("fatness", fatness, set_fatness);
-							trait_cb!("fitness", fitness, set_fitness);
-							trait_cb!("formal wear", formal_wear, set_formal_wear);
-							trait_cb!("swim wear", swim_wear, set_swim_wear);
-							trait_cb!("underwear", underwear, set_underwear);
-							trait_cb!("vampirism", vampirism, set_vampirism);
-							trait_cb!("facial hair", facial_hair, set_facial_hair);
-							trait_cb!("glasses", glasses, set_glasses);
-							trait_cb!("makeup", makeup, set_makeup);
-							trait_cb!("full face makeup", full_face_makeup, set_full_face_makeup);
-							trait_cb!("hats", hats, set_hats);
-							trait_cb!("jewelry", jewelry, set_jewelry);
-							trait_cb!("blonde hair", blonde_hair, set_blonde_hair);
-							trait_cb!("red hair", red_hair, set_red_hair);
-							trait_cb!("brown hair", brown_hair, set_brown_hair);
-							trait_cb!("black hair", black_hair, set_black_hair);
-							trait_cb!("custom hair", custom_hair, set_custom_hair);
-							trait_cb!("grey hair", grey_hair, set_grey_hair);
-							trait_cb!("hard worker", hard_worker, set_hard_worker);
-							trait_cb!("unemployed", unemployed, set_unemployed);
-							trait_cb!("logical", logical, set_logical);
-							trait_cb!("charismatic", charismatic, set_charismatic);
-							trait_cb!("good cook", good_cook, set_good_cook);
-							trait_cb!("mechanical", mechanical, set_mechanical);
-							trait_cb!("creative", creative, set_creative);
-							trait_cb!("athletic", athletic, set_athletic);
-							trait_cb!("good cleaner", good_cleaner, set_good_cleaner);
-							trait_cb!("zombiism", zombiism, set_zombiism);
-						});
 
 					egui::Grid::new("SimDescription editor nightlife").show(ui, |ui| {
 						ui.label("species");
@@ -1170,56 +1227,11 @@ impl Editor for SimDescription {
 			.show(ui, |ui| {
 				ui.add_enabled_ui(*version >= Version::BonVoyage, |ui| {
 					let BonVoyageData {
-						vacation_days_left,
-						turn_ons,
-						turn_offs,
-						traits,
+						vacation_days_left, ..
 					} = bon_voyage_data;
 					ui.horizontal(|ui| {
 						drag_fn("vacation days left", vacation_days_left, ui);
 					});
-					egui::Grid::new("SimDescription editor bon voyage traits")
-						.striped(true)
-						.show(ui, |ui| {
-							ui.label("");
-							ui.label("trait");
-							ui.label("turn-on");
-							ui.label("turn-off");
-							ui.end_row();
-
-							macro_rules! trait_cb {
-								($name:expr, $get_fn:ident, $set_fun:ident) => {
-									ui.label($name);
-									checkbox_member_get_set(
-										ui,
-										"",
-										traits,
-										BonVoyageTraitFlags::$get_fn,
-										BonVoyageTraitFlags::$set_fun,
-									);
-									checkbox_member_get_set(
-										ui,
-										"",
-										turn_ons,
-										BonVoyageTraitFlags::$get_fn,
-										BonVoyageTraitFlags::$set_fun,
-									);
-									checkbox_member_get_set(
-										ui,
-										"",
-										turn_offs,
-										BonVoyageTraitFlags::$get_fn,
-										BonVoyageTraitFlags::$set_fun,
-									);
-									ui.end_row();
-								};
-							}
-
-							trait_cb!("robots", robots, set_robots);
-							trait_cb!("plants", plants, set_plants);
-							trait_cb!("lycanthropy", lycanthropy, set_lycanthropy);
-							trait_cb!("witchiness", witchiness, set_witchiness);
-						});
 
 					egui::Grid::new("SimDescription editor bon voyage mementos").show(ui, |ui| {
 						macro_rules! memento_cb {
