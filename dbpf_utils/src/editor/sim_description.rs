@@ -1880,7 +1880,7 @@ impl Editor for SimDescription {
 					ui.label("");
 					checkbox_member_get_set(
 						ui,
-						"hide_relationships",
+						"hide relationships",
 						selection_flags,
 						SelectionFlags::hide_relationships,
 						SelectionFlags::set_hide_relationships,
@@ -1889,7 +1889,7 @@ impl Editor for SimDescription {
 					ui.label("");
 					checkbox_member_get_set(
 						ui,
-						"holiday_mate",
+						"holiday mate",
 						selection_flags,
 						SelectionFlags::holiday_mate,
 						SelectionFlags::set_holiday_mate,
