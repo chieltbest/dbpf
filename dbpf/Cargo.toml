@@ -14,7 +14,7 @@ publish = false
 [dependencies]
 binrw = "0.15.0"
 refpack = "5.0"
-modular-bitfield = "0.12"
+modular-bitfield = "0.13.0"
 thiserror = "2.0"
 enum-iterator = "2.1"
 itertools = "0.14.0"

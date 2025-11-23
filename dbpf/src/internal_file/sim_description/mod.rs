@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#![allow(unused_parens, clippy::identity_op)]
-
 use crate::common::{Guid, SizedVec};
 use crate::internal_file::sim_description::apartment::{
 	ApartmentLifeData, ApartmentLifePreReleaseData,

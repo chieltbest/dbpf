@@ -1,9 +1,8 @@
-// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // the bitfield macro will create unused parens, ignore them
-#![allow(unused_parens)]
 
 use std::io::{Read, Seek, Write};
 
