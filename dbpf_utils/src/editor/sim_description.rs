@@ -505,7 +505,9 @@ impl Editor for SimDescription {
 					ui.add(egui::Slider::new(fatness, 0..=1000));
 					ui.end_row();
 
-					drag_fn("body temperature", body_temperature, ui);
+					ui.label("body temperature");
+					ui.add(egui::Slider::new(body_temperature, -100..=100));
+					ui.end_row();
 
 					drag_fn("current outfit", current_outfit, ui);
 					drag_fn("outfit source GUID", &mut outfit_source_guid.id, ui);
