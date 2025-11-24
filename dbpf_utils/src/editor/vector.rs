@@ -77,11 +77,13 @@ where
 					|ui, EnumeratedItem { item, index, .. }, handle, _item_state| {
 						ui.horizontal(|ui| {
 							handle.ui(ui, |ui| {
-								let delete_button = ui.button("🗑");
-								if delete_button.clicked() {
-									delete_index = Some(index);
-								}
+								let _ = ui.button("↕");
 							});
+
+							let delete_button = ui.button("🗑");
+							if delete_button.clicked() {
+								delete_index = Some(index);
+							}
 
 							let state = match state {
 								VecEditorState::Vec(v) => &mut v[index],
