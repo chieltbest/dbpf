@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::editor::vector::VecEditorState;
-use crate::editor::{drag_checkbox_fn, drag_fn, Editor};
+use crate::editor::{drag_checkbox_fn, drag_decimal_fn, drag_hex_fn, Editor};
 use dbpf::internal_file::sim_description::apartment::{
 	ApartmentLifeData, ApartmentLifePreReleaseData, TitlePostName,
 };
@@ -267,9 +267,9 @@ impl Editor for SimDescription {
 			.default_open(false) // TODO global state
 			.show(ui, |ui| {
 				egui::Grid::new("SimDescription editor character").show(ui, |ui| {
-					drag_fn("instance", &mut instance.id, ui);
-					drag_fn("GUID", &mut guid.id, ui);
-					drag_fn("family instance", family_instance, ui);
+					drag_decimal_fn("instance", &mut instance.id, ui);
+					drag_hex_fn("GUID", &mut guid.id, ui);
+					drag_decimal_fn("family instance", family_instance, ui);
 
 					ui.label("gender");
 					ComboBox::from_id_salt("gender")
@@ -280,7 +280,7 @@ impl Editor for SimDescription {
 						});
 					ui.end_row();
 
-					drag_fn("voice type", voice_type, ui);
+					drag_hex_fn("voice type", voice_type, ui);
 
 					ui.label("gender preference");
 					ui.add(egui::Slider::new(preference_gender_male, -1000..=1000).text("male"));
@@ -413,8 +413,8 @@ impl Editor for SimDescription {
 					);
 					ui.end_row();
 
-					drag_fn("autonomy level", autonomy_level, ui);
-					drag_fn("skin color", skin_color, ui);
+					drag_hex_fn("autonomy level", autonomy_level, ui);
+					drag_hex_fn("skin color", skin_color, ui);
 
 					ui.label("bodyshape");
 					ComboBox::from_id_salt("bodyshape")
@@ -509,8 +509,8 @@ impl Editor for SimDescription {
 					ui.add(egui::Slider::new(body_temperature, -100..=100));
 					ui.end_row();
 
-					drag_fn("current outfit", current_outfit, ui);
-					drag_fn("outfit source GUID", &mut outfit_source_guid.id, ui);
+					drag_hex_fn("current outfit", current_outfit, ui);
+					drag_hex_fn("outfit source GUID", &mut outfit_source_guid.id, ui);
 
 					ui.label("life section");
 					ComboBox::from_id_salt("life section")
@@ -521,9 +521,9 @@ impl Editor for SimDescription {
 							}
 						});
 					ui.end_row();
-					drag_fn("age days left", age_days_left, ui);
-					drag_fn("age duration", age_duration, ui);
-					drag_fn("age previous days", age_previous_days, ui);
+					drag_decimal_fn("age days left", age_days_left, ui);
+					drag_decimal_fn("age duration", age_duration, ui);
+					drag_decimal_fn("age previous days", age_previous_days, ui);
 				})
 			});
 
@@ -565,13 +565,13 @@ impl Editor for SimDescription {
 				});
 
 				egui::Grid::new("SimDescription editor aspiration data").show(ui, |ui| {
-					drag_fn("aspiration score", aspiration_score, ui);
-					drag_fn(
+					drag_decimal_fn("aspiration score", aspiration_score, ui);
+					drag_decimal_fn(
 						"aspiration reward points spent",
 						aspiration_reward_points_spent,
 						ui,
 					);
-					drag_fn("aspiration score raw", aspiration_score_raw, ui);
+					drag_decimal_fn("aspiration score raw", aspiration_score_raw, ui);
 				})
 			});
 
@@ -766,19 +766,19 @@ impl Editor for SimDescription {
 			.default_open(false) // TODO global state
 			.show(ui, |ui| {
 				egui::Grid::new("SimDescription editor university").show(ui, |ui| {
-					drag_fn("uni effort", uni_effort, ui);
-					drag_fn("uni grade", uni_grade, ui);
-					drag_fn("school object GUID", &mut school_object_guid.id, ui);
-					drag_fn("school grade", school_grade, ui);
-					drag_fn("job object GUID", &mut job_object_guid.id, ui);
-					drag_fn("job promotion level", job_promotion_level, ui);
-					drag_fn("job data", job_data, ui);
-					drag_fn("job performance", job_performance, ui);
-					drag_fn("job PTO", job_pto, ui);
-					drag_fn("job outfit index", work_outfit_index, ui);
-					drag_fn("retired job GUID", &mut job_retired_guid.id, ui);
-					drag_fn("retired job promotion level", job_retired_level, ui);
-					drag_fn("pension", pension, ui);
+					drag_decimal_fn("uni effort", uni_effort, ui);
+					drag_decimal_fn("uni grade", uni_grade, ui);
+					drag_hex_fn("school object GUID", &mut school_object_guid.id, ui);
+					drag_decimal_fn("school grade", school_grade, ui);
+					drag_hex_fn("job object GUID", &mut job_object_guid.id, ui);
+					drag_decimal_fn("job promotion level", job_promotion_level, ui);
+					drag_hex_fn("job data", job_data, ui);
+					drag_decimal_fn("job performance", job_performance, ui);
+					drag_decimal_fn("job PTO", job_pto, ui);
+					drag_decimal_fn("job outfit index", work_outfit_index, ui);
+					drag_hex_fn("retired job GUID", &mut job_retired_guid.id, ui);
+					drag_decimal_fn("retired job promotion level", job_retired_level, ui);
+					drag_decimal_fn("pension", pension, ui);
 				})
 			});
 
@@ -786,7 +786,7 @@ impl Editor for SimDescription {
 			.default_open(false) // TODO global state
 			.show(ui, |ui| {
 				egui::Grid::new("SimDescription editor relations").show(ui, |ui| {
-					drag_fn("partner ID", &mut partner_id.id, ui);
+					drag_hex_fn("partner ID", &mut partner_id.id, ui);
 				});
 				ui.label("relations (sim ID)");
 				relations.show_editor(&mut VecEditorState::Shared(()), ui)
@@ -937,7 +937,7 @@ impl Editor for SimDescription {
 					egui::Grid::new("SimDescription editor university").show(ui, |ui| {
 						drag_checkbox_fn("on campus", on_campus, [""], ui);
 
-						drag_fn("major GUID", &mut college_major_guid.id, ui);
+						drag_hex_fn("major GUID", &mut college_major_guid.id, ui);
 
 						ui.label("year");
 						ui.horizontal(|ui| {
@@ -978,9 +978,9 @@ impl Editor for SimDescription {
 						ui.add(egui::Slider::new(semester_remaining_time, 0..=72));
 						ui.end_row();
 
-						drag_fn("influence", influence, ui);
-						drag_fn("influence minimum", influence_minimum, ui);
-						drag_fn("influence bar level", influence_bar_level, ui);
+						drag_decimal_fn("influence", influence, ui);
+						drag_decimal_fn("influence minimum", influence_minimum, ui);
+						drag_decimal_fn("influence bar level", influence_bar_level, ui);
 
 						ui.label("flags");
 						ui.horizontal(|ui| {
@@ -1080,18 +1080,18 @@ impl Editor for SimDescription {
 							});
 						ui.end_row();
 
-						drag_fn("perfume duration", perfume_timer, ui);
-						drag_fn("love potion timer", love_potion_timer, ui);
+						drag_decimal_fn("perfume duration", perfume_timer, ui);
+						drag_decimal_fn("love potion timer", love_potion_timer, ui);
 
-						drag_fn("date timer", date_timer, ui);
-						drag_fn("date score", date_score, ui);
-						drag_fn("date unlock counter", date_unlock_counter, ui);
-						drag_fn("date neighbor id?", date_neighbor_id, ui);
+						drag_decimal_fn("date timer", date_timer, ui);
+						drag_decimal_fn("date score", date_score, ui);
+						drag_decimal_fn("date unlock counter", date_unlock_counter, ui);
+						drag_hex_fn("date neighbor id?", date_neighbor_id, ui);
 
-						drag_fn("countdown?", countdown, ui);
-						drag_fn("aspiration score lock?", aspiration_score_lock, ui);
+						drag_hex_fn("countdown?", countdown, ui);
+						drag_hex_fn("aspiration score lock?", aspiration_score_lock, ui);
 
-						drag_fn("route start slot owner id?", route_start_slot_owner_id, ui);
+						drag_hex_fn("route start slot owner id?", route_start_slot_owner_id, ui);
 					});
 				})
 			});
@@ -1108,9 +1108,9 @@ impl Editor for SimDescription {
 					} = business_data;
 
 					egui::Grid::new("SimDescription editor business").show(ui, |ui| {
-						drag_fn("lot ID", lot_id, ui);
-						drag_fn("salary", salary, ui);
-						drag_fn("flags", flags, ui);
+						drag_hex_fn("lot ID", lot_id, ui);
+						drag_decimal_fn("salary", salary, ui);
+						drag_hex_fn("flags", flags, ui);
 
 						ui.label("job assignment");
 						ComboBox::from_id_salt("assignment")
@@ -1219,7 +1219,7 @@ impl Editor for SimDescription {
 			.show(ui, |ui| {
 				ui.add_enabled_ui(*version == Version::Castaway, |ui| {
 					ui.horizontal(|ui| {
-						drag_fn("subspecies", subspecies, ui);
+						drag_hex_fn("subspecies", subspecies, ui);
 					})
 				})
 			});
@@ -1232,7 +1232,7 @@ impl Editor for SimDescription {
 						vacation_days_left, ..
 					} = bon_voyage_data;
 					ui.horizontal(|ui| {
-						drag_fn("vacation days left", vacation_days_left, ui);
+						drag_decimal_fn("vacation days left", vacation_days_left, ui);
 					});
 
 					egui::Grid::new("SimDescription editor bon voyage mementos").show(ui, |ui| {
@@ -1462,9 +1462,13 @@ impl Editor for SimDescription {
 					});
 
 					egui::Grid::new("SimDescription editor free time lta").show(ui, |ui| {
-						drag_fn("lifetime aspiration", lifetime_aspiration, ui);
-						drag_fn("lifetime aspiration points", lifetime_aspiration_points, ui);
-						drag_fn(
+						drag_decimal_fn("lifetime aspiration", lifetime_aspiration, ui);
+						drag_decimal_fn(
+							"lifetime aspiration points",
+							lifetime_aspiration_points,
+							ui,
+						);
+						drag_decimal_fn(
 							"lifetime aspiration points spent",
 							lifetime_aspiration_points_spent,
 							ui,
@@ -1615,7 +1619,7 @@ impl Editor for SimDescription {
 					ui.label("reputation");
 					ui.add(egui::Slider::new(reputation, -100..=100));
 					ui.end_row();
-					drag_fn("probability to appear", probability_to_appear, ui);
+					drag_decimal_fn("probability to appear", probability_to_appear, ui);
 
 					let ApartmentLifeData { title_post_name } = apartment_life_data;
 					if *version < Version::ApartmentLife {
@@ -1640,74 +1644,74 @@ impl Editor for SimDescription {
 					.default_open(false) // TODO global state
 					.show(ui, |ui| {
 						egui::Grid::new("SimDescription editor interaction").show(ui, |ui| {
-							drag_fn("data field 1", interaction_data_field_1, ui);
-							drag_fn("data field 2", interaction_data_field_2, ui);
+							drag_hex_fn("data field 1", interaction_data_field_1, ui);
+							drag_hex_fn("data field 2", interaction_data_field_2, ui);
 
-							drag_fn(
+							drag_hex_fn(
 								"FindBestAction object ID",
 								&mut interaction_findbestaction_object_id.id,
 								ui,
 							);
 
-							drag_fn("current joinable", interaction_current_joinable, ui);
-							drag_fn("autonomous", interaction_autonomous, ui);
+							drag_hex_fn("current joinable", interaction_current_joinable, ui);
+							drag_hex_fn("autonomous", interaction_autonomous, ui);
 
-							drag_fn("current GUID", interaction_current_guid, ui);
-							drag_fn("linked deleted", interaction_linked_deleted, ui);
+							drag_hex_fn("current GUID", interaction_current_guid, ui);
+							drag_hex_fn("linked deleted", interaction_linked_deleted, ui);
 
-							drag_fn("current index", interaction_current_index, ui);
-							drag_fn("next queued index", interaction_next_queued_index, ui);
+							drag_hex_fn("current index", interaction_current_index, ui);
+							drag_hex_fn("next queued index", interaction_next_queued_index, ui);
 
-							drag_fn(
+							drag_hex_fn(
 								"next queued continuation",
 								interaction_next_queued_continuation,
 								ui,
 							);
 
-							drag_fn(
+							drag_hex_fn(
 								"current running object ID",
 								&mut interaction_current_running_object_id.id,
 								ui,
 							);
-							drag_fn(
+							drag_hex_fn(
 								"current running index",
 								interaction_current_running_index,
 								ui,
 							);
 
-							drag_fn(
+							drag_hex_fn(
 								"queue current interaction object ID",
 								&mut interaction_queue_current_interaction_object_id.id,
 								ui,
 							);
-							drag_fn(
+							drag_hex_fn(
 								"queue next interaction object ID",
 								&mut interaction_queue_next_interaction_object_id.id,
 								ui,
 							);
 
-							drag_fn("sub-queue count", interaction_sub_queue_count, ui);
-							drag_fn(
+							drag_hex_fn("sub-queue count", interaction_sub_queue_count, ui);
+							drag_hex_fn(
 								"sub-queue master interaction object ID",
 								&mut interaction_sub_queue_master_interaction_object_id.id,
 								ui,
 							);
-							drag_fn(
+							drag_hex_fn(
 								"sub-queue master interaction index",
 								interaction_sub_queue_master_interaction_index,
 								ui,
 							);
-							drag_fn(
+							drag_hex_fn(
 								"sub-queue next interaction object ID",
 								&mut interaction_sub_queue_next_interaction_object_id.id,
 								ui,
 							);
-							drag_fn(
+							drag_hex_fn(
 								"sub-queue next interaction index",
 								interaction_sub_queue_next_interaction_index,
 								ui,
 							);
-							drag_fn(
+							drag_hex_fn(
 								"sub-queue object ID",
 								&mut interaction_sub_queue_object_id.id,
 								ui,
@@ -1719,12 +1723,12 @@ impl Editor for SimDescription {
 					.default_open(false) // TODO global state
 					.show(ui, |ui| {
 						egui::Grid::new("SimDescription editor routing").show(ui, |ui| {
-							drag_fn("slot", route_slot, ui);
-							drag_fn("start slot", route_start_slot, ui);
-							drag_fn("multi slot index", route_multi_slot_index, ui);
-							drag_fn("status", route_status, ui);
-							drag_fn("goal", route_goal, ui);
-							drag_fn("result", route_result, ui);
+							drag_hex_fn("slot", route_slot, ui);
+							drag_hex_fn("start slot", route_start_slot, ui);
+							drag_hex_fn("multi slot index", route_multi_slot_index, ui);
+							drag_hex_fn("status", route_status, ui);
+							drag_hex_fn("goal", route_goal, ui);
+							drag_hex_fn("result", route_result, ui);
 
 							ui.label("ghost flags");
 							ui.horizontal(|ui| {
@@ -1801,13 +1805,13 @@ impl Editor for SimDescription {
 					.default_open(false) // TODO global state
 					.show(ui, |ui| {
 						egui::Grid::new("SimDescription editor loco").show(ui, |ui| {
-							drag_fn("weight 0", loco_weight_0, ui);
-							drag_fn("weight 1", loco_weight_1, ui);
-							drag_fn("personality index", loco_personality_index, ui);
-							drag_fn("personality weight", loco_personality_weight, ui);
-							drag_fn("mood index", loco_mood_index, ui);
-							drag_fn("mood weight", loco_mood_weight, ui);
-							drag_fn("motives", loco_motives, ui);
+							drag_hex_fn("weight 0", loco_weight_0, ui);
+							drag_hex_fn("weight 1", loco_weight_1, ui);
+							drag_hex_fn("personality index", loco_personality_index, ui);
+							drag_hex_fn("personality weight", loco_personality_weight, ui);
+							drag_hex_fn("mood index", loco_mood_index, ui);
+							drag_hex_fn("mood weight", loco_mood_weight, ui);
+							drag_hex_fn("motives", loco_motives, ui);
 
 							// TODO ghost flags
 						})
@@ -1817,15 +1821,15 @@ impl Editor for SimDescription {
 					.default_open(false) // TODO global state
 					.show(ui, |ui| {
 						egui::Grid::new("SimDescription editor look at").show(ui, |ui| {
-							drag_fn("object ID", &mut look_at_object_id.id, ui);
-							drag_fn("slot ID", look_at_slot_id, ui);
-							drag_fn("state", look_at_state, ui);
-							drag_fn("time remaining", look_at_time_remaining, ui);
+							drag_hex_fn("object ID", &mut look_at_object_id.id, ui);
+							drag_hex_fn("slot ID", look_at_slot_id, ui);
+							drag_hex_fn("state", look_at_state, ui);
+							drag_hex_fn("time remaining", look_at_time_remaining, ui);
 						})
 					});
 
 				egui::Grid::new("SimDescription editor misc").show(ui, |ui| {
-					drag_fn("religion ID", religion_id, ui);
+					drag_hex_fn("religion ID", religion_id, ui);
 
 					ui.label("cult flags");
 					checkbox_member_get_set(
@@ -1929,53 +1933,53 @@ impl Editor for SimDescription {
 					);
 					ui.end_row();
 
-					drag_fn("sitting", sitting, ui);
-					drag_fn("swimming", swimming, ui);
-					drag_fn("money over head", money_over_head, ui);
-					drag_fn("group talk state", group_talk_state, ui);
+					drag_hex_fn("sitting", sitting, ui);
+					drag_hex_fn("swimming", swimming, ui);
+					drag_hex_fn("money over head", money_over_head, ui);
+					drag_hex_fn("group talk state", group_talk_state, ui);
 					// drag_fn("job data", job_data, ui);
-					drag_fn("motives static", motives_static, ui);
-					drag_fn("censorship flags", censorship_flags, ui);
-					drag_fn("neighbor id", neighbor_id, ui);
-					drag_fn("person type", person_type, ui);
-					drag_fn("priority", priority, ui);
-					drag_fn("greet status", greet_status, ui);
-					drag_fn("visitor_schedule", visitor_schedule, ui);
-					drag_fn("ui icon flags", ui_icon_flags, ui);
-					drag_fn("memory score", memory_score, ui);
-					drag_fn("social menu object ID", &mut social_menu_object_id.id, ui);
-					drag_fn("private", private, ui);
-					drag_fn("lingering house number", lingering_house_number, ui);
-					drag_fn("non interruptable", non_interruptable, ui);
-					drag_fn("footprint extension", footprint_extension, ui);
-					drag_fn("render display flags", render_display_flags, ui);
-					drag_fn("tick counter", tick_counter, ui);
+					drag_hex_fn("motives static", motives_static, ui);
+					drag_hex_fn("censorship flags", censorship_flags, ui);
+					drag_hex_fn("neighbor id", neighbor_id, ui);
+					drag_hex_fn("person type", person_type, ui);
+					drag_hex_fn("priority", priority, ui);
+					drag_hex_fn("greet status", greet_status, ui);
+					drag_hex_fn("visitor_schedule", visitor_schedule, ui);
+					drag_hex_fn("ui icon flags", ui_icon_flags, ui);
+					drag_hex_fn("memory score", memory_score, ui);
+					drag_hex_fn("social menu object ID", &mut social_menu_object_id.id, ui);
+					drag_hex_fn("private", private, ui);
+					drag_hex_fn("lingering house number", lingering_house_number, ui);
+					drag_hex_fn("non interruptable", non_interruptable, ui);
+					drag_hex_fn("footprint extension", footprint_extension, ui);
+					drag_hex_fn("render display flags", render_display_flags, ui);
+					drag_hex_fn("tick counter", tick_counter, ui);
 
-					drag_fn("life score teen", life_score_teen, ui);
-					drag_fn("life score adult", life_score_adult, ui);
-					drag_fn("life score elder", life_score_elder, ui);
+					drag_hex_fn("life score teen", life_score_teen, ui);
+					drag_hex_fn("life score adult", life_score_adult, ui);
+					drag_hex_fn("life score elder", life_score_elder, ui);
 
-					drag_fn("motive power", motive_power, ui);
-					drag_fn("environment_score_override", environment_score_override, ui);
-					drag_fn("fitness preference", fitness_preference, ui);
+					drag_hex_fn("motive power", motive_power, ui);
+					drag_hex_fn("environment_score_override", environment_score_override, ui);
+					drag_hex_fn("fitness preference", fitness_preference, ui);
 
-					drag_fn("interest unused 0", interest_unused_0, ui);
-					drag_fn("interest unused 1", interest_unused_1, ui);
-					drag_fn("allocated suburb", allocated_suburb, ui);
-					drag_fn("interest unused 5", interest_unused_5, ui);
-					drag_fn("interest unused 7", interest_unused_7, ui);
-					drag_fn("interest unused 8", interest_unused_8, ui);
-					drag_fn("interest unused 9", interest_unused_9, ui);
-					drag_fn("interest unused 11", interest_unused_11, ui);
+					drag_hex_fn("interest unused 0", interest_unused_0, ui);
+					drag_hex_fn("interest unused 1", interest_unused_1, ui);
+					drag_hex_fn("allocated suburb", allocated_suburb, ui);
+					drag_hex_fn("interest unused 5", interest_unused_5, ui);
+					drag_hex_fn("interest unused 7", interest_unused_7, ui);
+					drag_hex_fn("interest unused 8", interest_unused_8, ui);
+					drag_hex_fn("interest unused 9", interest_unused_9, ui);
+					drag_hex_fn("interest unused 11", interest_unused_11, ui);
 
-					drag_fn("unselectable", unselectable, ui);
-					drag_fn("person flags 2", person_flags_2, ui);
-					drag_fn("mood booster", mood_booster, ui);
-					drag_fn("unlinked", unlinked, ui);
+					drag_hex_fn("unselectable", unselectable, ui);
+					drag_hex_fn("person flags 2", person_flags_2, ui);
+					drag_hex_fn("mood booster", mood_booster, ui);
+					drag_hex_fn("unlinked", unlinked, ui);
 
-					drag_fn("unknown 0", unknown_0, ui);
-					drag_fn("unknown 1", unknown_1, ui);
-					drag_fn("unknown 3 ('end byte')", unknown_3, ui);
+					drag_hex_fn("unknown 0", unknown_0, ui);
+					drag_hex_fn("unknown 1", unknown_1, ui);
+					drag_hex_fn("unknown 3 ('end byte')", unknown_3, ui);
 				});
 			});
 

@@ -5,7 +5,7 @@
 use dbpf::internal_file::cpf::binary_index::BinaryIndex;
 use eframe::egui::{Grid, Response, Ui};
 
-use crate::editor::{cpf::reference_edit_fn, drag_fn, Editor};
+use crate::editor::{cpf::reference_edit_fn, drag_hex_fn, Editor};
 
 impl Editor for BinaryIndex {
 	type EditorState = ();
@@ -17,7 +17,7 @@ impl Editor for BinaryIndex {
 			.show(ui, |ui| {
 				macro_rules! drag {
 					($name:ident) => {
-						drag_fn(stringify!($name), $name, ui)
+						drag_hex_fn(stringify!($name), $name, ui)
 					};
 				}
 				macro_rules! reference {

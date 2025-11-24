@@ -156,9 +156,20 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
     }
 }
 
-pub(crate) fn drag_fn<T: Numeric>(name: &str, value: &mut T, ui: &mut Ui) -> Response {
+pub(crate) fn drag_hex_fn<T: Numeric>(name: &str, value: &mut T, ui: &mut Ui) -> Response {
 	ui.label(name);
-	let res = ui.add(DragValue::new(value).hexadecimal(1, false, false));
+	let res = ui.add(
+		DragValue::new(value)
+			.hexadecimal(1, false, false)
+			.prefix("0x"),
+	);
+	ui.end_row();
+	res
+}
+
+pub(crate) fn drag_decimal_fn<T: Numeric>(name: &str, value: &mut T, ui: &mut Ui) -> Response {
+	ui.label(name);
+	let res = ui.add(DragValue::new(value));
 	ui.end_row();
 	res
 }

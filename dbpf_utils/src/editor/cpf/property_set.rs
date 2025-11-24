@@ -12,7 +12,9 @@ use eframe::{
 };
 
 use crate::editor::vector::VecEditorState;
-use crate::editor::{cpf::reference_edit_fn, drag_checkbox_fn, drag_fn, drag_option_fn, Editor};
+use crate::editor::{
+	cpf::reference_edit_fn, drag_checkbox_fn, drag_hex_fn, drag_option_fn, Editor,
+};
 
 impl Editor for Override {
 	type EditorState = ();
@@ -42,7 +44,7 @@ impl Editor for PropertySet {
 			.show(ui, |ui| {
 				macro_rules! drag {
 					($name:ident) => {
-						drag_fn(stringify!($name), &mut self.$name, ui)
+						drag_hex_fn(stringify!($name), &mut self.$name, ui)
 					};
 				}
 
