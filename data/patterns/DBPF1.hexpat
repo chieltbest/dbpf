@@ -4,6 +4,8 @@
 
 #pragma endian little
 
+u32 base_pointer in;
+
 struct DBPFDirectoryEntry {
     u32 type_id;
     u32 group_id;
@@ -27,9 +29,9 @@ struct IndexEntry {
     u32 size;
     
     if (type_id == 0xE86B1EEF) {
-        DBPFDirectory<size> data @ data_location;
+        DBPFDirectory<size> data @ data_location + base_pointer;
     } else {
-        u8 data[size] @ data_location;
+        u8 data[size] @ data_location + base_pointer;
     }
 };
 
@@ -64,11 +66,10 @@ struct Header {
     
     u32 index_minor;
     
-    Index<index_entry_count> index @ index_location;
+    Index<index_entry_count> index @ index_location + base_pointer;
     
     //u32 unused[8];
     padding[32];
 };
 
-Header header @ 0x00;
-
+Header header @ base_pointer;
