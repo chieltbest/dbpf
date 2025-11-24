@@ -330,7 +330,7 @@ impl Editor for SimDescription {
 						);
 						checkbox_member_get_set(
 							ui,
-							"smoke",
+							"vampire smoke",
 							person_flags_0,
 							PersonFlags0::vampire_smoke,
 							PersonFlags0::set_vampire_smoke,
@@ -348,7 +348,7 @@ impl Editor for SimDescription {
 						);
 						checkbox_member_get_set(
 							ui,
-							"carrier",
+							"lycanthropy carrier",
 							person_flags_0,
 							PersonFlags0::lycanthropy_carrier,
 							PersonFlags0::set_lycanthropy_carrier,
