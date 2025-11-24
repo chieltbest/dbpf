@@ -14,7 +14,7 @@ use dbpf::internal_file::resource_collection::texture_resource::{
 	decoded_texture::{DecodedTexture, ShrinkDirection},
 	KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData,
 };
-use eframe::egui::Color32;
+use eframe::egui::{Color32, UiBuilder, Vec2};
 use eframe::{
 	egui,
 	egui::{
@@ -430,13 +430,6 @@ impl Editor for TextureResource {
 					}
 				}
 
-				if matches!(current_format, TextureFormat::Alpha) {
-					egui::widgets::color_picker::color_edit_button_srgba(
-						ui,
-						&mut state.alpha_texture_color,
-						egui::widgets::color_picker::Alpha::Opaque);
-				}
-
 				if ui
 					.button("Replace original")
 					.on_hover_text(
@@ -509,14 +502,26 @@ impl Editor for TextureResource {
 			ui.separator();
 
 			ui.horizontal(|ui| {
-				ui.add(DragValue::new(&mut texture.creator_id).hexadecimal(8, false, true)) | ui.label("Creator ID")
-			})
-				.inner
-				.on_hover_text(
+				(ui.add(DragValue::new(&mut texture.creator_id).hexadecimal(8, false, true))
+					| ui.label("Creator ID")).on_hover_text(
 					"Creator ID of the creator of this texture\n\
                     If the texture has not been uploaded to online services the creator ID will be either \
                     FF000000 or FFFFFFFF",
 				);
+
+
+				if matches!(current_format, TextureFormat::Alpha) {
+					(egui::widgets::color_picker::color_edit_button_srgba(
+						ui,
+						&mut state.alpha_texture_color,
+						egui::widgets::color_picker::Alpha::Opaque) |
+						ui.label("Texture Color"))
+						.on_hover_text("The color that transparent (Alpha) textures will show as.\n\
+						Alpha textures are used for multiple purposes, such as shadows, lights, and specular highlights. \
+						Using this color picker you can choose what way the texture is previewed. \
+						Note that this does not have any impact on the appearance in game.");
+				}
+			});
 
 			ui.horizontal_wrapped(|ui| {
 				if ui.button("Reset zoom").clicked() {
@@ -527,7 +532,7 @@ impl Editor for TextureResource {
 				}
 			});
 
-			egui::Frame::group(ui.style()).show(ui, |ui| {
+			let frame = egui::Frame::group(ui.style()).show(ui, |ui| {
 				let scene = egui::Scene::new()
 					.zoom_range(0.1..=16.0)
 					.show(ui, zoom, |ui| {
