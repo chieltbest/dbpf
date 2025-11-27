@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.0] - 2025-11-02
+## [0.6.0] - 2025-11-27
 
 ### 🚀 Features
 
@@ -14,10 +14,18 @@
 - Add GMDC bounding mesh display
 - Add resource export
 - Add resource import function by dragging files
+- Allow changing display color of alpha textures
+- Make list editor items re-orderable by dragging the delete button
+- *(dbpf)* Implement sim description parser
+- *(dbpf)* Add SimDescriptions to decoded resources
+- Add SDSC editor
 
 ### ♿ Accessibility
 
 - Make text darker in light mode
+- Add explanation tooltips to texture format dropdown
+- Add tooltips to instance high and low halves
+- Add tooltip to 3idr group
 
 ### 🐛 Bug Fixes
 
@@ -40,6 +48,18 @@
 - Display instance field by splitting the u64 into two u32 text fields
 - Temporary workaround for broken popup-in-popup behaviour in egui 0.32
 - Properly mark EnumEditor as changed
+- Remove AltRawARGB32 and AltRawRGB24 from ui texture format dropdown
+- Fix duplicate item Ids when multiple vector editors are open
+- Set fixed width for language code enum editor
+- Change 3idr editor to use instance editor
+- Do not crash when opening a texture resource that has wrong encoding
+- Show texture decoding errors instead of only reporting them in the log
+- Focus editor node on opening
+- *(dbpf)* Fix missing/incorrect parsing information
+
+### 📚 Documentation
+
+- Add missing copyright headers
 
 ### 🚜 Refactor
 
@@ -68,6 +88,34 @@
 - Add bounding mesh checkboxes to ui
 - Comment out currently unused functions and fix warnings
 - Temporarily disable glTF export button
+- Remove unused VecEditor columns state
+- *(dbpf)* Change index instance_id to newtype
+- *(dbpf)* Rename PDAT/Person Data to SDSC/Sim Description
+- *(dbpf)* Correct more information in sim description
+- *(dbpf)* More dbpf renames
+- Move resource_collection file to mod
+- *(dbpf)* Add BugCollectionFlags
+- *(dbpf)* Rename collection field to bug collection
+- *(dbpf)* Split SDSC into multiple files
+- *(dbpf)* Add mementos bitfield
+- *(dbpf)* Add TitlePostName enum
+- *(dbpf)* Split base game data into separate file
+- *(dbpf)* Add human name to Version
+- *(dbpf)* Add Sequence derive to all SDSC enums
+- *(dbpf)* Derive Copy for all SDSC data
+- *(dbpf)* More SDSC changes
+- Make SDSC height range -100 to 100
+- Remove underscores in SDSC selection flags ui
+- Make decay range in SDSC -1000 to 1000
+- Reorder SDSC skills by if they are real
+- Clarify vampire and werewolf flags
+- Make SDSC body temperature a slider
+- Add '0x' prefix to hex drag values
+
+### 🎨 Styling
+
+- Add separate drag handle for vector reorder
+- Change alpha preview color button to a more suitable location
 
 ### 📦️ Dependencies
 
@@ -80,6 +128,7 @@
 - Update log
 - Change serde_json dependency
 - Update egui and dependencies to 0.32
+- *(dbpf)* Update modular_bitfield to 0.13
 
 ## [0.4.2] - 2025-06-12
 
