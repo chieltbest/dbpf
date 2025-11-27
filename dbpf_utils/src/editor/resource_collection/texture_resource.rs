@@ -14,7 +14,7 @@ use dbpf::internal_file::resource_collection::texture_resource::{
 	decoded_texture::{DecodedTexture, ShrinkDirection},
 	KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData,
 };
-use eframe::egui::{Color32, UiBuilder, Vec2};
+use eframe::egui::Color32;
 use eframe::{
 	egui,
 	egui::{
@@ -532,7 +532,7 @@ impl Editor for TextureResource {
 				}
 			});
 
-			let frame = egui::Frame::group(ui.style()).show(ui, |ui| {
+			egui::Frame::group(ui.style()).show(ui, |ui| {
 				let scene = egui::Scene::new()
 					.zoom_range(0.1..=16.0)
 					.show(ui, zoom, |ui| {
