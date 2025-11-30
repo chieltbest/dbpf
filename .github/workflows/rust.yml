@@ -71,8 +71,6 @@ jobs:
       #          tools: gcc-mingw-w64
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo test
-#      - run: cargo build --target x86_64-pc-windows-gnu --profile release
       - name: Install cargo packager
         run: cargo install --locked cargo-packager
       - name: Build Images
@@ -88,8 +86,10 @@ jobs:
           if-no-files-found: 'error'
           name: images_${{ github.run_id }}_${{ matrix.targets.run-on }}
           path: |
-            target/release/
-            !target/release/deps/
+            target/release/*.AppImage
+            target/release/*.exe
+            target/release/*.app
+            target/release/*.sig
 
   generate-changelog:
     name: Generate changelog
@@ -121,6 +121,12 @@ jobs:
         with:
           pattern: images_${{ github.run_id }}_*
           path: ./images
+      - id: changenotes_base64
+        run: |
+          export RELEASE_NOTES=$(base64 << EOF
+          ${{ needs.generate-changelog.outputs.release_body }}
+          EOF
+          )
       - name: Make updater info
         # TODO generate full info
         run: |
@@ -128,10 +134,10 @@ jobs:
           {
             "version": "${{ needs.get-app-versions.outputs.yape-version }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
             "notes": "${{ needs.generate-changelog.outputs.release_body }}",
-            "pub_date": "$(date --utc --iso-8601)"
+            "pub_date": "$(date --utc --iso-8601=seconds)"
             "platforms": {
               "linux-x86_64": {
-                "signature": "$(cat images/yape*AppImage.sig)",
+                "signature": "$(cat images/images_${{ github.run_id }}_ubuntu-latest/yape*AppImage.sig)",
                 "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yape_${{ needs.get-app-versions.outputs.yape-version }}_x86_64.AppImage"
                 "format": "appimage"
               }
@@ -162,6 +168,6 @@ jobs:
             ${{ needs.generate-changelog.outputs.release_body }}
           files: |
             yape-update-info.json
-            images/images_${{ github.run_id }}_ubuntu_latest/*.AppImage
-            images/images_${{ github.run_id }}_windows_latest/*.exe
+            images/images_${{ github.run_id }}_ubuntu-latest/*.AppImage
+            images/images_${{ github.run_id }}_windows-latest/*.exe
           clear_attachments: true
