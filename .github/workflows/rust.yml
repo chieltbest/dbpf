@@ -32,9 +32,9 @@ jobs:
       matrix:
         program: [ batl, yact, yape ]
     outputs:
-      batl_version: ${{ steps.get-version.outputs.batl }}
-      yact_version: ${{ steps.get-version.outputs.yact }}
-      yape_version: ${{ steps.get-version.outputs.yape }}
+      batl: ${{ steps.get-version.outputs.batl }}
+      yact: ${{ steps.get-version.outputs.yact }}
+      yape: ${{ steps.get-version.outputs.yape }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -134,13 +134,13 @@ jobs:
         run: |
           cat > yape-update-info.json << EOF
           {
-            "version": "${{ needs.get-app-versions.outputs.yape-version }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
+            "version": "${{ needs.get-app-versions.outputs.yape }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
             "notes": "${{ steps.changenotes-base64.outputs.release-notes }}",
             "pub_date": "$(date --utc --iso-8601=seconds)"
             "platforms": {
               "linux-x86_64": {
                 "signature": "$(cat images/images_${{ github.run_id }}_ubuntu-latest/yape*AppImage.sig)",
-                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yape_${{ needs.get-app-versions.outputs.yape-version }}_x86_64.AppImage"
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yape_${{ needs.get-app-versions.outputs.yape }}_x86_64.AppImage"
                 "format": "appimage"
               }
             }
