@@ -41,7 +41,7 @@ jobs:
       - name: get latest version
         id: get_version
         run: |
-          export TAG=$(git describe --match "$program/v*" --tags --abbrev=0 --candidates=100)
+          export TAG=$(git describe --match "${{ matrix.program }}/v*" --tags --abbrev=0 --candidates=100)
           echo ${{ matrix.program }}=${TAG#*/} >> $GITHUB_OUTPUT
 
   build:
@@ -104,8 +104,9 @@ jobs:
   build-and-upload:
     name: release
     runs-on: ubuntu-latest
-    needs: [ generate-changelog, get-app-versions, get-latest-commit-hash ]
+    needs: [ generate-changelog, get-app-versions, get-latest-commit-hash, build ]
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v6
         with:
           pattern: images_${{ github.run_id }}_*
