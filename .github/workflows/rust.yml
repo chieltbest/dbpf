@@ -222,7 +222,7 @@ jobs:
             
             ${{ needs.generate-changelog.outputs.release_body }}
           files: |
-            yape-update-info.json
+            *-update-info.json
             images/images_${{ github.run_id }}_ubuntu-latest/*.AppImage
             images/images_${{ github.run_id }}_windows-latest/*.exe
             images/images_${{ github.run_id }}_macos-latest/*.tar.gz
