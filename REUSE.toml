@@ -5,7 +5,8 @@ version = 1
 path = [
     "\\.idea/**",
     "**/proptest-regressions/**",
-    "**/Cargo.lock"
+    "**/Cargo.lock",
+    "data/updater/*"
 ]
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"

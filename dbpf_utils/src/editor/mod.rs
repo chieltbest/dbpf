@@ -20,14 +20,16 @@ use eframe::{
 };
 
 pub mod behaviour_function;
-pub mod common;
+pub mod common_ui;
 pub mod cpf;
 pub mod r#enum;
 pub mod header;
+pub mod instance_id;
 pub mod object_data;
 pub mod resource_collection;
 pub mod sim_description;
 pub mod sim_outfits;
+pub mod string_editor;
 pub mod text_list;
 pub mod vector;
 

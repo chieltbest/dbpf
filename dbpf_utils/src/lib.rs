@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -147,7 +147,7 @@ pub fn graphical_application_main(
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn async_execute<F: Future<Output = ()> + Send + 'static>(f: F) {
-	// this is stupid... use any executor of your choice instead
+	// TODO this is stupid... use any executor of your choice instead
 	std::thread::spawn(move || futures::executor::block_on(f));
 }
 #[cfg(target_arch = "wasm32")]

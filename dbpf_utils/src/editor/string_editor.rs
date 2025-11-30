@@ -2,18 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::sync::Arc;
-
 use crate::editor::Editor;
 use binrw::NullWideString;
 use dbpf::common::{BigString, ByteString, NullString, PascalString};
-use dbpf::header_v1::InstanceId;
-use eframe::egui::DragValue;
-use eframe::{
-	egui,
-	egui::{Response, TextEdit, Ui, Vec2},
-	glow,
-};
+use eframe::egui::{Response, TextEdit, Ui, Vec2};
+use eframe::{egui, glow};
+use std::convert::TryInto;
+use std::sync::Arc;
 
 trait StringEditor: TryInto<String> + From<String> + Clone {}
 
@@ -55,40 +50,11 @@ impl<T: StringEditor> Editor for T {
 impl StringEditor for ByteString {}
 
 impl StringEditor for PascalString<u32> {}
+
 impl StringEditor for PascalString<u8> {}
 
 impl StringEditor for BigString {}
 
 impl StringEditor for NullString {}
+
 impl StringEditor for NullWideString {}
-
-impl Editor for InstanceId {
-	type EditorState = ();
-
-	fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
-		ui.horizontal(|ui| {
-			ui.add(
-				DragValue::from_get_set(|v| {
-					if let Some(v) = v {
-						self.id = ((v as u64) << 32) + (self.id & 0xFFFF_FFFF);
-					}
-					(self.id >> 32) as f64
-				})
-				.hexadecimal(8, false, true),
-			)
-			.on_hover_text("resource / instance-high")
-				| ui.add(
-					DragValue::from_get_set(|v| {
-						if let Some(v) = v {
-							self.id =
-								(self.id & 0xFFFF_FFFF_0000_0000) + ((v as u64) & 0xFFFF_FFFF);
-						}
-						(self.id & 0xFFFF_FFFF) as f64
-					})
-					.hexadecimal(8, false, true),
-				)
-				.on_hover_text("instance / instance-low")
-		})
-		.inner
-	}
-}
