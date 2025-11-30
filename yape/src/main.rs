@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
@@ -9,6 +13,7 @@
 
 mod export_resource;
 
+use dbpf_utils::editor::common_ui::settings::VersionInfo;
 use std::{
 	cell::RefCell,
 	fmt::{Debug, Formatter},
@@ -29,12 +34,12 @@ use dbpf::{
 	internal_file::CompressionError,
 	CompressionType, DBPFFile, IndexEntry,
 };
+use dbpf_utils::editor::common_ui::settings::Settings;
 use dbpf_utils::{
 	async_execute,
 	editor::{editor_supported, DecodedFileEditorState, Editor},
-	graphical_application_main,
+	graphical_application_main, version_info,
 };
-use eframe::egui::{Align2, Window};
 use eframe::epaint::AlphaFromCoverage;
 use eframe::{
 	egui,
@@ -203,20 +208,33 @@ enum DeletedRememberPreference {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct YaPeAppData {
+struct YaPeSettings {
 	backup_on_save: bool,
 
 	backup_overwrite_preference: BackupOverwritePreference,
 
 	deleted_remember_preference: DeletedRememberPreference,
+}
 
+impl Default for YaPeSettings {
+	fn default() -> Self {
+		Self {
+			backup_on_save: true,
+			backup_overwrite_preference: Default::default(),
+			deleted_remember_preference: Default::default(),
+		}
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct YaPeAppData {
 	memory_editor_options: MemoryEditorOptions,
 
 	open_file_path: Option<PathBuf>,
 
 	highlight_index: Option<usize>,
 
-	settings_open: bool,
+	settings: Settings<YaPeSettings>,
 
 	#[serde(
 		default = "file_type_default",
@@ -245,14 +263,11 @@ struct YaPeAppData {
 impl Default for YaPeAppData {
 	fn default() -> Self {
 		Self {
-			backup_on_save: true,
 			type_filter: (
 				DBPFFileType::Known(KnownDBPFFileType::TextureResource),
 				false,
 			),
 
-			backup_overwrite_preference: Default::default(),
-			deleted_remember_preference: Default::default(),
 			memory_editor_options: Default::default(),
 			open_file_path: None,
 			highlight_index: None,
@@ -262,7 +277,8 @@ impl Default for YaPeAppData {
 			open_new_hex_tab_index: None,
 			gl_context: None,
 			export_resource_data: Default::default(),
-			settings_open: false,
+
+			settings: Settings::new(Default::default(), version_info!()),
 		}
 	}
 }
@@ -718,6 +734,8 @@ impl YaPeApp {
 				new.set_dark_mode(dark, &cc.egui_ctx);
 			}
 
+			new.data.settings.set_version_info(version_info!());
+
 			if let Some(path) = args.files.first() {
 				new.open_file(path.clone());
 			} else if let Some(path) = new.data.open_file_path.clone() {
@@ -757,6 +775,7 @@ impl YaPeApp {
 		Self {
 			data: YaPeAppData {
 				gl_context: cc.gl.clone(),
+				settings: Settings::new(Default::default(), version_info!()),
 				..YaPeAppData::default()
 			},
 			..Self::default()
@@ -920,7 +939,7 @@ impl YaPeApp {
 	fn save_bytes<W: Write + Seek>(&mut self, writer: &mut W) -> Result<(), CompressionError> {
 		if let Some(open_file) = &mut self.data.open_file {
 			if let Ok(file) = &mut open_file.header {
-				match self.data.deleted_remember_preference {
+				match self.data.settings.deleted_remember_preference {
 					DeletedRememberPreference::Forget => {
 						open_file.resources.retain(|e| !e.borrow().ui_deleted);
 						file.index = open_file
@@ -1089,100 +1108,73 @@ impl App for YaPeApp {
 						ui.label("UI Scale");
 					});
 
-					// this is a temporary workaround for the broken combobox-in-popup behaviour in egui >= 0.32
-					// ref: https://github.com/emilk/egui/discussions/4463
-					let settings_button = ui.button("⚙");
-					if settings_button.clicked() {
-						self.data.settings_open = !self.data.settings_open;
-					}
+					self.data.settings.show_ui(ui, |ui, settings| {
+						let mut clicked_inside = false;
 
-					let settings_window = Window::new("Settings")
-						.open(&mut self.data.settings_open)
-						.collapsible(false)
-						.auto_sized()
-						.title_bar(false)
-						.anchor(
-							Align2::LEFT_TOP,
-							settings_button.rect.left_bottom().to_vec2(),
-						)
-						.show(ctx, |ui| {
-							let mut clicked_inside = false;
-
-							#[cfg(not(target_arch = "wasm32"))]
-							{
-								ui.checkbox(&mut self.data.backup_on_save, "create backup files")
-									.on_hover_text(
-										"make a backup file every time you save a package",
-									);
-
-								ui.add_enabled_ui(self.data.backup_on_save, |ui| {
-									let backup_setting =
-										ComboBox::new("backup_overwrite_preference", "backups")
-											.width(0.0)
-											.selected_text(format!(
-												"{:?}",
-												self.data.backup_overwrite_preference
-											))
-											.show_ui(ui, |ui| {
-												[
-													BackupOverwritePreference::Keep,
-													BackupOverwritePreference::Overwrite,
-													BackupOverwritePreference::Numbered,
-												]
-												.map(|pref| {
-													ui.selectable_value(
-														&mut self.data.backup_overwrite_preference,
-														pref,
-														format!("{pref:?}"),
-													)
-													.clicked()
-												})
-												.into_iter()
-												.any(|b| b)
-											});
-									if backup_setting.inner.unwrap_or(false) {
-										clicked_inside = true;
-									}
-								});
-							}
-
-							let delete_setting = ComboBox::new(
-								"deleted_remember_preference",
-								"deleted resources on saving",
-							)
-							.selected_text(format!("{:?}", self.data.deleted_remember_preference))
-							.width(0.0)
-							.show_ui(ui, |ui| {
-								[
-									DeletedRememberPreference::Forget,
-									DeletedRememberPreference::Remember,
-								]
-								.map(|pref| {
-									ui.selectable_value(
-										&mut self.data.deleted_remember_preference,
-										pref,
-										format!("{pref:?}"),
-									)
-									.clicked()
-								})
-								.into_iter()
-								.any(|b| b)
-							});
-							if delete_setting.inner.unwrap_or(false) {
-								clicked_inside = true;
-							}
-
-							clicked_inside
-						});
-
-					if let Some(settings_window) = settings_window {
-						if !settings_button.clicked()
-							&& settings_window.response.clicked_elsewhere()
-							&& !settings_window.inner.unwrap_or(false)
+						#[cfg(not(target_arch = "wasm32"))]
 						{
-							self.data.settings_open = false;
+							ui.checkbox(&mut settings.backup_on_save, "create backup files")
+								.on_hover_text("make a backup file every time you save a package");
+
+							ui.add_enabled_ui(settings.backup_on_save, |ui| {
+								let backup_setting =
+									ComboBox::new("backup_overwrite_preference", "backups")
+										.width(0.0)
+										.selected_text(format!(
+											"{:?}",
+											settings.backup_overwrite_preference
+										))
+										.show_ui(ui, |ui| {
+											[
+												BackupOverwritePreference::Keep,
+												BackupOverwritePreference::Overwrite,
+												BackupOverwritePreference::Numbered,
+											]
+											.map(|pref| {
+												ui.selectable_value(
+													&mut settings.backup_overwrite_preference,
+													pref,
+													format!("{pref:?}"),
+												)
+												.clicked()
+											})
+											.into_iter()
+											.any(|b| b)
+										});
+								if backup_setting.inner.unwrap_or(false) {
+									clicked_inside = true;
+								}
+							});
 						}
-					}
+
+						let delete_setting = ComboBox::new(
+							"deleted_remember_preference",
+							"deleted resources on saving",
+						)
+						.selected_text(format!("{:?}", settings.deleted_remember_preference))
+						.width(0.0)
+						.show_ui(ui, |ui| {
+							[
+								DeletedRememberPreference::Forget,
+								DeletedRememberPreference::Remember,
+							]
+							.map(|pref| {
+								ui.selectable_value(
+									&mut settings.deleted_remember_preference,
+									pref,
+									format!("{pref:?}"),
+								)
+								.clicked()
+							})
+							.into_iter()
+							.any(|b| b)
+						});
+						if delete_setting.inner.unwrap_or(false) {
+							clicked_inside = true;
+						}
+
+						clicked_inside
+					});
 
 					if ui.button("🗁").on_hover_text("open file...").clicked()
 						&& self.file_picker.is_none()
@@ -1223,13 +1215,13 @@ impl App for YaPeApp {
 								))
 							}) {
 							let mut backed_up = true;
-							if self.data.backup_on_save {
+							if self.data.settings.backup_on_save {
 								let r = fs::exists(&path)
 									.and_then(|e| {
 										if e {
 											Self::backup_filename(
 												&path,
-												self.data.backup_overwrite_preference,
+												self.data.settings.backup_overwrite_preference,
 											)
 										} else {
 											Ok(None)
