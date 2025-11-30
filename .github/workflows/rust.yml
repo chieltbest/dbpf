@@ -32,17 +32,18 @@ jobs:
       matrix:
         program: [ batl, yact, yape ]
     outputs:
-      batl_version: ${{ steps.get_version.outputs.batl }}
-      yact_version: ${{ steps.get_version.outputs.yact }}
-      yape_version: ${{ steps.get_version.outputs.yape }}
+      batl_version: ${{ steps.get-version.outputs.batl }}
+      yact_version: ${{ steps.get-version.outputs.yact }}
+      yape_version: ${{ steps.get-version.outputs.yape }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: get latest version
-        id: get_version
+        id: get-version
         run: |
           export TAG=$(git describe --match "${{ matrix.program }}/v*" --tags --abbrev=0 --candidates=100)
+          echo $TAG
           echo ${{ matrix.program }}=${TAG#*/} >> $GITHUB_OUTPUT
 
   test:
@@ -87,8 +88,8 @@ jobs:
           name: images_${{ github.run_id }}_${{ matrix.targets.run-on }}
           path: |
             target/release/*.AppImage
-            target/release/*.exe
-            target/release/*.app
+            target/release/*-setup.exe
+            target/release/*.tar.gz
             target/release/*.sig
 
   generate-changelog:
@@ -121,19 +122,20 @@ jobs:
         with:
           pattern: images_${{ github.run_id }}_*
           path: ./images
-      - id: changenotes_base64
+      - id: changenotes-base64
         run: |
           export RELEASE_NOTES=$(base64 << EOF
           ${{ needs.generate-changelog.outputs.release_body }}
           EOF
           )
+          echo release-notes=$RELEASE_NOTES >> $GITHUB_OUTPUT
       - name: Make updater info
         # TODO generate full info
         run: |
           cat > yape-update-info.json << EOF
           {
             "version": "${{ needs.get-app-versions.outputs.yape-version }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
-            "notes": "${{ needs.generate-changelog.outputs.release_body }}",
+            "notes": "${{ steps.changenotes-base64.outputs.release-notes }}",
             "pub_date": "$(date --utc --iso-8601=seconds)"
             "platforms": {
               "linux-x86_64": {
