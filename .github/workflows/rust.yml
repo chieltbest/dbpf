@@ -44,7 +44,7 @@ jobs:
         run: |
           export TAG=$(git describe --match "${{ matrix.program }}/v*" --tags --abbrev=0 --candidates=100)
           echo $TAG
-          echo ${{ matrix.program }}=${TAG#*/} >> $GITHUB_OUTPUT
+          echo ${{ matrix.program }}=${TAG#*/v} >> $GITHUB_OUTPUT
 
   test:
     runs-on: ubuntu-latest
