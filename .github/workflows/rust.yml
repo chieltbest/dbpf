@@ -66,10 +66,6 @@ jobs:
     runs-on: ${{ matrix.targets.run-on }}
     needs: get-latest-commit-hash
     steps:
-      #      - uses: tecolicom/actions-use-apt-tools@v1
-      #        with:
-      #          cache: 'no'
-      #          tools: gcc-mingw-w64
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Install cargo packager
@@ -130,8 +126,55 @@ jobs:
           )
           echo release-notes=$RELEASE_NOTES >> $GITHUB_OUTPUT
       - name: Make updater info
-        # TODO generate full info
         run: |
+          cat > batl-update-info.json << EOF
+          {
+            "version": "${{ needs.get-app-versions.outputs.batl }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
+            "notes": "${{ steps.changenotes-base64.outputs.release-notes }}",
+            "pub_date": "$(date --utc --iso-8601=seconds)",
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_ubuntu-latest/batl*AppImage.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/batl_${{ needs.get-app-versions.outputs.batl }}_x86_64.AppImage",
+                "format": "appimage"
+              },
+              "windows-x86_64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_windows-latest/batl*exe.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/batl_${{ needs.get-app-versions.outputs.batl }}_x64-setup.exe",
+                "format": "nsis"
+              },
+              "darwin-aarch64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_macos-latest/*Texture*.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/Big%20Awful%20Texture%20Locator.tar.gz",
+                "format": "app"
+              }
+            }
+          }
+          EOF
+          cat > yact-update-info.json << EOF
+          {
+            "version": "${{ needs.get-app-versions.outputs.yact }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
+            "notes": "${{ steps.changenotes-base64.outputs.release-notes }}",
+            "pub_date": "$(date --utc --iso-8601=seconds)",
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_ubuntu-latest/yact*AppImage.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yact_${{ needs.get-app-versions.outputs.yact }}_x86_64.AppImage",
+                "format": "appimage"
+              },
+              "windows-x86_64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_windows-latest/yact*exe.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yact_${{ needs.get-app-versions.outputs.yact }}_x64-setup.exe",
+                "format": "nsis"
+              },
+              "darwin-aarch64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_macos-latest/*Conflict*.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/Yet%20Another%20Conflict%20Tool.tar.gz",
+                "format": "app"
+              }
+            }
+          }
+          EOF
           cat > yape-update-info.json << EOF
           {
             "version": "${{ needs.get-app-versions.outputs.yape }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
@@ -142,6 +185,16 @@ jobs:
                 "signature": "$(cat images/images_${{ github.run_id }}_ubuntu-latest/yape*AppImage.sig)",
                 "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yape_${{ needs.get-app-versions.outputs.yape }}_x86_64.AppImage",
                 "format": "appimage"
+              },
+              "windows-x86_64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_windows-latest/yape*exe.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yape_${{ needs.get-app-versions.outputs.yape }}_x64-setup.exe",
+                "format": "nsis"
+              },
+              "darwin-aarch64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_macos-latest/*Package*.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/Yet%20Another%20Package%20Editor.tar.gz",
+                "format": "app"
               }
             }
           }
@@ -172,4 +225,5 @@ jobs:
             yape-update-info.json
             images/images_${{ github.run_id }}_ubuntu-latest/*.AppImage
             images/images_${{ github.run_id }}_windows-latest/*.exe
+            images/images_${{ github.run_id }}_macos-latest/*.tar.gz
           clear_attachments: true
