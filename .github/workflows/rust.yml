@@ -136,7 +136,7 @@ jobs:
           {
             "version": "${{ needs.get-app-versions.outputs.yape }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
             "notes": "${{ steps.changenotes-base64.outputs.release-notes }}",
-            "pub_date": "$(date --utc --iso-8601=seconds)"
+            "pub_date": "$(date --utc --iso-8601=seconds)",
             "platforms": {
               "linux-x86_64": {
                 "signature": "$(cat images/images_${{ github.run_id }}_ubuntu-latest/yape*AppImage.sig)",
