@@ -16,29 +16,117 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  get-latest-commit-hash:
+    runs-on: ubuntu-latest
+    outputs:
+      latest-commit-hash: ${{ steps.get-hash.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: get-hash
+        run: echo hash=$(git rev-parse --short HEAD) >> $GITHUB_OUTPUT
+
+  get-app-versions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        program: [ batl, yact, yape ]
+    outputs:
+      batl_version: ${{ steps.get_version.outputs.batl }}
+      yact_version: ${{ steps.get_version.outputs.yact }}
+      yape_version: ${{ steps.get_version.outputs.yape }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: get latest version
+        id: get_version
+        run: |
+          export TAG=$(git describe --match "$program/v*" --tags --abbrev=0 --candidates=100)
+          echo ${{ matrix.program }}=${TAG#*/} >> $GITHUB_OUTPUT
+
+  build:
+    strategy:
+      matrix:
+        targets:
+          - run-on: ubuntu-latest
+            format: appimage
+          - run-on: windows-latest
+            format: nsis
+          - run-on: macos-latest
+            format: app
+    runs-on: ${{ matrix.targets.run-on }}
+    needs: get-latest-commit-hash
+    steps:
+      #      - uses: tecolicom/actions-use-apt-tools@v1
+      #        with:
+      #          cache: 'no'
+      #          tools: gcc-mingw-w64
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo test
+#      - run: cargo build --target x86_64-pc-windows-gnu --profile release
+      - name: Install cargo packager
+        run: cargo install --locked cargo-packager
+      - name: Build Images
+        env: # Or as an environment variable
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.UPDATER_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.UPDATER_KEY_PASSWORD }}
+          RELEASE: ${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}
+        run: |
+          cargo build --profile release
+          cargo packager --profile release -f ${{ matrix.targets.format }}
+      - uses: actions/upload-artifact@v5
+        with:
+          if-no-files-found: 'error'
+          name: images_${{ github.run_id }}_${{ matrix.targets.run-on }}
+          path: target/release/
+
+  generate-changelog:
+    name: Generate changelog
+    runs-on: ubuntu-latest
+    needs: get-latest-commit-hash
+    outputs:
+      release_body: ${{ steps.git-cliff.outputs.content }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: --latest
+            --unreleased
+            --tag-pattern "latest"
+
   build-and-upload:
     name: release
     runs-on: ubuntu-latest
+    needs: [ generate-changelog, get-app-versions, get-latest-commit-hash ]
     steps:
-      - uses: tecolicom/actions-use-apt-tools@v1
+      - uses: actions/download-artifact@v6
         with:
-          cache: 'no'
-          tools: gcc-mingw-w64
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-      - run: cargo test
-      - run: cargo build --target x86_64-pc-windows-gnu --profile release
-      - name: Install cargo packager
-        run: cargo install --locked cargo-packager
-      - name: Build AppImages
+          pattern: images_${{ github.run_id }}_*
+          path: ./images
+      - name: Make updater info
+        # TODO generate full info
         run: |
-          cargo build --profile release
-          cargo packager --profile release -f appimage
+          cat > yape-update-info.json << EOF
+          {
+            "version": "${{ needs.get-app-versions.outputs.yape-version }}+${{ needs.get-latest-commit-hash.outputs.latest-commit-hash }}",
+            "notes": "${{ needs.generate-changelog.outputs.release_body }}",
+            "pub_date": "$(date --utc --iso-8601)"
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "$(cat images/yape*AppImage.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/latest/yape_${{ needs.get-app-versions.outputs.yape-version }}_x86_64.AppImage"
+                "format": "appimage"
+              }
+            }
+          }
+          EOF
       - name: Update latest release
         uses: mini-bomba/create-github-release@v1.2.0
         with:
@@ -59,10 +147,9 @@ jobs:
             
             For Linux users:
             Download the .AppImage files, then click on the file to run it.
+            
+            ${{ needs.generate-changelog.outputs.release_body }}
           files: |
-            target/release/*.AppImage
-            target/x86_64-pc-windows-gnu/release/batl.exe
-            target/x86_64-pc-windows-gnu/release/yact.exe
-            target/x86_64-pc-windows-gnu/release/yape.exe
-            target/x86_64-pc-windows-gnu/release/dbpfrecompress.exe
+            images/*.AppImage
+            images/*.exe
           clear_attachments: true
