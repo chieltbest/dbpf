@@ -1316,6 +1316,7 @@ dependencies = [
 name = "dbpf_utils"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "binrw",
  "cargo-packager-updater",
  "chrono",

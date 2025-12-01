@@ -4,6 +4,7 @@
 
 use crate::async_execute;
 use crate::editor::common_ui::settings::VersionInfo;
+use base64::prelude::*;
 use cargo_packager_updater::url::Url;
 use cargo_packager_updater::{Config, Error, Update, UpdaterBuilder};
 use eframe::egui::{Color32, ComboBox, ProgressBar, Ui};
@@ -192,6 +193,30 @@ impl Updater {
 		let _ = sender_clone.send(UpdaterStatus::Installing);
 	}
 
+	fn show_update_notes(ui: &mut Ui, update: &Box<Update>) {
+		ui.collapsing("Changelog", |ui| {
+			ui.heading(update.version.clone());
+			if let Some(body) = &update.body {
+				match BASE64_STANDARD.decode(body) {
+					Ok(body_data) => {
+						let body_string = String::from_utf8(body_data);
+						match body_string {
+							Ok(body) => {
+								ui.label(body);
+							}
+							Err(error) => {
+								ui.colored_label(Color32::RED, error.to_string());
+							}
+						}
+					}
+					Err(error) => {
+						ui.colored_label(Color32::RED, error.to_string());
+					}
+				}
+			}
+		});
+	}
+
 	/// should always be called regardless of if the ui is actually open
 	/// if this method is not called the status will not be updated
 	pub fn process(&mut self, ui: &impl AsRequestRepaint) {
@@ -300,6 +325,12 @@ impl Updater {
 				}
 			}
 		});
+
+		if let UpdaterStatus::UpdateFound(update) | UpdaterStatus::Downloaded { update, .. } =
+			&self.status
+		{
+			Self::show_update_notes(ui, update);
+		}
 
 		keep_open
 	}
