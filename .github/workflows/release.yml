@@ -23,7 +23,7 @@ jobs:
       release_version: ${{ steps.get-tag.outputs.release_version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Get tag path
@@ -50,28 +50,91 @@ jobs:
             "--include-path=dbpf_utils/src/lib.rs"
             ${{ steps.get-tag.outputs.git_cliff_include }}
 
-  build-and-upload:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo test
+
+  build:
+    strategy:
+      matrix:
+        targets:
+          - run-on: ubuntu-latest
+            format: appimage
+          - run-on: windows-latest
+            format: nsis
+          - run-on: macos-latest
+            format: app
+    runs-on: ${{ matrix.targets.run-on }}
     needs: generate-changelog
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install cargo packager
+        run: cargo install --locked cargo-packager
+      - name: Build Images
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.UPDATER_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.UPDATER_KEY_PASSWORD }}
+          RELEASE: ''
+        run: |
+          cargo build --profile dist --bin ${{ needs.generate-changelog.outputs.release_program }}
+          cargo packager --profile dist -f ${{ matrix.targets.format }} -p ${{ needs.generate-changelog.outputs.release_program }}
+      - uses: actions/upload-artifact@v5
+        with:
+          if-no-files-found: 'error'
+          name: images_${{ github.run_id }}_${{ matrix.targets.run-on }}
+          path: |
+            target/release/*.AppImage
+            target/release/*.exe
+            target/release/*.tar.gz
+            target/release/*.sig
+
+  upload:
+    needs: [ generate-changelog, build, test ]
     name: release
     runs-on: ubuntu-latest
     steps:
-      - uses: tecolicom/actions-use-apt-tools@v1
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
         with:
-          cache: 'no'
-          tools: gcc-mingw-w64
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo test
-      - run: cargo build --profile dist --target x86_64-pc-windows-gnu --bin ${{ needs.generate-changelog.outputs.release_program }}
-      - name: Install cargo packager
-        run: cargo install --locked cargo-packager
-      - name: Build AppImages
+          pattern: images_${{ github.run_id }}_*
+          path: ./images
+      - id: changenotes-base64
         run: |
-          cargo build --profile dist --bin ${{ needs.generate-changelog.outputs.release_program }}
-          cargo packager --profile dist -f appimage -p ${{ needs.generate-changelog.outputs.release_program }}
+          export RELEASE_NOTES=$(base64 --wrap=0 << EOF
+          ${{ needs.generate-changelog.outputs.release_body }}
+          EOF
+          )
+          echo release-notes=$RELEASE_NOTES >> $GITHUB_OUTPUT
+      - name: Make updater info
+        run: |
+          cat > update-info.json << EOF
+          {
+            "version": "${{ needs.generate-changelog.outputs.release_version }}",
+            "notes": "${{ steps.changenotes-base64.outputs.release-notes }}",
+            "pub_date": "$(date --utc --iso-8601=seconds)",
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_ubuntu-latest/*.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/$(basename images/images_${{ github.run_id }}_ubuntu-latest/*.AppImage)",
+                "format": "appimage"
+              },
+              "windows-x86_64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_windows-latest/*.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/$(basename images/images_${{ github.run_id }}_windows-latest/*-setup.exe)",
+                "format": "nsis"
+              },
+              "darwin-aarch64": {
+                "signature": "$(cat images/images_${{ github.run_id }}_macos-latest/*.sig)",
+                "url": "https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/$(basename images/images_${{ github.run_id }}_macos-latest/*.tar.gz)",
+                "format": "app"
+              }
+            }
+          }
+          EOF
       - name: Make zip files
         env:
           PROGRAM: ${{ needs.generate-changelog.outputs.release_program }}
@@ -82,9 +145,11 @@ jobs:
           mkdir target/distrib/$PROGRAM-$VERSION-linux/
           mkdir target/distrib/$PROGRAM-$VERSION-windows/
           
-          cp target/dist/$PROGRAM*.AppImage \
+          cp images/images_${{ github.run_id }}_ubuntu-latest/*.AppImage \
               target/distrib/$PROGRAM-$VERSION-linux/$PROGRAM.AppImage
-          cp target/x86_64-pc-windows-gnu/dist/$PROGRAM.exe \
+          cp images/images_${{ github.run_id }}_windows-latest/*-setup.exe \
+              target/distrib/$PROGRAM-$VERSION-windows/
+          cp images/images_${{ github.run_id }}_windows-latest/$PROGRAM.exe \
               target/distrib/$PROGRAM-$VERSION-windows/
           
           for OS in linux windows; do
@@ -154,3 +219,7 @@ jobs:
             ${{ needs.generate-changelog.outputs.release_body }}
           files: |
             target/distrib/*.zip
+            update-info.json
+            images/images_${{ github.run_id }}_ubuntu-latest/*.AppImage
+            images/images_${{ github.run_id }}_windows-latest/*-setup.exe
+            images/images_${{ github.run_id }}_macos-latest/*.tar.gz
