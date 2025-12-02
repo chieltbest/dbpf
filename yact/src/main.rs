@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #![windows_subsystem = "windows"]
 
 // SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
@@ -10,6 +14,7 @@
 
 mod filtered_conflict_list;
 
+use dbpf_utils::editor::common_ui::settings::VersionInfo;
 use std::{
 	error::Error,
 	path::{Path, PathBuf},
@@ -20,9 +25,14 @@ use std::{
 	},
 };
 
+use crate::filtered_conflict_list::{
+	ConflictTypeFilterWarning, FilteredConflictList, KnownConflict,
+};
+use dbpf_utils::editor::common_ui::settings::Settings;
 use dbpf_utils::{
 	graphical_application_main,
 	tgi_conflicts::{find_conflicts, TGIConflict, Tgi},
+	version_info,
 };
 use eframe::{
 	egui,
@@ -37,11 +47,9 @@ use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::{info, instrument, warn};
 
-use crate::filtered_conflict_list::{
-	ConflictTypeFilterWarning, FilteredConflictList, KnownConflict,
-};
-
 struct DBPFApp {
+	settings: Settings<()>,
+
 	ui_scale: f32,
 	dark_mode_preference: Option<bool>,
 	show_folders: bool,
@@ -60,6 +68,8 @@ struct DBPFApp {
 impl DBPFApp {
 	fn new(cc: &eframe::CreationContext<'_>) -> Self {
 		let mut new = Self {
+			settings: Settings::new((), version_info!()),
+
 			ui_scale: 1.0,
 			dark_mode_preference: None,
 			show_folders: true,
@@ -75,6 +85,9 @@ impl DBPFApp {
 			highlighted_conflict: None,
 		};
 		if let Some(storage) = cc.storage {
+			if let Some(settings) = eframe::get_value(storage, "settings") {
+				new.settings = settings;
+			}
 			if let Some(ui_scale) = storage
 				.get_string("ui_scale")
 				.and_then(|str| str.parse().ok())
@@ -105,6 +118,9 @@ impl DBPFApp {
 				new.start_scannning(&cc.egui_ctx);
 			}
 		}
+
+		new.settings.init(version_info!());
+
 		new
 	}
 
@@ -540,6 +556,8 @@ impl App for DBPFApp {
 						ui.label("UI Scale");
 					});
 
+					self.settings.show_ui(ui, |_ui, _settings| false);
+
 					self.resource_menu(ui);
 
 					self.known_conflict_menu(ctx, ui);
@@ -604,6 +622,7 @@ impl App for DBPFApp {
 	}
 
 	fn save(&mut self, storage: &mut dyn Storage) {
+		eframe::set_value(storage, "settings", &self.settings);
 		storage.set_string("ui_scale", self.ui_scale.to_string());
 		if let Some(dark) = self.dark_mode_preference {
 			storage.set_string("dark_mode", dark.to_string());
