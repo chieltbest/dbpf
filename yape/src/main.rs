@@ -734,7 +734,7 @@ impl YaPeApp {
 				new.set_dark_mode(dark, &cc.egui_ctx);
 			}
 
-			new.data.settings.set_version_info(version_info!());
+			new.data.settings.init(version_info!());
 
 			if let Some(path) = args.files.first() {
 				new.open_file(path.clone());

@@ -74,7 +74,7 @@ impl<T> Settings<T> {
 		}
 	}
 
-	pub fn set_version_info(&mut self, _version_info: VersionInfo) {
+	pub fn init(&mut self, _version_info: VersionInfo) {
 		#[cfg(not(target_arch = "wasm32"))]
 		self.updater.set_version_info(_version_info);
 	}
