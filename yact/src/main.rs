@@ -34,6 +34,8 @@ use dbpf_utils::{
 	tgi_conflicts::{find_conflicts, TGIConflict, Tgi},
 	version_info,
 };
+use eframe::egui::containers::menu::{MenuButton, MenuConfig};
+use eframe::egui::PopupCloseBehavior;
 use eframe::{
 	egui,
 	egui::{
@@ -227,19 +229,19 @@ impl DBPFApp {
 
 	fn resource_menu(&mut self, ui: &mut Ui) {
 		let hidden_conflicts = self.conflict_list.has_hidden_conflicts();
-		ui.menu_button(
-			format!("Resources{}", if hidden_conflicts { " ！" } else { "" }),
-			|ui| {
-				egui::Grid::new("resource grid")
-					.striped(true)
-					.min_col_width(0.0)
-					.show(ui, |ui| {
-						for file_type in FilteredConflictList::filter_types() {
-							let mut check = self.conflict_list.get_check_enabled(&file_type);
-							ui.checkbox(
-								&mut check,
-								file_type.properties().abbreviation.to_string(),
-							)
+		MenuButton::new(format!(
+			"Resources{}",
+			if hidden_conflicts { " ！" } else { "" }
+		))
+		.config(MenuConfig::new().close_behavior(PopupCloseBehavior::CloseOnClickOutside))
+		.ui(ui, |ui| {
+			egui::Grid::new("resource grid")
+				.striped(true)
+				.min_col_width(0.0)
+				.show(ui, |ui| {
+					for file_type in FilteredConflictList::filter_types() {
+						let mut check = self.conflict_list.get_check_enabled(&file_type);
+						ui.checkbox(&mut check, file_type.properties().abbreviation.to_string())
 							.on_hover_text(format!(
 								"Search for {} conflicts?",
 								file_type.properties().name
@@ -249,32 +251,27 @@ impl DBPFApp {
 								self.conflict_list.set_check_enabled(&file_type, check);
 							});
 
-							match self.conflict_list.get_type_visibility(&file_type) {
-								ConflictTypeFilterWarning::NotVisible => {
-									ui.label("！").on_hover_text(
-										"Some conflicts of this type are found but not shown",
-									)
-								}
-								ConflictTypeFilterWarning::FoundVisible => {
-									ui.label("✔").on_hover_text(
-										"Conflicts of this type have been found, and all are shown",
-									)
-								}
-								ConflictTypeFilterWarning::NotFound => ui.label(""),
-							};
+						match self.conflict_list.get_type_visibility(&file_type) {
+							ConflictTypeFilterWarning::NotVisible => ui.label("！").on_hover_text(
+								"Some conflicts of this type are found but not shown",
+							),
+							ConflictTypeFilterWarning::FoundVisible => ui.label("✔").on_hover_text(
+								"Conflicts of this type have been found, and all are shown",
+							),
+							ConflictTypeFilterWarning::NotFound => ui.label(""),
+						};
 
-							ui.label(file_type.properties().name);
+						ui.label(file_type.properties().name);
 
-							ui.end_row();
-						}
-					});
+						ui.end_row();
+					}
+				});
 
-				if ui.button("Reset to defaults").clicked() {
-					self.conflict_list.reset_filters();
-				}
-			},
-		)
-		.response
+			if ui.button("Reset to defaults").clicked() {
+				self.conflict_list.reset_filters();
+			}
+		})
+		.0
 		.on_hover_text(format!(
 			"The resource types to check for{}",
 			if hidden_conflicts {
