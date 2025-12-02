@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #![windows_subsystem = "windows"]
 
 // SPDX-FileCopyrightText: 2025 Chiel Douwes
@@ -13,6 +17,7 @@ mod filtered_texture_list;
 mod texture_finder;
 mod ui_image_cache;
 
+use dbpf_utils::editor::common_ui::settings::VersionInfo;
 use std::{
 	error::Error,
 	num::NonZeroUsize,
@@ -24,7 +29,13 @@ use std::{
 	},
 };
 
-use dbpf_utils::graphical_application_main;
+use crate::{
+	filtered_texture_list::FilteredTextureList,
+	texture_finder::{find_textures, FoundTexture},
+	ui_image_cache::ImageCache,
+};
+use dbpf_utils::editor::common_ui::settings::Settings;
+use dbpf_utils::{graphical_application_main, version_info};
 use eframe::{
 	egui,
 	egui::{
@@ -37,12 +48,6 @@ use egui_extras::Column;
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::{error, info, instrument, warn};
-
-use crate::{
-	filtered_texture_list::FilteredTextureList,
-	texture_finder::{find_textures, FoundTexture},
-	ui_image_cache::ImageCache,
-};
 
 const IMAGE_CACHE_N: usize = 64;
 const IMAGE_MAX_SIZE: f32 = 300.0;
@@ -73,6 +78,8 @@ const EXTRA_COLUMN_DESCRIPTIONS: [&str; 7] = [
 ];
 
 struct DBPFApp {
+	settings: Settings<()>,
+
 	ui_scale: f32,
 	dark_mode_preference: Option<bool>,
 	show_folders: bool,
@@ -94,6 +101,8 @@ struct DBPFApp {
 impl DBPFApp {
 	fn new(cc: &eframe::CreationContext<'_>) -> Self {
 		let mut new = Self {
+			settings: Settings::new((), version_info!()),
+
 			ui_scale: 1.0,
 			dark_mode_preference: None,
 			show_folders: true,
@@ -112,6 +121,9 @@ impl DBPFApp {
 			ui_image_cache: ImageCache::new(NonZeroUsize::new(IMAGE_CACHE_N).unwrap()),
 		};
 		if let Some(storage) = cc.storage {
+			if let Some(settings) = eframe::get_value(storage, "settings") {
+				new.settings = settings;
+			}
 			if let Some(ui_scale) = storage
 				.get_string("ui_scale")
 				.and_then(|str| str.parse().ok())
@@ -150,6 +162,9 @@ impl DBPFApp {
 				new.start_scannning(&cc.egui_ctx);
 			}
 		}
+
+		new.settings.init(version_info!());
+
 		new
 	}
 
@@ -629,6 +644,8 @@ impl App for DBPFApp {
 					.inner
 					.on_hover_text("Scale of the interface");
 
+					self.settings.show_ui(ui, |_ui, _settings| false);
+
 					self.texture_list.show_filter_menu(ui, &None);
 
 					self.known_texture_menu(ctx, ui);
@@ -708,6 +725,8 @@ impl App for DBPFApp {
 	}
 
 	fn save(&mut self, storage: &mut dyn Storage) {
+		eframe::set_value(storage, "settings", &self.settings);
+
 		storage.set_string("ui_scale", self.ui_scale.to_string());
 		if let Some(dark) = self.dark_mode_preference {
 			storage.set_string("dark_mode", dark.to_string());
