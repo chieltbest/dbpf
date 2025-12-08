@@ -446,13 +446,17 @@ impl FilteredTextureList {
 	}
 
 	fn re_filter(&mut self) {
-		self.filtered_textures = Vec::new();
+		let mut filtered_textures = std::mem::take(&mut self.filtered_textures);
 
-		self.filtered_textures = self
-			.found_textures
-			.iter()
-			.filter(|&tex| self.filter_texture(tex))
-			.cloned()
-			.collect();
+		filtered_textures.clear();
+
+		filtered_textures.extend(
+			self.found_textures
+				.iter()
+				.filter(|&tex| self.filter_texture(tex))
+				.cloned(),
+		);
+
+		self.filtered_textures = filtered_textures;
 	}
 }
