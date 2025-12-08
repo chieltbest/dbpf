@@ -521,15 +521,15 @@ impl DBPFApp {
                     }
                 })
                 .body(|body| {
-                    let filtered = self.texture_list.get_filtered().clone();
+                    let filtered = self.texture_list.get_filtered();
                     let mut highlight = None;
                     body.rows(14.0, filtered.len(), |mut row| {
                         let idx = row.index();
-                        let texture = &filtered[idx];
+                        let texture = self.texture_list.get_filtered()[idx].clone();
 
                         let mut hover = false;
                         let (rect, res) = row.col(|ui| {
-                            let res = self.show_path_cell(texture, ui);
+                            let res = self.show_path_cell(&texture, ui);
                             if res.clicked() {
                                 highlight = Some(texture.clone());
                             }
@@ -602,6 +602,7 @@ impl DBPFApp {
 }
 
 impl App for DBPFApp {
+	#[instrument(skip_all)]
 	fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
 		self.update_state(ctx);
 
