@@ -2,11 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::{
-	num::NonZeroUsize,
-	sync::{Arc, Mutex, Weak},
-};
-
 use binrw::{io::BufReader, BinRead};
 use dbpf::{
 	internal_file::{resource_collection::ResourceData, DecodedFile},
@@ -18,13 +13,34 @@ use eframe::{
 };
 use egui_dock::egui::TextureOptions;
 use lru::LruCache;
+use std::collections::BTreeSet;
+use std::{
+	num::NonZeroUsize,
+	sync::{Arc, Mutex, Weak},
+};
 use tokio::fs::File;
 use tracing::error;
 
 use crate::texture_finder::TextureId;
+use crate::ui_image_cache::LoadingState::Loaded;
+
+#[derive(Copy, Clone, Debug)]
+enum LoadingState<T> {
+	Loaded(T),
+	Loading,
+}
+
+impl<T> LoadingState<T> {
+	fn get_value(self) -> Option<T> {
+		match self {
+			Loaded(t) => Some(t),
+			LoadingState::Loading => None,
+		}
+	}
+}
 
 pub struct ImageCache {
-	cache: Arc<Mutex<LruCache<TextureId, TextureHandle>>>,
+	cache: Arc<Mutex<LruCache<TextureId, LoadingState<TextureHandle>>>>,
 }
 
 impl ImageCache {
@@ -35,7 +51,7 @@ impl ImageCache {
 	}
 
 	async fn fetch_texture(
-		cache: Weak<Mutex<LruCache<TextureId, TextureHandle>>>,
+		cache: Weak<Mutex<LruCache<TextureId, LoadingState<TextureHandle>>>>,
 		id: TextureId,
 		ctx: egui::Context,
 	) {
@@ -80,9 +96,10 @@ impl ImageCache {
 					});
 
 					if let Some(tex) = found_texture {
-						let cache = cache.upgrade().unwrap();
-						let mut cw = cache.lock().unwrap();
-						cw.push(id, tex);
+						if let Some(cache) = cache.upgrade() {
+							let mut cw = cache.lock().unwrap();
+							cw.push(id, Loaded(tex));
+						}
 					}
 				}
 			}
@@ -91,8 +108,10 @@ impl ImageCache {
 
 	/// get, and if not found, fetch the texture from disk asynchronously, returning an `egui::TextureHandle`
 	pub fn get(&mut self, id: &TextureId, ctx: &egui::Context) -> Option<TextureHandle> {
-		let o = self.cache.lock().unwrap().get(id).cloned();
+		let mut cache = self.cache.lock().unwrap();
+		let o = cache.get(id).cloned();
 		if o.is_none() {
+			cache.push(id.clone(), LoadingState::Loading);
 			// fetch the image concurrently
 			tokio::spawn(Self::fetch_texture(
 				Arc::downgrade(&self.cache),
@@ -100,6 +119,6 @@ impl ImageCache {
 				ctx.clone(),
 			));
 		}
-		o
+		o.and_then(LoadingState::get_value)
 	}
 }
