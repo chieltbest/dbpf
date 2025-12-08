@@ -13,7 +13,6 @@ use eframe::{
 };
 use egui_dock::egui::TextureOptions;
 use lru::LruCache;
-use std::collections::BTreeSet;
 use std::{
 	num::NonZeroUsize,
 	sync::{Arc, Mutex, Weak},
