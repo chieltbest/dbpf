@@ -40,7 +40,7 @@ use eframe::{
 	egui,
 	egui::{
 		containers, style::Interaction, Color32, Context, Image, Label, ProgressBar, Rect,
-		Response, RichText, Sense, Style, TextEdit, TextStyle, Ui, Visuals, Window,
+		Response, RichText, Sense, Style, TextEdit, TextStyle, Ui, Window,
 	},
 	App, Frame, Storage,
 };
