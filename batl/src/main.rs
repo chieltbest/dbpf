@@ -39,8 +39,8 @@ use dbpf_utils::{graphical_application_main, version_info};
 use eframe::{
 	egui,
 	egui::{
-		containers, style::Interaction, Color32, Context, DragValue, Image, Label, ProgressBar,
-		Rect, Response, RichText, Sense, Style, TextEdit, TextStyle, Ui, Visuals, Window,
+		containers, style::Interaction, Color32, Context, Image, Label, ProgressBar, Rect,
+		Response, RichText, Sense, Style, TextEdit, TextStyle, Ui, Visuals, Window,
 	},
 	App, Frame, Storage,
 };

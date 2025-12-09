@@ -39,8 +39,8 @@ use eframe::egui::PopupCloseBehavior;
 use eframe::{
 	egui,
 	egui::{
-		containers, Color32, Context, DragValue, Label, ProgressBar, RichText, Sense, Style,
-		TextEdit, Ui, Visuals, Window,
+		containers, Color32, Context, Label, ProgressBar, RichText, Sense, Style, TextEdit, Ui,
+		Visuals, Window,
 	},
 	App, Frame, Storage,
 };
