@@ -7,9 +7,9 @@ use crate::editor::common_ui::updater::{ReleaseStream, Updater, UpdaterStatus};
 #[cfg(not(target_arch = "wasm32"))]
 use cargo_packager_updater::semver::Version;
 use eframe::egui;
-use eframe::egui::{Align2, DragValue, Response, RichText, Ui, Window};
 #[cfg(not(target_arch = "wasm32"))]
-use eframe::egui::{Color32, Separator, Vec2};
+use eframe::egui::Color32;
+use eframe::egui::{Align2, DragValue, Response, RichText, Separator, Ui, Vec2, Window};
 use eframe::epaint::AlphaFromCoverage;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
