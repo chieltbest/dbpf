@@ -5,10 +5,29 @@
 use std::future::Future;
 
 use eframe::AppCreator;
+#[cfg(feature = "tracy")]
+use tracing_subscriber::fmt::format::DefaultFields;
 
 pub mod editor;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tgi_conflicts;
+
+#[cfg(feature = "tracy")]
+#[derive(Default)]
+struct TracyConfig(DefaultFields);
+
+#[cfg(feature = "tracy")]
+impl tracing_tracy::Config for TracyConfig {
+	type Formatter = DefaultFields;
+
+	fn formatter(&self) -> &Self::Formatter {
+		&self.0
+	}
+
+	fn format_fields_in_zone_name(&self) -> bool {
+		false
+	}
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn application_main<Fut>(main: impl FnOnce() -> Fut)
@@ -18,13 +37,23 @@ where
 	use tokio::time::Instant;
 	use tracing_subscriber::layer::SubscriberExt;
 
-	tracing::subscriber::set_global_default(
-		tracing_subscriber::registry()
-			// .with(tracing_tracy::TracyLayer::new())
+	let registry;
+
+	#[cfg(feature = "tracy")]
+	{
+		registry = tracing_subscriber::registry()
+			.with(tracing_tracy::TracyLayer::new())
 			.with(tracing_subscriber::fmt::layer().pretty())
-			.with(tracing_subscriber::filter::EnvFilter::from_default_env()),
-	)
-	.expect("set up the subscriber");
+			.with(tracing_subscriber::filter::EnvFilter::from_default_env());
+	}
+	#[cfg(not(feature = "tracy"))]
+	{
+		registry = tracing_subscriber::registry()
+			.with(tracing_subscriber::fmt::layer().pretty())
+			.with(tracing_subscriber::filter::EnvFilter::from_default_env());
+	}
+
+	tracing::subscriber::set_global_default(registry).expect("set up the subscriber");
 
 	let start = Instant::now();
 
@@ -61,14 +90,25 @@ pub fn graphical_application_main(
 	let appender = tracing_appender::rolling::daily(log_dir, "rolling.log");
 	let (non_blocking_appender, _guard) = tracing_appender::non_blocking(appender);
 
-	tracing::subscriber::set_global_default(
-		tracing_subscriber::registry()
-			// .with(tracing_tracy::TracyLayer::default())
+	let registry;
+
+	#[cfg(feature = "tracy")]
+	{
+		registry = tracing_subscriber::registry()
+			.with(tracing_tracy::TracyLayer::new(TracyConfig::default()))
 			.with(tracing_subscriber::fmt::layer().with_writer(non_blocking_appender))
 			.with(tracing_subscriber::fmt::layer().compact())
-			.with(tracing_subscriber::filter::EnvFilter::from_default_env()),
-	)
-	.expect("set up the subscriber");
+			.with(tracing_subscriber::filter::EnvFilter::from_default_env());
+	}
+	#[cfg(not(feature = "tracy"))]
+	{
+		registry = tracing_subscriber::registry()
+			.with(tracing_subscriber::fmt::layer().with_writer(non_blocking_appender))
+			.with(tracing_subscriber::fmt::layer().compact())
+			.with(tracing_subscriber::filter::EnvFilter::from_default_env());
+	}
+
+	tracing::subscriber::set_global_default(registry).expect("set up the subscriber");
 
 	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 

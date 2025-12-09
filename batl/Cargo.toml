@@ -23,6 +23,9 @@ product-name = "Big Awful Texture Locator"
 identifier = "nl.chieldouwes.batl"
 icons = ["icon.png"]
 
+[features]
+tracy = ["dbpf_utils/tracy"]
+
 [dependencies]
 binrw = "0.15"
 dbpf = { path = "../dbpf" }
