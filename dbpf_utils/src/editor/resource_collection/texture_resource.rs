@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -14,7 +14,7 @@ use dbpf::internal_file::resource_collection::texture_resource::{
 	decoded_texture::{DecodedTexture, ShrinkDirection},
 	KnownPurpose, Purpose, TextureFormat, TextureResource, TextureResourceData,
 };
-use eframe::egui::Color32;
+use eframe::egui::{Color32, Vec2};
 use eframe::{
 	egui,
 	egui::{
@@ -493,6 +493,8 @@ impl Editor for TextureResource {
 			.collect::<Vec<_>>();
 		let original_size = self.mip_size(0);
 
+		let multiple_textures = self.textures.len() > 1;
+
 		for (texture_num, (texture, (zoom, cur_selected_mip_level))) in self
 			.textures
 			.iter_mut()
@@ -532,49 +534,57 @@ impl Editor for TextureResource {
 				}
 			});
 
-			egui::Frame::group(ui.style()).show(ui, |ui| {
-				let scene = egui::Scene::new()
-					.zoom_range(0.1..=16.0)
-					.show(ui, zoom, |ui| {
-						if let Some(mip_level) = texture.entries.get(*cur_selected_mip_level) {
-							match mip_level {
-								TextureResourceData::Embedded(_) => {
-									match state.textures[texture_num][*cur_selected_mip_level]
-										.as_ref()
-									{
-										Ok(image) => {
-											ui.add(
-												egui::Image::new(image)
-													.tint(match current_format {
-														TextureFormat::Alpha => {
-															state.alpha_texture_color
-														}
-														_ => Color32::WHITE,
-													})
-													.fit_to_exact_size(egui::Vec2::new(
-														original_size.0 as f32,
-														original_size.1 as f32,
-													)),
-											);
-										}
-										Err(e) => {
-											ui.colored_label(Color32::RED, format!("{e:#?}"));
+			ui.push_id(texture_num, |ui| {
+				egui::Frame::group(ui.style()).show(ui, |ui| {
+					if multiple_textures {
+						let size = Vec2::new(500.0, 500.0);
+						ui.set_min_size(size);
+						ui.set_max_size(size);
+					}
+
+					let scene = egui::Scene::new()
+						.zoom_range(0.1..=16.0)
+						.show(ui, zoom, |ui| {
+							if let Some(mip_level) = texture.entries.get(*cur_selected_mip_level) {
+								match mip_level {
+									TextureResourceData::Embedded(_) => {
+										match state.textures[texture_num][*cur_selected_mip_level]
+											.as_ref()
+										{
+											Ok(image) => {
+												ui.add(
+													egui::Image::new(image)
+														.tint(match current_format {
+															TextureFormat::Alpha => {
+																state.alpha_texture_color
+															}
+															_ => Color32::WHITE,
+														})
+														.fit_to_exact_size(egui::Vec2::new(
+															original_size.0 as f32,
+															original_size.1 as f32,
+														)),
+												);
+											}
+											Err(e) => {
+												ui.colored_label(Color32::RED, format!("{e:#?}"));
+											}
 										}
 									}
-								}
-								TextureResourceData::LIFOFile { file_name } => {
-									ui.end_row();
-									ui.label(format!(
-										"file: {}",
-										String::from_utf8_lossy(&file_name.0.data)
-									));
+									TextureResourceData::LIFOFile { file_name } => {
+										ui.end_row();
+										ui.label(format!(
+											"file: {}",
+											String::from_utf8_lossy(&file_name.0.data)
+										));
+									}
 								}
 							}
-						}
-					});
-				if scene.response.double_clicked() {
-					*zoom = Rect::ZERO;
-				}
+						});
+					if scene.response.double_clicked() {
+						*zoom = Rect::ZERO;
+					}
+				});
 			});
 		}
 
