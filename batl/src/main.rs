@@ -80,8 +80,6 @@ const EXTRA_COLUMN_DESCRIPTIONS: [&str; 7] = [
 struct DBPFApp {
 	settings: Settings<()>,
 
-	ui_scale: f32,
-	dark_mode_preference: Option<bool>,
 	show_folders: bool,
 	open_known_texture_gui: bool,
 	enabled_columns: [bool; 7],
@@ -103,8 +101,6 @@ impl DBPFApp {
 		let mut new = Self {
 			settings: Settings::new((), version_info!()),
 
-			ui_scale: 1.0,
-			dark_mode_preference: None,
 			show_folders: true,
 			open_known_texture_gui: false,
 			enabled_columns: [true; 7],
@@ -123,19 +119,6 @@ impl DBPFApp {
 		if let Some(storage) = cc.storage {
 			if let Some(settings) = eframe::get_value(storage, "settings") {
 				new.settings = settings;
-			}
-			if let Some(ui_scale) = storage
-				.get_string("ui_scale")
-				.and_then(|str| str.parse().ok())
-			{
-				new.ui_scale = ui_scale;
-				cc.egui_ctx.set_pixels_per_point(ui_scale);
-			}
-			if let Some(dark_mode_preference) = storage
-				.get_string("dark_mode")
-				.and_then(|str| str.parse().ok())
-			{
-				new.set_dark_mode(dark_mode_preference, &cc.egui_ctx);
 			}
 			if let Some(open_gui) = storage
 				.get_string("open_known_texture_gui")
@@ -166,18 +149,6 @@ impl DBPFApp {
 		new.settings.init(version_info!());
 
 		new
-	}
-
-	fn set_dark_mode(&mut self, dark: bool, ctx: &Context) {
-		self.dark_mode_preference = Some(dark);
-		ctx.set_style(Style {
-			visuals: if dark {
-				Visuals::dark()
-			} else {
-				Visuals::light()
-			},
-			..Default::default()
-		})
 	}
 
 	fn open_downloads_picker(&mut self) {
@@ -703,10 +674,6 @@ impl App for DBPFApp {
 	fn save(&mut self, storage: &mut dyn Storage) {
 		eframe::set_value(storage, "settings", &self.settings);
 
-		storage.set_string("ui_scale", self.ui_scale.to_string());
-		if let Some(dark) = self.dark_mode_preference {
-			storage.set_string("dark_mode", dark.to_string());
-		}
 		storage.set_string("show_folders", self.show_folders.to_string());
 
 		EXTRA_COLUMN_NAMES
