@@ -6,9 +6,11 @@
 use crate::editor::common_ui::updater::{ReleaseStream, Updater, UpdaterStatus};
 #[cfg(not(target_arch = "wasm32"))]
 use cargo_packager_updater::semver::Version;
-use eframe::egui::{Align2, Response, RichText, Ui, Window};
+use eframe::egui;
+use eframe::egui::{Align2, DragValue, Response, RichText, Ui, Window};
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::{Color32, Separator, Vec2};
+use eframe::epaint::AlphaFromCoverage;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
@@ -81,6 +83,27 @@ impl<T> Settings<T> {
 
 	fn menu(&mut self, ui: &mut Ui, contents: impl FnOnce(&mut Ui, &mut T) -> bool) -> bool {
 		let keep_open;
+		egui::widgets::global_theme_preference_buttons(ui);
+
+		ui.horizontal(|ui| {
+			ui.label("UI Scale");
+			if ui.button("+").clicked() {
+				egui::gui_zoom::zoom_in(ui.ctx());
+			}
+			if ui.button("-").clicked() {
+				egui::gui_zoom::zoom_out(ui.ctx());
+			}
+			ui.add_enabled(
+				false,
+				DragValue::new(&mut ui.ctx().zoom_factor()).min_decimals(1),
+			);
+			ui.add_enabled(false, egui::Label::new("Ctrl +/-"));
+		});
+
+		ui.add_sized(
+			ui.available_size_before_wrap().min(Vec2::new(200.0, 10.0)),
+			Separator::default(),
+		);
 
 		#[cfg(not(target_arch = "wasm32"))]
 		{
@@ -104,6 +127,8 @@ impl<T> Settings<T> {
 		ui: &mut Ui,
 		contents: impl FnOnce(&mut Ui, &mut T) -> bool,
 	) -> Response {
+		egui::global_theme_preference_switch(ui);
+
 		#[cfg(target_arch = "wasm32")]
 		let settings_text = RichText::new("⚙");
 		#[cfg(not(target_arch = "wasm32"))]

@@ -528,31 +528,6 @@ impl App for DBPFApp {
 		egui::CentralPanel::default().show(ctx, |ui| {
 			ui.vertical(|ui| {
 				ui.horizontal_wrapped(|ui| {
-					let dark_mode = ui.style().visuals.dark_mode;
-					ui.button(if dark_mode { "☀" } else { "🌙" })
-						.on_hover_text(format!(
-							"Switch to {} mode",
-							if dark_mode { "light" } else { "dark" }
-						))
-						.clicked()
-						.then(|| {
-							self.set_dark_mode(!dark_mode, ctx);
-						});
-
-					ui.horizontal(|ui| {
-						ui.add(
-							DragValue::new(&mut self.ui_scale)
-								.speed(0.01)
-								.fixed_decimals(1),
-						)
-						.on_hover_text("Scale of the interface")
-						.changed()
-						.then(|| {
-							ctx.set_pixels_per_point(self.ui_scale);
-						});
-						ui.label("UI Scale");
-					});
-
 					self.settings.show_ui(ui, |_ui, _settings| false);
 
 					self.resource_menu(ui);
