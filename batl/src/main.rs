@@ -49,7 +49,7 @@ use futures::channel::oneshot;
 use rfd::FileHandle;
 use tracing::{error, info, instrument, warn};
 
-const IMAGE_CACHE_N: usize = 64;
+const IMAGE_CACHE_N: usize = 256;
 const IMAGE_MAX_SIZE: f32 = 300.0;
 
 const EXTRA_COLUMN_NAMES: [&str; 7] = [
@@ -147,6 +147,9 @@ impl DBPFApp {
 		}
 
 		new.settings.init(version_info!());
+
+		cc.egui_ctx
+			.options_mut(|options| options.reduce_texture_memory = true);
 
 		new
 	}
