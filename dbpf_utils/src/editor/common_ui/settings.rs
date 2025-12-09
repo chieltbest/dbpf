@@ -127,6 +127,13 @@ impl<T> Settings<T> {
 		ui: &mut Ui,
 		contents: impl FnOnce(&mut Ui, &mut T) -> bool,
 	) -> Response {
+		ui.ctx().style_mut(|style| {
+			if !style.visuals.dark_mode {
+				style.visuals.text_alpha_from_coverage =
+					AlphaFromCoverage::TwoCoverageMinusCoverageSq;
+			}
+		});
+
 		egui::global_theme_preference_switch(ui);
 
 		#[cfg(target_arch = "wasm32")]

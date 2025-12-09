@@ -1072,13 +1072,6 @@ impl App for YaPeApp {
 			}
 		}
 
-		ctx.style_mut(|style| {
-			if !style.visuals.dark_mode {
-				style.visuals.text_alpha_from_coverage =
-					AlphaFromCoverage::TwoCoverageMinusCoverageSq;
-			}
-		});
-
 		egui::TopBottomPanel::top("top_panel")
 			.resizable(false)
 			.show(ctx, |ui| {
