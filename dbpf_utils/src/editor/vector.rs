@@ -83,6 +83,7 @@ where
 							let delete_button = ui.button("🗑");
 							if delete_button.clicked() {
 								delete_index = Some(index);
+								changed = true;
 							}
 
 							let state = match state {
