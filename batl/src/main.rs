@@ -29,6 +29,9 @@ use std::{
 	},
 };
 
+use crate::filtered_texture_list::sort_order::{
+	SortDirection, TextureSortOperation, TextureSortType,
+};
 use crate::{
 	filtered_texture_list::FilteredTextureList,
 	texture_finder::{find_textures, FoundTexture},
@@ -55,26 +58,32 @@ const IMAGE_MAX_SIZE: f32 = 300.0;
 const EXTRA_COLUMN_NAMES: [&str; 7] = [
 	"Group", "Instance", "Width", "Height", "Memory", "Format", "Mip",
 ];
-const EXTRA_COLUMN_DESCRIPTIONS: [&str; 7] = [
-    "group id\n\
-    This is used by the game (together with the instance id) internally to refer to the texture",
-    "instance id\n\
-    This is used by the game (together with the group id) internally to refer to the texture",
-    "width of the texture in pixels",
-    "height of the texture in pixels",
-    "amount of bytes this texture takes in memory\n\
+const COLUMN_INFORMATION: [(&str, &str, TextureSortType); 8] = [
+	("Path",
+	 "the location of the package file\n\
+                            If you want to know the complete path of the package file, either turn on \"Show paths\" \
+                            in the top bar, or hover over the items in the list with your cursor",
+	 TextureSortType::Path,
+	),
+		("Group", "group id\n\
+    This is used by the game (together with the instance id) internally to refer to the texture", TextureSortType::Group),
+	("Instance", "instance id\n\
+    This is used by the game (together with the group id) internally to refer to the texture", TextureSortType::Instance),
+	("Width", "width of the texture in pixels", TextureSortType::Width),
+	("Height", "height of the texture in pixels", TextureSortType::Height),
+	("Memory", "amount of bytes this texture takes in memory\n\
     32-bit programs have an inherent limit of 4GiB (4294967296 bytes) of memory. \
     This means that if you have a texture that takes 1MiB of memory (1048576 bytes), \
-    it will use up 1/4096th of your maximum memory.",
-    "format of the texture\n\
+    it will use up 1/4096th of your maximum memory.", TextureSortType::MemorySize),
+	("Format", "format of the texture\n\
     Different formats use different amounts of memory:\n\
     Raw/Alt: 8 bits per pixel per color channel, so a RawBGRA texture takes 32 bits (4*8) per pixel.\n\
     Grayscale/Alpha textures are raw textures with 1 channel, so 8 bits per pixel.\n\
     DXT1: 4 bits per pixel\n\
-    DXT3/5: 8 bits per pixel",
-    "amount of mipmap levels\n\
+    DXT3/5: 8 bits per pixel", TextureSortType::Format),
+	("Mip", "amount of mipmap levels\n\
     Mipmap levels are smaller embedded textures that help make textures look smoother when zoomed out. \
-    If you use DXVK, you should not have any mipmap levels and force anisotropic filtering instead.",
+    If you use DXVK, you should not have any mipmap levels and force anisotropic filtering instead.",TextureSortType::MipLevels),
 ];
 
 struct DBPFApp {
@@ -451,127 +460,167 @@ impl DBPFApp {
 	#[instrument(skip_all)]
 	fn show_table(&mut self, ui: &mut Ui) {
 		ui.push_id(ui.make_persistent_id("texture table"), |ui| {
-            let col_widths = [60.0, 120.0, 50.0, 55.0, 70.0, 60.0, 40.0];
+			let col_widths = [80.0, 140.0, 70.0, 80.0, 90.0, 80.0, 60.0];
 
-            let available_width = ui.available_width();
-            let extra_cols_width = col_widths
-                .iter()
-                .zip(self.enabled_columns)
-                .filter_map(|(width, enabled)| enabled.then_some(*width + 8.0))
-                .sum::<f32>();
-            let remainder = (available_width - extra_cols_width).max(50.0);
+			let available_width = ui.available_width();
+			let extra_cols_width = col_widths
+				.iter()
+				.zip(self.enabled_columns)
+				.filter_map(|(width, enabled)| enabled.then_some(*width + 8.0))
+				.sum::<f32>();
+			let remainder = (available_width - extra_cols_width).max(50.0);
 
-            let mut table = egui_extras::TableBuilder::new(ui)
-                .striped(true)
-                .max_scroll_height(f32::MAX)
-                .column(Column::exact(remainder).clip(true));
-            for width in col_widths
-                .into_iter()
-                .zip(self.enabled_columns)
-                .filter_map(|(width, enabled)| enabled.then_some(width))
-            {
-                table = table.column(Column::exact(width));
-            }
-            let mut total_rect: Option<Rect> = None;
-            let table_res = table
-                .header(30.0, |mut row| {
-                    row.col(|ui| {
-                        ui.heading("Path").on_hover_text(
-                            "the location of the package file\n\
-                            If you want to know the complete path of the package file, either turn on \"Show paths\" \
-                            in the top bar, or hover over the items in the list with your cursor",
-                        );
-                    });
+			let mut table = egui_extras::TableBuilder::new(ui)
+				.striped(true)
+				.max_scroll_height(f32::MAX)
+				.column(Column::exact(remainder).clip(true));
+			for width in col_widths
+				.into_iter()
+				.zip(self.enabled_columns)
+				.filter_map(|(width, enabled)| enabled.then_some(width))
+			{
+				table = table.column(Column::exact(width));
+			}
+			let mut total_rect: Option<Rect> = None;
+			let table_res = table
+				.header(30.0, |mut row| {
+					let current_sort = self.texture_list.get_sort().clone();
 
-                    for (_, (name, desc)) in self
-                        .enabled_columns
-                        .iter()
-                        .zip(EXTRA_COLUMN_NAMES.iter().zip(EXTRA_COLUMN_DESCRIPTIONS))
-                        .filter(|(e, _)| **e)
-                    {
-                        row.col(|ui| {
-                            ui.heading(*name).on_hover_text(desc);
-                        });
-                    }
-                })
-                .body(|body| {
-                    let filtered = self.texture_list.get_filtered();
-                    let mut highlight = None;
-                    body.rows(14.0, filtered.len(), |mut row| {
-                        let idx = row.index();
-                        let texture = self.texture_list.get_filtered()[idx].clone();
+					let mut column = |info: &(&str, &str, TextureSortType)| {
+						row.col(|ui| {
+							let this_column_sorted = info.2 == current_sort.sort_type;
 
-                        let mut hover = false;
-                        let (rect, res) = row.col(|ui| {
-                            let res = self.show_path_cell(&texture, ui);
-                            if res.clicked() {
-                                highlight = Some(texture.clone());
-                            }
-                            if res.hovered() {
-                                hover = true;
-                            }
-                        });
-                        if res.hovered() | hover {
-                            self.last_hovered_texture = Some(texture.clone());
-                        }
-                        match &mut total_rect {
-                            Some(r) => *r = r.union(rect),
-                            r => *r = Some(rect),
-                        }
+							let column_text = if this_column_sorted {
+								RichText::new(format!(
+									"{} {}",
+									info.0,
+									match current_sort.direction {
+										SortDirection::Ascending => "⏶",
+										SortDirection::Descending => "⏷",
+									}
+								))
+							} else {
+								RichText::new(info.0)
+							};
 
-                        let columns = [
-                            format!("{:X?}", texture.id.tgi.group_id),
-                            format!("{:016X?}", texture.id.tgi.instance_id),
-                            format!("{}", texture.width),
-                            format!("{}", texture.height),
-                            format!("{}", texture.memory_size),
-                            format!("{:?}", texture.format),
-                            format!("{}", texture.mip_levels),
-                        ];
+							let header = ui
+								.add(
+									Label::new(column_text.heading())
+										.sense(Sense::click())
+										.selectable(false),
+								)
+								.on_hover_text(info.1);
+							if header.clicked() {
+								let new_direction = if this_column_sorted {
+									!current_sort.direction
+								} else {
+									info.2.default_direction()
+								};
 
-                        self.enabled_columns
-                            .iter()
-                            .zip(columns)
-                            .filter(|(e, _)| **e)
-                            .for_each(|(_, text)| {
-                                row.col(|ui| {
-                                    ui.style_mut().override_text_style = Some(TextStyle::Monospace);
-                                    ui.label(text);
-                                });
-                            });
-                    });
-                    if highlight.is_some() {
-                        self.highlighted_texture = highlight;
-                    }
-                });
+								self.texture_list.set_sort(TextureSortOperation {
+									sort_type: info.2,
+									direction: new_direction,
+								});
+							}
+						});
+					};
 
-            if let Some(rect) = total_rect {
-                if let Some(texture) = &self.last_hovered_texture {
-                    let rect = rect.intersect(table_res.inner_rect.expand(5.0));
-                    let res = ui.interact(rect, ui.auto_id_with("path interact rect"), Sense::hover());
+					column(&COLUMN_INFORMATION[0]);
 
-                    res.on_hover_ui_at_pointer(|ui| {
-                        let stripped_path = Self::strip_prefix(&self.scan_ran_with_folders, &texture.id.path)
-                            .unwrap_or(&texture.id.path);
-                        let tooltip = Self::texture_description_string(texture);
+					for (_, info) in self
+						.enabled_columns
+						.iter()
+						.zip(COLUMN_INFORMATION[1..].iter())
+						.filter(|(e, _)| **e)
+					{
+						column(info);
+					}
+				})
+				.body(|body| {
+					let filtered = self.texture_list.get_filtered();
+					let mut highlight = None;
+					body.rows(14.0, filtered.len(), |mut row| {
+						let idx = row.index();
+						let texture = self.texture_list.get_filtered()[idx].clone();
 
-                        ui.add(Label::new(stripped_path.to_string_lossy()).wrap());
-                        ui.label(tooltip);
+						let mut hover = false;
+						let (rect, res) = row.col(|ui| {
+							let res = self.show_path_cell(&texture, ui);
+							if res.clicked() {
+								highlight = Some(texture.clone());
+							}
+							if res.hovered() {
+								hover = true;
+							}
+						});
+						if res.hovered() | hover {
+							self.last_hovered_texture = Some(texture.clone());
+						}
+						match &mut total_rect {
+							Some(r) => *r = r.union(rect),
+							r => *r = Some(rect),
+						}
 
-                        if let Some(tex) = self.ui_image_cache.get(&texture.id, ui.ctx()) {
-                            ui.add_sized(
-                                [IMAGE_MAX_SIZE, IMAGE_MAX_SIZE],
-                                Image::from_texture(&tex).shrink_to_fit().bg_fill(Color32::GRAY),
-                            );
-                        } else {
-                            egui::Frame::new().fill(Color32::GRAY).show(ui, |ui| {
-                                ui.add_sized([IMAGE_MAX_SIZE, IMAGE_MAX_SIZE], egui::Spinner::new());
-                            });
-                        }
-                    });
-                }
-            }
-        });
+						let columns = [
+							format!("{:X?}", texture.id.tgi.group_id),
+							format!("{:016X?}", texture.id.tgi.instance_id),
+							format!("{}", texture.width),
+							format!("{}", texture.height),
+							format!("{}", texture.memory_size),
+							format!("{:?}", texture.format),
+							format!("{}", texture.mip_levels),
+						];
+
+						self.enabled_columns
+							.iter()
+							.zip(columns)
+							.filter(|(e, _)| **e)
+							.for_each(|(_, text)| {
+								row.col(|ui| {
+									ui.style_mut().override_text_style = Some(TextStyle::Monospace);
+									ui.label(text);
+								});
+							});
+					});
+					if highlight.is_some() {
+						self.highlighted_texture = highlight;
+					}
+				});
+
+			if let Some(rect) = total_rect {
+				if let Some(texture) = &self.last_hovered_texture {
+					let rect = rect.intersect(table_res.inner_rect.expand(5.0));
+					let res =
+						ui.interact(rect, ui.auto_id_with("path interact rect"), Sense::hover());
+
+					res.on_hover_ui_at_pointer(|ui| {
+						let stripped_path =
+							Self::strip_prefix(&self.scan_ran_with_folders, &texture.id.path)
+								.unwrap_or(&texture.id.path);
+						let tooltip = Self::texture_description_string(texture);
+
+						ui.add(Label::new(stripped_path.to_string_lossy()).wrap());
+						ui.label(tooltip);
+
+						if let Some(tex) = self.ui_image_cache.get(&texture.id, ui.ctx()) {
+							ui.add_sized(
+								[IMAGE_MAX_SIZE, IMAGE_MAX_SIZE],
+								Image::from_texture(&tex)
+									.shrink_to_fit()
+									.bg_fill(Color32::GRAY),
+							);
+						} else {
+							egui::Frame::new().fill(Color32::GRAY).show(ui, |ui| {
+								ui.add_sized(
+									[IMAGE_MAX_SIZE, IMAGE_MAX_SIZE],
+									egui::Spinner::new(),
+								);
+							});
+						}
+					});
+				}
+			}
+		});
 	}
 }
 
