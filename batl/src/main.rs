@@ -566,7 +566,10 @@ impl DBPFApp {
 							format!("{:016X?}", texture.id.tgi.instance_id),
 							format!("{}", texture.width),
 							format!("{}", texture.height),
-							format!("{}", texture.memory_size),
+							humansize::format_size(
+								texture.memory_size,
+								humansize::DECIMAL.decimal_places(3),
+							),
 							format!("{:?}", texture.format),
 							format!("{}", texture.mip_levels),
 						];

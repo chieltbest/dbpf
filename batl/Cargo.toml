@@ -44,6 +44,8 @@ egui_extras = "0.32"
 rfd = "0.15"
 egui_dock = { version = "0.17", features = ["serde"] }
 
+humansize = "2"
+
 open = "5.3"
 walkdir = "2"
 
