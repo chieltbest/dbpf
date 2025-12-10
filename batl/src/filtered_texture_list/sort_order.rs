@@ -114,7 +114,7 @@ impl TextureSorter {
 			.operations
 			.iter()
 			.enumerate()
-			.find(|(i, op)| op.sort_type == operation.sort_type)
+			.find(|(_i, op)| op.sort_type == operation.sort_type)
 		{
 			// move the found operation to the front
 			self.operations[0..=idx].rotate_right(1);
