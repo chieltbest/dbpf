@@ -46,7 +46,7 @@ pub enum UpdaterStatus {
 	Installed,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Updater {
 	pub release_stream: ReleaseStream,
 	pub check_update_on_startup: bool,
@@ -59,6 +59,18 @@ pub struct Updater {
 
 	#[serde(skip)]
 	inbox: UiInbox<UpdaterStatus>,
+}
+
+impl Default for Updater {
+	fn default() -> Self {
+		Self {
+			release_stream: ReleaseStream::default(),
+			check_update_on_startup: true,
+			version_info: VersionInfo::default(),
+			status: UpdaterStatus::default(),
+			inbox: UiInbox::default(),
+		}
+	}
 }
 
 impl Updater {
@@ -232,6 +244,11 @@ impl Updater {
 		ui.checkbox(
 			&mut self.check_update_on_startup,
 			"Check for updates on startup",
+		)
+		.on_hover_text(
+			"When checking for updates this program will download a status file from github, \
+		the download statistics on this file are public information.\n\
+		If you do not want to send network requests, disable this.",
 		);
 
 		let keep_open = ComboBox::new("release stream", "Release Stream")
