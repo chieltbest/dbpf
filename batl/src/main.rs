@@ -39,6 +39,8 @@ use crate::{
 };
 use dbpf_utils::editor::common_ui::settings::Settings;
 use dbpf_utils::{graphical_application_main, version_info};
+use eframe::egui::containers::menu::{MenuButton, MenuConfig};
+use eframe::egui::PopupCloseBehavior;
 use eframe::{
 	egui,
 	egui::{
@@ -664,16 +666,21 @@ impl App for DBPFApp {
 					ui.checkbox(&mut self.show_folders, "Show paths")
 						.on_hover_text("Show what folders the packages are in?");
 
-					ui.menu_button("Enabled columns", |ui| {
-						self.enabled_columns
-							.iter_mut()
-							.zip(EXTRA_COLUMN_NAMES)
-							.for_each(|(enabled, name)| {
-								ui.checkbox(enabled, name);
-							});
-					})
-					.response
-					.on_hover_text("What columns should be shown in the table?");
+					MenuButton::new("Enabled columns")
+						.config(
+							MenuConfig::new()
+								.close_behavior(PopupCloseBehavior::CloseOnClickOutside),
+						)
+						.ui(ui, |ui| {
+							self.enabled_columns
+								.iter_mut()
+								.zip(EXTRA_COLUMN_NAMES)
+								.for_each(|(enabled, name)| {
+									ui.checkbox(enabled, name);
+								});
+						})
+						.0
+						.on_hover_text("What columns should be shown in the table?");
 				});
 
 				ui.horizontal(|ui| {
