@@ -249,7 +249,6 @@ struct YaPeApp {
 	#[serde(default)]
 	data: YaPeAppData,
 
-	#[serde(skip)]
 	next_tab_id: usize,
 
 	/// Rusty file dialog async read file picker
@@ -629,17 +628,18 @@ impl YaPeApp {
 
 				if let Some(file) = &mut new.data.open_file {
 					// TODO clean up this mess
-					let id_rc = Rc::new(RefCell::from(&mut new.next_tab_id));
 					let data_rc = Rc::new(RefCell::from(&mut file.bytes));
 
 					new.dock_state = new.dock_state.filter_map_tabs(|tab| match tab {
 						YaPeTab::File => Some(YaPeTab::File),
 						YaPeTab::Entry(entry) => {
 							let hex_editor = entry.is_hex_editor;
+							let mut entry_id = entry.id;
 							entry.index.and_then(|i| {
 								Self::open_index(
-									*id_rc.borrow_mut(),
-									*data_rc.borrow_mut(),
+									&mut entry_id,
+									// *data_rc.borrow_mut(),
+									&mut file.bytes,
 									&file.resources,
 									i,
 									hex_editor,

@@ -20,7 +20,6 @@ pub struct EntryEditorTab {
 	#[serde(skip)]
 	pub data: Weak<RefCell<OpenResource>>,
 
-	#[serde(skip)]
 	pub id: usize,
 
 	// used for (de)serialising
