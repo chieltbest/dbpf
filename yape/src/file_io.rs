@@ -12,7 +12,7 @@ pub async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
+pub async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
 	(handle.read().await, PathBuf::default())
 }
 
@@ -23,7 +23,7 @@ pub async fn write_file_handle(handle: FileHandle, buf: &[u8]) -> Result<Option<
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn write_file_handle(handle: FileHandle, buf: &[u8]) -> Result<Option<PathBuf>, Error> {
+pub async fn write_file_handle(handle: FileHandle, buf: &[u8]) -> Result<Option<PathBuf>, Error> {
 	handle.write(buf).await?;
 	Ok(None)
 }
