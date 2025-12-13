@@ -1,5 +1,11 @@
+// SPDX-FileCopyrightText: 2025 Chiel Douwes
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #![allow(dead_code)]
 #![allow(unused_variables)]
+// TODO this cannot be used right now because of an issue in binrw, check if it's fixed later (2025-12-13)
+#![allow(unused_assignments)]
 
 // SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
 //
