@@ -11,7 +11,10 @@
 // TODO add open with resource tgi arguments
 // TODO add resource
 
+mod editor_tab;
 mod export_resource;
+mod file_io;
+mod settings;
 
 use dbpf_utils::editor::common_ui::settings::VersionInfo;
 use std::{
@@ -21,11 +24,11 @@ use std::{
 	fs::File,
 	io::{BufWriter, Cursor, Error, Read, Seek, Write},
 	path::{Path, PathBuf},
-	rc::{Rc, Weak},
+	rc::Rc,
 	sync::Arc,
 };
 
-use crate::export_resource::{resource_import_overlay, ExportResourceData};
+use crate::export_resource::ExportResourceData;
 use binrw::{BinRead, BinResult};
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
@@ -40,11 +43,12 @@ use dbpf_utils::{
 	editor::{editor_supported, DecodedFileEditorState, Editor},
 	graphical_application_main, version_info,
 };
+use editor_tab::EntryEditorTab;
 use eframe::{
 	egui,
 	egui::{
 		Button, Color32, ComboBox, Context, DragValue, Id, Key, KeyboardShortcut, Label, Modifiers,
-		Rect, Response, RichText, ScrollArea, Sense, Stroke, Style, Ui, Visuals, WidgetText,
+		Rect, Response, RichText, Sense, Stroke, Style, Ui, Visuals, WidgetText,
 	},
 	glow, App, Frame, Storage,
 };
@@ -54,6 +58,7 @@ use egui_memory_editor::{option_data::MemoryEditorOptions, MemoryEditor};
 use futures::channel::oneshot;
 use rfd::FileHandle;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use settings::{BackupOverwritePreference, DeletedRememberPreference, YaPeSettings};
 use tracing::error;
 
 enum EditorType {
@@ -115,23 +120,6 @@ impl EditorType {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct EntryEditorTab {
-	#[serde(skip)]
-	state: EditorType,
-	#[serde(skip)]
-	data: Weak<RefCell<OpenResource>>,
-
-	#[serde(skip)]
-	id: usize,
-
-	// used for (de)serialising
-	#[serde(default)]
-	is_hex_editor: bool,
-	#[serde(default)]
-	index: Option<usize>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 enum YaPeTab {
 	File,
 	Entry(EntryEditorTab),
@@ -189,40 +177,6 @@ struct OpenFileState {
 	bytes: Cursor<Vec<u8>>,
 	header: BinResult<DBPFFile>,
 	resources: Vec<Rc<RefCell<OpenResource>>>,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
-enum BackupOverwritePreference {
-	#[default]
-	Keep,
-	Overwrite,
-	Numbered,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
-enum DeletedRememberPreference {
-	#[default]
-	Forget,
-	Remember,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct YaPeSettings {
-	backup_on_save: bool,
-
-	backup_overwrite_preference: BackupOverwritePreference,
-
-	deleted_remember_preference: DeletedRememberPreference,
-}
-
-impl Default for YaPeSettings {
-	fn default() -> Self {
-		Self {
-			backup_on_save: true,
-			backup_overwrite_preference: Default::default(),
-			deleted_remember_preference: Default::default(),
-		}
-	}
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -321,73 +275,6 @@ impl Default for YaPeApp {
 
 			file_picker: None,
 			save_file_picker: None,
-		}
-	}
-}
-
-impl EntryEditorTab {
-	fn show<R: Read + Seek>(
-		&mut self,
-		ui: &mut Ui,
-		reader: &mut R,
-		gl_ctx: &Option<Arc<glow::Context>>,
-	) {
-		if let Some(data) = self.data.upgrade() {
-			let mut data_ref = data.borrow_mut();
-
-			let (_, replaced) =
-				resource_import_overlay(ui, &mut data_ref, reader, |ui, data_ref, reader| {
-					ui.add_enabled_ui(!data_ref.ui_deleted, |ui| match &mut self.state {
-						EditorType::Error(err) => {
-							ScrollArea::vertical().show(ui, |ui| {
-								ui.label(format!("{err:?}"));
-							});
-						}
-						EditorType::HexEditor(editor) => {
-							let data = data_ref.data.data(reader).unwrap().decompressed().unwrap();
-							if let Ok(mut str) = String::from_utf8(data.data.clone()) {
-								if !self.is_hex_editor {
-									ui.centered_and_justified(|ui| {
-										ScrollArea::vertical().show(ui, |ui| {
-											if ui.code_editor(&mut str).changed() {
-												data.data = str.into_bytes();
-											}
-										})
-									});
-									return;
-								}
-							}
-							editor.draw_editor_contents(
-								ui,
-								data,
-								|mem, addr| Some(mem.data[addr]),
-								|mem, addr, byte| mem.data[addr] = byte,
-							);
-						}
-						EditorType::DecodedEditor(state) => {
-							let decoded = data_ref
-								.data
-								.data(reader)
-								.unwrap()
-								.decoded()
-								.unwrap()
-								.unwrap();
-							decoded.show_editor(state, ui);
-						}
-					});
-				});
-
-			if replaced {
-				let type_id = data_ref.data.type_id;
-				self.state = EditorType::new(
-					&mut data_ref.data,
-					reader,
-					type_id,
-					self.is_hex_editor,
-					ui.ctx(),
-					gl_ctx,
-				);
-			}
 		}
 	}
 }
@@ -995,28 +882,6 @@ impl YaPeApp {
 	}
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
-	(handle.read().await, handle.path().to_owned())
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn read_file_handle(handle: FileHandle) -> (Vec<u8>, PathBuf) {
-	(handle.read().await, PathBuf::default())
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-async fn write_file_handle(handle: FileHandle, buf: &[u8]) -> Result<Option<PathBuf>, Error> {
-	handle.write(buf).await?;
-	Ok(Some(handle.path().to_owned()))
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn write_file_handle(handle: FileHandle, buf: &[u8]) -> Result<Option<PathBuf>, Error> {
-	handle.write(buf).await?;
-	Ok(None)
-}
-
 impl App for YaPeApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
 		if let Some(picker) = &mut self.file_picker {
@@ -1037,10 +902,9 @@ impl App for YaPeApp {
 					match self.save_bytes(&mut buf) {
 						Err(e) => error!(?e),
 						Ok(_) => {
-							if let Ok(path) = futures::executor::block_on(write_file_handle(
-								handle,
-								&buf.into_inner(),
-							)) {
+							if let Ok(path) = futures::executor::block_on(
+								file_io::write_file_handle(handle, &buf.into_inner()),
+							) {
 								self.data.open_file_path = path;
 							}
 						}
@@ -1158,7 +1022,7 @@ impl App for YaPeApp {
 						async_execute(async move {
 							let file = dialog.await;
 							let _ = if let Some(handle) = file {
-								tx.send(Some(read_file_handle(handle).await))
+								tx.send(Some(file_io::read_file_handle(handle).await))
 							} else {
 								tx.send(None)
 							};
