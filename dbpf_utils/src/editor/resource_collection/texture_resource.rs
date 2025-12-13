@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::{
-	cmp::min,
-	fmt::{Debug, Formatter, Write},
-	io::Cursor,
-	sync::Arc,
+use crate::{
+	async_execute,
+	editor::{
+		r#enum::{EnumEditor, EnumEditorState},
+		Editor,
+	},
 };
-
 use binrw::{BinRead, BinResult};
 use dbpf::internal_file::resource_collection::texture_resource::{
 	decoded_texture::{DecodedTexture, ShrinkDirection},
@@ -26,15 +26,15 @@ use enum_iterator::all;
 use futures::channel::oneshot;
 use image::ImageReader;
 use rfd::FileHandle;
-use tracing::{error, warn};
-
-use crate::{
-	async_execute,
-	editor::{
-		r#enum::{EnumEditor, EnumEditorState},
-		Editor,
-	},
+use std::cmp::max;
+use std::{
+	cmp::min,
+	fmt::{Debug, Formatter, Write},
+	io::Cursor,
+	sync::Arc,
 };
+use thiserror::Error;
+use tracing::{error, warn};
 
 impl EnumEditor for Purpose {
 	type KnownEnum = KnownPurpose;
@@ -89,8 +89,18 @@ impl EnumEditor for Purpose {
 	}
 }
 
+#[derive(Debug, Error)]
+enum TextureLoadError {
+	#[error(transparent)]
+	BinRW(#[from] binrw::Error),
+	#[error(
+		"Texture couldn't be loaded because it is too big ({0} px), try reloading the editor?"
+	)]
+	TooBig(usize),
+}
+
 pub struct TextureResourceEditorState {
-	textures: Vec<Vec<BinResult<egui::TextureHandle>>>,
+	textures: Vec<Vec<Result<egui::TextureHandle, TextureLoadError>>>,
 	zoom_state: Vec<(Rect, usize)>,
 	original_texture_bgra: BinResult<TextureResource>,
 	preserve_transparency: u8,
@@ -133,7 +143,7 @@ impl TextureResourceEditorState {
 	fn load_textures(
 		res: &TextureResource,
 		context: &egui::Context,
-	) -> Vec<Vec<BinResult<egui::TextureHandle>>> {
+	) -> Vec<Vec<Result<egui::TextureHandle, TextureLoadError>>> {
 		let source_format = res.get_format();
 
 		res.decompress_all()
@@ -145,7 +155,11 @@ impl TextureResourceEditorState {
 					.enumerate()
 					.rev()
 					.map(|(mip_num, mip)| {
-						mip.inspect_err(|msg| warn!(%msg)).map(|mut decoded| {
+						mip.map_err(|error| {
+							warn!(?error, msg = %error);
+							error.into()
+						})
+						.and_then(|mut decoded| {
 							if source_format == TextureFormat::Alpha {
 								// display alpha as tinted white
 								decoded.data.chunks_exact_mut(4).for_each(|c| {
@@ -155,14 +169,23 @@ impl TextureResourceEditorState {
 								});
 							}
 
-							context.load_texture(
+							let max_texture_side = context.input(|input| input.max_texture_side);
+							if decoded.width > max_texture_side || decoded.height > max_texture_side
+							{
+								return Err(TextureLoadError::TooBig(max(
+									decoded.width,
+									decoded.height,
+								)));
+							}
+
+							Ok(context.load_texture(
 								format!("texture{tex_num}_mip{mip_num}"),
 								ColorImage::from_rgba_unmultiplied(
 									[decoded.width, decoded.height],
 									&decoded.data,
 								),
 								TextureOptions::NEAREST,
-							)
+							))
 						})
 					})
 					.collect()
@@ -567,7 +590,7 @@ impl Editor for TextureResource {
 												);
 											}
 											Err(e) => {
-												ui.colored_label(Color32::RED, format!("{e:#?}"));
+												ui.colored_label(Color32::RED, format!("{e}"));
 											}
 										}
 									}
