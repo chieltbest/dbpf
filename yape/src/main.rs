@@ -627,9 +627,6 @@ impl YaPeApp {
 				new.open_file(path);
 
 				if let Some(file) = &mut new.data.open_file {
-					// TODO clean up this mess
-					let data_rc = Rc::new(RefCell::from(&mut file.bytes));
-
 					new.dock_state = new.dock_state.filter_map_tabs(|tab| match tab {
 						YaPeTab::File => Some(YaPeTab::File),
 						YaPeTab::Entry(entry) => {
@@ -638,7 +635,6 @@ impl YaPeApp {
 							entry.index.and_then(|i| {
 								Self::open_index(
 									&mut entry_id,
-									// *data_rc.borrow_mut(),
 									&mut file.bytes,
 									&file.resources,
 									i,
