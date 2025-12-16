@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::editor::Align;
 use dbpf::internal_file::object_data::{ObjectData, Version};
 use eframe::{
 	egui,
@@ -122,14 +123,18 @@ impl Editor for ObjectData {
 		let res = egui::Grid::new("ObjectData editor").show(ui, |ui| {
 			macro_rules! separator {
 				($name:expr) => {
-					ui.label($name);
+					ui.with_layout(egui::Layout::left_to_right(Align::TOP), |ui| {
+						ui.label($name);
+					});
 					ui.separator();
 					ui.end_row();
 				};
 			}
 			macro_rules! drag {
 				($name:expr, $key:ident) => {{
-					ui.label($name);
+					ui.with_layout(egui::Layout::left_to_right(Align::TOP), |ui| {
+						ui.label($name);
+					});
 					let res = ui.add(DragValue::new($key));
 					ui.end_row();
 					res
@@ -137,7 +142,9 @@ impl Editor for ObjectData {
 			}
 			macro_rules! drag_hex {
 				($name:expr, $key:ident) => {{
-					ui.label($name);
+					ui.with_layout(egui::Layout::left_to_right(Align::TOP), |ui| {
+						ui.label($name);
+					});
 					let res = ui.add(DragValue::new($key).hexadecimal(1, false, false));
 					ui.end_row();
 					res
@@ -212,7 +219,7 @@ impl Editor for ObjectData {
 				"general",
 				"lighting",
 				"hobbies",
-				"unknown",
+				"",
 				"aspiration rewards",
 				"career rewards"
 			);
@@ -231,7 +238,7 @@ impl Editor for ObjectData {
 				"HM fashion",
 				"bon voyage",
 				"teen style",
-				"unknown",
+				"",
 				"free time",
 				"kitchen & bath",
 				"ikea"
@@ -242,8 +249,31 @@ impl Editor for ObjectData {
 				"apartment life",
 				"mansion & garden"
 			); // TODO store edition
-			res |= drag_hex!("build mode type", build_mode_type);
-			res |= drag_hex!("build mode subsort", build_mode_subsort); // TODO proper enum
+			res |= drag_checkbox!(
+				"build mode type",
+				build_mode_type,
+				"miscellaneous",
+				"",
+				"garden",
+				"doors/windows"
+			);
+			res |= drag_checkbox!(
+				"build mode subsort",
+				build_mode_subsort,
+				"/trees/doors",
+				"/shrubs/multi-story windows",
+				"/flowers/windows",
+				"columns//gates",
+				"/gardening/archways",
+				"stairs//",
+				"swimming pool//",
+				"",
+				"multi-story columns//multi-story doors",
+				"column arches//",
+				"garage//",
+				"elevators//",
+				"architecture//"
+			);
 			res |= drag_hex!("function sub sort", function_sub_sort);
 			res |= drag_hex!("downtown sort", downtown_sort);
 			res |= drag_hex!("holiday sort", vacation_sort);

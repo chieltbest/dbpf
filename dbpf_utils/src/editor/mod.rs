@@ -204,6 +204,8 @@ fn drag_option_fn<T: Numeric>(
 	res.response | res.inner
 }
 
+/// shows a label, then a horizontal ui with checkboxes corresponding to the given names
+/// an empty name in any position except the first will hide/disable that checkbox
 fn drag_checkbox_fn<const N: usize, T: Numeric + TryFrom<usize>>(
 	name: &str,
 	value: &mut T,
@@ -215,7 +217,9 @@ where
 	usize: TryFrom<T>,
 	<usize as TryFrom<T>>::Error: Debug,
 {
-	ui.label(name);
+	ui.with_layout(egui::Layout::left_to_right(Align::TOP), |ui| {
+		ui.label(name);
+	});
 	let res = ui.with_layout(
 		egui::Layout::left_to_right(Align::TOP).with_main_wrap(true),
 		|ui| {
@@ -226,7 +230,11 @@ where
 				let mask = 1 << i;
 				let o = (value_clone & mask) > 0;
 				let mut c = o;
-				let res = res | ui.checkbox(&mut c, *c_name);
+				let res = res
+					| ui.add_enabled(
+						i == 0 || !c_name.is_empty(),
+						egui::Checkbox::new(&mut c, *c_name),
+					);
 				if c != o {
 					value_clone = (value_clone & !mask) | (if c { 1 } else { 0 } << i);
 				}
