@@ -21,6 +21,23 @@ publish = false
 tag-prefix = "{{crate_name}}/"
 pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}", "--tag-pattern", "{{crate_name}}/v*"]
 
+[workspace.dependencies]
+binrw = "0.15"
+
+futures = "0.3"
+
+serde = "1"
+serde_json = "1"
+
+tracing = "0.1"
+
+eframe = { version = "0.32", features = ["persistence"] }
+egui_extras = "0.32"
+rfd = "0.15"
+egui_memory_editor = { version = "=0.2.13", features = ["serde"] }
+egui_dock = { version = "0.17.0", features = ["serde"] }
+egui_inbox = "0.9.0"
+
 [profile.release]
 opt-level = 3
 
@@ -32,6 +49,3 @@ opt-level = 2
 [profile.dist]
 inherits = "release"
 lto = "thin"
-
-#[patch.crates-io]
-#gltf_kun = { git = "https://github.com/chieltbest/gltf_kun.git" }

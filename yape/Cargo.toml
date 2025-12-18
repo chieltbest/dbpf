@@ -30,22 +30,22 @@ mime_type = "application/x-dbpf"
 description = "Maxis DBPF package"
 
 [dependencies]
-binrw = "0.15"
+binrw.workspace = true
 dbpf = { path = "../dbpf" }
 dbpf_utils = { path = "../dbpf_utils" }
 
-futures = "0.3"
+futures.workspace = true
 
-eframe = { version = "0.32", features = ["persistence"] }
-serde = "1.0.203"
-egui_extras = "0.32"
-rfd = "0.15"
-egui_memory_editor = { version = "0.2.13", features = ["serde"] }
-egui_dock = { version = "0.17", features = ["serde"] }
-egui_inbox = "0.9"
+serde.workspace = true
 
-tracing = "0.1"
-enum-iterator = "2.3.0"
+eframe.workspace = true
+egui_extras.workspace = true
+rfd.workspace = true
+egui_memory_editor.workspace = true
+egui_dock.workspace = true
+egui_inbox.workspace = true
+
+tracing.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 walkdir = "2"

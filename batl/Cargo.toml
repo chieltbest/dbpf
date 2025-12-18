@@ -27,29 +27,30 @@ icons = ["icon.png"]
 tracy = ["dbpf_utils/tracy"]
 
 [dependencies]
-binrw = "0.15"
+binrw.workspace = true
 dbpf = { path = "../dbpf" }
 dbpf_utils = { path = "../dbpf_utils" }
 
 lru = "0.16"
 
-futures = "0.3"
+futures.workspace = true
 
 enum-iterator = "2"
 
-eframe = { version = "0.32", features = ["persistence"] }
-serde = "1.0.203"
-serde_json = "1.0.120"
-egui_extras = "0.32"
-rfd = "0.15"
-egui_dock = { version = "0.17", features = ["serde"] }
+serde.workspace = true
+serde_json.workspace = true
+
+eframe.workspace = true
+egui_extras.workspace = true
+rfd.workspace = true
+egui_dock.workspace = true
 
 humansize = "2"
 
 open = "5.3"
 walkdir = "2"
 
-tracing = "0.1"
+tracing.workspace = true
 
 tokio = { version = "1.38", features = ["full"] }
 num_cpus = "1.16"
