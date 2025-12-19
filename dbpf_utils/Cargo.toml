@@ -57,7 +57,7 @@ tracing-tracy = { version = "0.11", optional = true }
 tokio = { version = "1.38", features = ["rt-multi-thread", "time", "macros", "fs", "parking_lot"] }
 
 cargo-packager-updater = "0.2"
-egui_inbox = "0.9"
+egui_inbox.workspace = true
 const_format = "0.2.35"
 base64 = "0.22"
 
