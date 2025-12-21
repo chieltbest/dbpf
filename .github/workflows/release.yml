@@ -82,7 +82,7 @@ jobs:
         run: |
           cargo build --profile dist --bin ${{ needs.generate-changelog.outputs.release_program }}
           cargo packager --profile dist -f ${{ matrix.targets.format }} -p ${{ needs.generate-changelog.outputs.release_program }}
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           if-no-files-found: 'error'
           name: images_${{ github.run_id }}_${{ matrix.targets.run-on }}
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: images_${{ github.run_id }}_*
           path: ./images
@@ -150,7 +150,7 @@ jobs:
           cp images/images_${{ github.run_id }}_windows-latest/*-setup.exe \
               target/distrib/$PROGRAM-$VERSION-windows/
           cp images/images_${{ github.run_id }}_windows-latest/$PROGRAM.exe \
-              target/distrib/$PROGRAM-$VERSION-windows/
+              target/distrib/$PROGRAM-$VERSION-windows/$PROGRAM-portable.exe
           
           for OS in linux windows; do
             cp  $PROGRAM/CHANGELOG.md \
@@ -181,7 +181,8 @@ jobs:
             # Download/Run
             
             ## Windows [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2F${{ needs.generate-changelog.outputs.release_version }}/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-windows.zip)
-            Download the .zip archive, extract it, then click on the .exe file to run it.
+            Download the .zip archive, extract it, then either run the -setup.exe file to install the program with update capabilities, \
+            or run the -portable.exe file to run the program directly without installing.
             > Windows might give you a SmartScreen warning; Windows' SmartScreen doesn't like unsigned executables, \
               but since it's quite expensive to have executables signed this will be a known flaw for the time being.
             
@@ -209,7 +210,8 @@ jobs:
             # Download/Run
             
             ## Windows [Download](https://github.com/chieltbest/dbpf/releases/download/${{ needs.generate-changelog.outputs.release_program }}%2Flatest/${{ needs.generate-changelog.outputs.release_program }}-${{ needs.generate-changelog.outputs.release_version }}-windows.zip)
-            Download the .zip archive, extract it, then click on the .exe file to run it.
+            Download the .zip archive, extract it, then either run the -setup.exe file to install the program with update capabilities, \
+            or run the -portable.exe file to run the program directly without installing.
             > Windows might give you a SmartScreen warning; Windows' SmartScreen doesn't like unsigned executables, \
               but since it's quite expensive to have executables signed this will be a known flaw for the time being.
             

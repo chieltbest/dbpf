@@ -87,7 +87,7 @@ jobs:
         run: |
           cargo build --profile release
           cargo packager --profile release -f ${{ matrix.targets.format }}
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           if-no-files-found: 'error'
           name: images_${{ github.run_id }}_${{ matrix.targets.run-on }}
@@ -122,7 +122,7 @@ jobs:
     needs: [ generate-changelog, get-app-versions, get-latest-commit-hash, test, build ]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: images_${{ github.run_id }}_*
           path: ./images
@@ -223,10 +223,10 @@ jobs:
             This automatic release is built from the latest commit that has been successfully compiled and tested.
             
             For Windows users:
-            Download the .exe files, then click on the file to run it.
+            Download the -setup.exe file, then click on the file to run the installer.
             
             For Linux users:
-            Download the .AppImage files, then click on the file to run it.
+            Download the .AppImage file, then click on the file to run it.
             
             ${{ needs.generate-changelog.outputs.release_body }}
           files: |
