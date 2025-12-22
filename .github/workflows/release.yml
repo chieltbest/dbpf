@@ -34,7 +34,7 @@ jobs:
           echo "release_version=${REF_NAME#*/}" >> $GITHUB_OUTPUT
           case "${REF_NAME%%/*}" in
             "yape")
-              echo 'git_cliff_include="--include-path=dbpf_utils/src/editor/"' >> $GITHUB_OUTPUT
+              echo 'git_cliff_include="--include-path=dbpf_utils/src/"' >> $GITHUB_OUTPUT
               ;;
           esac
       - name: Generate a changelog
@@ -47,7 +47,6 @@ jobs:
             "--tag-pattern=${{ steps.get-tag.outputs.release_program }}/v*"
             "--include-path=${{ steps.get-tag.outputs.release_program }}/"
             "--include-path=dbpf/"
-            "--include-path=dbpf_utils/src/lib.rs"
             ${{ steps.get-tag.outputs.git_cliff_include }}
 
   test:
