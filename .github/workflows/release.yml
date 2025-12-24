@@ -140,9 +140,9 @@ jobs:
           VERSION: ${{ needs.generate-changelog.outputs.release_version }}
         run: |
           rm -r target/distrib/ || true
-          mkdir target/distrib/
-          mkdir target/distrib/$PROGRAM-$VERSION-linux/
-          mkdir target/distrib/$PROGRAM-$VERSION-windows/
+          mkdir -p target/distrib/
+          mkdir -p target/distrib/$PROGRAM-$VERSION-linux/
+          mkdir -p target/distrib/$PROGRAM-$VERSION-windows/
           
           cp images/images_${{ github.run_id }}_ubuntu-latest/*.AppImage \
               target/distrib/$PROGRAM-$VERSION-linux/$PROGRAM.AppImage
