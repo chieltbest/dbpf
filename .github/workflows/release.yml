@@ -86,10 +86,10 @@ jobs:
           if-no-files-found: 'error'
           name: images_${{ github.run_id }}_${{ matrix.targets.run-on }}
           path: |
-            target/release/*.AppImage
-            target/release/*.exe
-            target/release/*.tar.gz
-            target/release/*.sig
+            target/dist/*.AppImage
+            target/dist/*.exe
+            target/dist/*.tar.gz
+            target/dist/*.sig
 
   upload:
     needs: [ generate-changelog, build, test ]
