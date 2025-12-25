@@ -1,5 +1,128 @@
 # Changelog
 
+## [0.3.0] - 2025-12-25
+
+### 🚀 Features
+
+- *(dbpf)* Add support for decoding bcon resources
+- *(dbpf)* Add support for decoding AudioReference resources
+- *(dbpf)* Add support for decoding ObjectFunctions resources
+- *(dbpf)* Add basic support for decoding BehaviourConstantsLabels and BehaviourFunctionLabels resources
+- *(dbpf)* Add api for adding mip levels
+- Add buttons to add/remove mipmap levels
+- Switch to using RawFileData debug print impl
+- *(dbpf)* Add support for decoding ObjectData resources
+- Add simple editor for ObjectData resource
+- *(dbpf)* Add equality operator for all resource types
+- Save original image when changing texture format
+- Add zoom area to texture viewer
+- Add preserve transparency option
+- *(dbpf)* Add dds import function
+- *(dbpf)* Add dds import conversion functions
+- *(dbpf)* Add dds export function
+- Add bidirectional texture shrink function
+- *(dbpf)* Add GeometricDataContainer decoder
+- Add proper parsing and display for more GMDC attributes
+- Add GMDC glTF export
+- Add resource export
+- Make list editor items re-orderable by dragging the delete button
+- *(dbpf)* Implement sim description parser
+- *(dbpf)* Add SimDescriptions to decoded resources
+- Updater
+- *(batl)* Add column sorting
+
+### 🐛 Bug Fixes
+
+- *(dbpf)* Remove CatalogString from the list of TextList resources
+- *(dbpf)* Scale down mipmaps to 1x1 pixels in all cases
+- Change to using unicode comparison symbols
+- *(dbpf)* Properly write resource reference in cpf
+- *(dbpf)* Remove RawFileData utf-8 debug print check
+- *(dbpf)* Write textlist count in big endian for untagged string
+- Do not write file_name_repeat if resource block version is not V9
+- *(dbpf)* Premultiply alpha during texture shrink
+- *(dbpf)* Retain color information for fully transparent pixels
+- *(dbpf)* Also retain color information for rectangular shrink
+- *(dbpf)* Correctly write data during dds export
+- *(dbpf)* Fix alpha and luminance dds export header
+- *(dbpf)* Fix divide by zero
+- Rename Bulgarian -> Cyrillic
+- Export all unknown attributes is glTF
+- *(dbpf)* Fix missing/incorrect parsing information
+- *(batl)* Do not fetch the same image multiple times
+- Remove vestigial dark/light mode code
+- *(batl)* Keep enabled columns open when clicking checkboxes
+
+### 📚 Documentation
+
+- Add missing copyright headers
+- Do not include dbpf_utils in yact and batl changelogs
+
+### ⚡ Performance
+
+- *(batl)* Update filtered texture list in place
+- *(batl)* Do not clone the entire filtered textures list every frame
+- *(batl)* Enable reduce_texture_memory, increase number of cached images
+
+### 🚜 Refactor
+
+- *(dbpf)* Move behaviour related resources into separate module
+- Make Timestamp and UserVersion fields public
+- Clean up
+- Rename texture formats to more closely align with the D3D texture format specification
+- *(dbpf)* Change texture resource purpose to enum
+- Pass glow OpenGL context to editor
+- Do not pass opengl context to show_editor function
+- *(dbpf)* Make SizedVec struct and refactor string to use it
+- Fix most clippy lints
+- Add code formatting with rustfmt
+- Add license and copyright information
+- Move gltf-kun patch to workspace Cargo.toml
+- Reverse z-buffer
+- *(dbpf)* Change index instance_id to newtype
+- *(dbpf)* Rename PDAT/Person Data to SDSC/Sim Description
+- *(dbpf)* Correct more information in sim description
+- *(dbpf)* More dbpf renames
+- *(dbpf)* Add BugCollectionFlags
+- *(dbpf)* Rename collection field to bug collection
+- *(dbpf)* Split SDSC into multiple files
+- *(dbpf)* Add mementos bitfield
+- *(dbpf)* Add TitlePostName enum
+- *(dbpf)* Split base game data into separate file
+- *(dbpf)* Add human name to Version
+- *(dbpf)* Add Sequence derive to all SDSC enums
+- *(dbpf)* Derive Copy for all SDSC data
+- *(dbpf)* More SDSC changes
+- Make SDSC height range -100 to 100
+- Add tracy feature to enable tracing with tracy
+- Dark/light mode and ui scale into shared settings
+- *(dbpf)* Allow warning caused by binrw issue
+- Move shared dependency versions to workspace configuration
+
+### 🎨 Styling
+
+- *(batl)* Display texture memory size with units (kB/MB)
+
+### 🧪 Testing
+
+- *(dbpf)* Add tests for string types
+- *(dbpf)* Assert that a nullstring cannot have nulls
+
+### 📦️ Dependencies
+
+- *(dbpf)* Update refpack to 5.0.0
+- Update binrw to 0.15
+- Update modular-bitfield to 0.12
+- Update refpack
+- Update thiserror to 2.0
+- Update miniz-oxide to 0.8
+- Update log
+- Change serde_json dependency
+- Update lru to 0.16
+- Update egui and dependencies to 0.32
+- *(dbpf)* Update modular_bitfield to 0.13
+- *(dbpf)* Update gltf_kun and xmltree dependencies
+
 ## [0.2.2] - 2025-05-14
 
 ### 🚀 Features
@@ -14,7 +137,6 @@
 
 ### 🐛 Bug Fixes
 
-- Properly log crashes (panics) instead of discarding them
 - Improve error handling
 - Automatic sizing of filter list
 - Take the amount of mipmap levels into account when calculating texture memory size
@@ -101,7 +223,6 @@
 
 ### 🚀 Features
 
-- Log to a file in the config directory
 - *(dbpf)* Add support for header V3 (Spore) files
 
 ### 🐛 Bug Fixes
