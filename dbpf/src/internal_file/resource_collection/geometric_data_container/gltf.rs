@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -536,7 +536,10 @@ impl GeometricDataContainer {
 			node_w.name = Some(group_name);
 
 			gltf_node.set_mesh(&mut graph, Some(gltf_mesh));
-			gltf_node.set_skin(&mut graph, gltf_skin);
+
+			if !group.bone_references.is_empty() {
+				gltf_node.set_skin(&mut graph, gltf_skin);
+			}
 
 			gltf_base_node.add_child(&mut graph, &gltf_node);
 		}
