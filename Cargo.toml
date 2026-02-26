@@ -32,7 +32,8 @@ serde_json = "1"
 tracing = "0.1"
 
 eframe = { version = "0.33", features = ["persistence"] }
-egui_extras = { version = "0.33", features = ["datepicker", "serde"] }
+egui_extras = { version = "0.33", features = ["datepicker", "syntect", "serde"] }
+syntect = "5.3"
 rfd = "0.16"
 egui_memory_editor = { version = "=0.2.14", features = ["serde"] }
 egui_dock = { version = "0.18", features = ["serde"] }

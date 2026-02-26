@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::{fmt::Debug, sync::Arc};
 
 use crate::editor::resource_collection::ResourceCollectionEditorState;
+use dbpf::internal_file::material_shader::MaterialShader;
 use dbpf::{
 	filetypes::{DBPFFileType, KnownDBPFFileType},
 	internal_file::{
@@ -25,6 +26,7 @@ pub mod cpf;
 pub mod r#enum;
 pub mod header;
 pub mod instance_id;
+pub mod matshad;
 pub mod object_data;
 pub mod resource_collection;
 pub mod sim_description;
@@ -53,6 +55,7 @@ pub enum DecodedFileEditorState {
 	SimOutfits(<SimOutfits as Editor>::EditorState),
 	TextList(<TextList as Editor>::EditorState),
 	BehaviourFunction(<BehaviourFunction as Editor>::EditorState),
+	MaterialShader(<MaterialShader as Editor>::EditorState),
 	#[default]
 	None,
 }
@@ -62,21 +65,24 @@ impl Editor for DecodedFile {
 
 	fn new_editor(
 		&self,
-		_context: &egui::Context,
+		context: &egui::Context,
 		gl_context: &Option<Arc<glow::Context>>,
 	) -> Self::EditorState {
 		match self {
 			DecodedFile::SimOutfits(skin) => {
-				DecodedFileEditorState::SimOutfits(skin.new_editor(_context, gl_context))
+				DecodedFileEditorState::SimOutfits(skin.new_editor(context, gl_context))
 			}
 			DecodedFile::ResourceCollection(rcol) => {
-				DecodedFileEditorState::ResourceCollection(rcol.new_editor(_context, gl_context))
+				DecodedFileEditorState::ResourceCollection(rcol.new_editor(context, gl_context))
 			}
 			DecodedFile::TextList(str) => {
-				DecodedFileEditorState::TextList(str.new_editor(_context, gl_context))
+				DecodedFileEditorState::TextList(str.new_editor(context, gl_context))
 			}
 			DecodedFile::BehaviourFunction(bhav) => {
-				DecodedFileEditorState::BehaviourFunction(bhav.new_editor(_context, gl_context))
+				DecodedFileEditorState::BehaviourFunction(bhav.new_editor(context, gl_context))
+			}
+			DecodedFile::MaterialShader(matshad) => {
+				DecodedFileEditorState::MaterialShader(matshad.new_editor(context, gl_context))
 			}
 			_ => DecodedFileEditorState::None,
 		}
@@ -102,6 +108,10 @@ impl Editor for DecodedFile {
 				DecodedFile::BehaviourFunction(bhav),
 				DecodedFileEditorState::BehaviourFunction(state),
 			) => bhav.show_editor(state, ui),
+			(
+				DecodedFile::MaterialShader(matshad),
+				DecodedFileEditorState::MaterialShader(state),
+			) => matshad.show_editor(state, ui),
 			(DecodedFile::SimDescription(sdsc), _) => sdsc.show_editor(&mut (), ui),
 			_ => panic!(),
 		}
@@ -152,7 +162,9 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
 
             KnownDBPFFileType::ObjectData |
 
-            KnownDBPFFileType::SimDescription
+            KnownDBPFFileType::SimDescription |
+
+            KnownDBPFFileType::MaterialShader
         ) => true,
         _ => false,
     }
