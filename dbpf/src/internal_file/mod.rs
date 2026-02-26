@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -6,6 +6,7 @@ pub mod audio_reference;
 pub mod behaviour;
 pub mod cpf;
 pub mod dbpf_directory;
+pub mod material_shader;
 pub mod object_data;
 pub mod resource_collection;
 pub mod sim_description;
@@ -31,6 +32,7 @@ use refpack::{
 };
 use thiserror::Error;
 
+use crate::internal_file::material_shader::MaterialShader;
 use crate::internal_file::sim_description::SimDescription;
 use crate::{
 	filetypes::{DBPFFileType, KnownDBPFFileType},
@@ -288,6 +290,7 @@ pub enum DecodedFile {
 	TextList(TextList),
 	ObjectData(ObjectData),
 	SimDescription(SimDescription),
+	MaterialShader(MaterialShader),
 }
 
 impl DecodedFile {
@@ -362,6 +365,9 @@ impl DecodedFile {
 			DBPFFileType::Known(KnownDBPFFileType::SimDescription) => {
 				Some(SimDescription::read(&mut cursor).map(DecodedFile::SimDescription))
 			}
+			DBPFFileType::Known(KnownDBPFFileType::MaterialShader) => {
+				Some(MaterialShader::read(&mut cursor).map(DecodedFile::MaterialShader))
+			}
 			_ => None,
 		}
 	}
@@ -383,6 +389,7 @@ impl DecodedFile {
 			DecodedFile::ObjectData(x) => x.write(&mut data)?,
 			DecodedFile::AudioReference(x) => x.write(&mut data)?,
 			DecodedFile::SimDescription(x) => x.write(&mut data)?,
+			DecodedFile::MaterialShader(x) => x.write(&mut data)?,
 		}
 		// TODO write error handling?
 		Ok(RawFileData {

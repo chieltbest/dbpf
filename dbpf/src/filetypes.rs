@@ -256,7 +256,7 @@ pub enum KnownDBPFFileType {
 	// LxNR
 	FacialStructure = 0xCCCEF852,
 	// MATSHAD
-	MaxisMaterialShader = 0xCD7FE87A,
+	MaterialShader = 0xCD7FE87A,
 	// SWAF, WFR
 	WantsAndFears = 0xCD95548E,
 	// CREG
@@ -513,7 +513,7 @@ impl KnownDBPFFileType {
 			),
 			WallXML => ("Wall XML", "XWLL", vec!["wall.xml"], No),
 			FacialStructure => ("Facial Structure", "LXNR", vec![], No),
-			MaxisMaterialShader => ("Maxis Material Shader", "MATSHAD", vec!["matShad"], No),
+			MaterialShader => ("Maxis Material Shader", "MATSHAD", vec!["matShad"], No),
 			WantsAndFears => ("Wants And Fears", "SWAF", vec![], No),
 			ContentRegistry => ("Content Registry", "CREG", vec![], No),
 			PetBodyOptions => ("Pet Body Options", "PBOP", vec![], No),
