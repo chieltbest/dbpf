@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -513,7 +513,7 @@ impl KnownDBPFFileType {
 			),
 			WallXML => ("Wall XML", "XWLL", vec!["wall.xml"], No),
 			FacialStructure => ("Facial Structure", "LXNR", vec![], No),
-			MaxisMaterialShader => ("Maxis Material Shader", "MATSHAD", vec!["mat.txt"], No),
+			MaxisMaterialShader => ("Maxis Material Shader", "MATSHAD", vec!["matShad"], No),
 			WantsAndFears => ("Wants And Fears", "SWAF", vec![], No),
 			ContentRegistry => ("Content Registry", "CREG", vec![], No),
 			PetBodyOptions => ("Pet Body Options", "PBOP", vec![], No),
