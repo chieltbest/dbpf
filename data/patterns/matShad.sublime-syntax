@@ -27,7 +27,7 @@ contexts:
     - match: '\b(else|(else|end)?if)\b'
       scope: keyword.control.matshad
 
-    - match: '\b(set(|i|e|b|f|c|v2|v3))\s+(\w*)'
+    - match: '\b(set(|i|e|b|f|c|v2|v3|v4))\s+(\w*)'
       captures:
         1: keyword.control.matshad
         3: entity.name.constant.matshad
@@ -40,20 +40,42 @@ contexts:
     - include: variable
     - include: parameter
 
-    - match: '\bpreCreate\b'
+    # outside of define
+    - match: '\b(enableSoftwareVertexPrograms|version|ignoreErrors|flushMaterials|bindMaterials|verboseShaderValidation)\b'
+      scope: keyword.other.matshad
+
+    - match: '\b(preCreate|outVertexFormat|applyStencilStateForOverlappingReflections)\b'
       scope: keyword.other.matshad
 
     - match: '\b(assert|trace)\b'
       scope: keyword.other.matshad
 
-    - match: '\b(material|stage|end)\b'
+    - match: '\b(material|stage|attributes|end)\b'
+      scope: keyword.other.matshad
+
+    # defaultState
+    - match: '\bdefaultState\b'
+      scope: keyword.other.matshad
+    - match: '\b(stencil|stencilFunction|stencilOperation)\b'
+      scope: keyword.other.matshad
+
+    # materialDefinition
+    - match: '\b(materialDefinition)(\s+(\w+))?\b'
+      captures:
+        1: keyword.other.matshad
+        3: entity.name.constant.matshad
+    - match: '\b(setDefinition|addParam)\b'
+      scope: keyword.other.matshad
+
+    # attributes
+    - match: '\battribute\b'
       scope: keyword.other.matshad
 
     # pass
     - match: '\bpass\b'
       scope: keyword.other.matshad
       push: pass_params
-    - match: '\b(renderClipSpaceRect|renderTarget|alphaBlend|depthTest|depthTestFunction|alphaTest|alphaTestFunction|colorScalar|cullmode|fillmode|addSpecular|ffMatCoef|ffIdentityModelTransform|ffDepthOffset)\b'
+    - match: '\b(renderClipSpaceRect|renderTarget|alphaBlend|depthTest|depthTestFunction|alphaTest|alphaTestFunction|colorScalar|cullmode|fillmode|addSpecular|tsUserLight|ffMatCoef|ffIdentityModelTransform|ffDepthOffset|ffPerVertexColor|ffScaleModelTransform)\b'
       scope: keyword.other.matshad
 
     # sampler
@@ -68,7 +90,7 @@ contexts:
     - match: '\bshader\b'
       scope: keyword.other.matshad
       push: shader_params
-    - match: '\b(arrayCreate|viewerRenderTypePred|vertexFormatPred|lightTypePredicate|validateRenderShaderContext)\b'
+    - match: '\b(arrayCreate|viewerRenderTypePred|vertexFormatPred|numLightsPred|numMorphTargetsPred|numPoseTransformsPred|lightTypePredicate|validateRenderShaderContext)\b'
       scope: keyword.other.matshad
 
     # shaderProgram
@@ -79,7 +101,7 @@ contexts:
       scope: keyword.other.matshad
 
     # stage
-    - match: '\b(textureBlend|textureTransformType|ffTextureCoordsSource|ffTextureMatrix)\b'
+    - match: '\b(textureBlend|textureTransformType|textureMatrixAnimation|ffTextureCoordsSource|ffTextureMatrix)\b'
       scope: keyword.other.matshad
 
     - match: '\b(shaderSource)\s*(")'
@@ -102,7 +124,7 @@ contexts:
   define_params:
     - match: '\)'
       pop: true
-    - match: '\w*'
+    - match: '[^\)]*'
       scope: variable.parameter.matshad
 
   shader_params:
@@ -124,12 +146,18 @@ contexts:
       captures:
         1: keyword.other.matshad
         2: constant.language.matshad
+    - match: '(-version)\s+(1_1|1_2|1_3|1_4|2_0|2_x|3_0)'
+      captures:
+        1: keyword.other.matshad
+        2: constant.language.matshad
+    - match: '(-preprocess)'
+      scope: keyword.other.matshad
     - include: comment
 
   pass_params:
     - match: '$'
       pop: true
-    - match: '-(fixedFunction|modifiedEachFrameHint)'
+    - match: '-(fixedFunction|modifiedEachFrameHint|clipAlways)'
       scope: keyword.other.matshad
     - include: comment
 
@@ -143,9 +171,19 @@ contexts:
     - include: variable
 
   comment:
+    - match: '#<'
+      scope: punctuation.definition.comment.matshad
+      push: block_comment
     - match: '#'
       scope: punctuation.definition.comment.matshad
       push: line_comment
+
+  block_comment:
+    - meta_scope: comment.block.matshad
+    - include: variable
+    - include: parameter
+    - match: '#>'
+      pop: true
 
   line_comment:
     - meta_scope: comment.line.matshad
@@ -154,28 +192,8 @@ contexts:
     - match: '$'
       pop: true
 
-  ps2:
-    - match: ;
-      scope: punctuation.line.comment.matshad
-      push: ps2_comment
-    - match: '\b(ps|vs)_(1_1|2_0)\b'
-      scope: keyword.control.matshad
-    - match: '\bdcl(_2d|_cube|_position|_normal|_texcoord)?\b'
-      scope: keyword.control.matshad
-    - match: '\+?(abs|add|cmp|crs|def|dp2add|dp3|dp3_sat|dp4|exp|frc|log|lrp|m3x2|m3x3|m3x4|m4x3|m4x4|mad|max|min|mov|mul|nop|nrm|pow|rcp|rsq|sincos|sub|tex|texkill|texld|texldb|texldp)\b'
-      scope: keyword.control.matshad
-    - match: '\b(1?\s*\-\s*)?(v|r|c|i|b|p|s|t)\d+(_bias|_x2|_bx2)?(\.[xyzwargb]{,4})?'
-      scope: variable.parameter.matshad
-    - match: '\b(oPos|oD\d|oC\d|oDepth|oT\d)\b'
-      scope: variable.parameter.matshad
-    - include: number
-
-  ps2_comment:
-    - meta_scope: comment.line.matshad
-    - match: $
-      pop: true
-
   expression:
+    - include: attribute
     - include: variable
     - include: parameter
     - include: constant
@@ -194,6 +212,19 @@ contexts:
     - match: '\.[xyzwargb]{1,4}\b'
       scope: keyword.other.matshad
     - include: expression
+
+  attribute:
+    - match: '(@){'
+      captures:
+        0: variable.parameter.matshad
+        1: punctuation.definition.variable.matshad
+      push: 
+        - meta_scope: variable.parameter.matshad
+        - include: expansion
+    - match: '(@)\w*'
+      captures:
+        0: variable.parameter.matshad
+        1: punctuation.definition.variable.matshad
 
   variable:
     - match: '(\$){'
@@ -230,14 +261,50 @@ contexts:
   constant:
     - include: number
     - include: string
-    - match: '(true|false|1_1|2_0)'
+    - match: '(true|false)'
       scope: constant.language.matshad
 
   number:
-    - match: '\b(-)?[0-9.]+\b'
+    - match: '\b(-|\+)?[0-9.]+\b'
       scope: constant.numeric.integer.matshad
 
   string:
     - match: '"'
       scope: punctuation.definition.string.begin.matshad
       push: double_quoted_string
+
+  ps2:
+    - match: ;
+      scope: punctuation.line.comment.matshad
+      push: ps2_comment
+    - match: '\b(ps|vs)_(1_1|1_2|1_3|1_4|2_0|2_x|3_0)\b'
+      scope: keyword.other.matshad
+    # declarations
+    - match: '\btexcoord\b'
+      scope: keyword.other.matshad
+    - match: '\bdcl(_(2d|position|blendweights|blendindices|normal|psize|texcoord|tangent|binormal|tessfactior|positiont|color|fog|depth|sample|cube|targetindices)\d*)?(_centroid|_pp|_sat)?\b'
+      scope: keyword.other.matshad
+    # arithmetic instructions
+    - match: '\+?(abs|add|cmp|crs|def|dp2add|dp3|dp3|dp4|exp|frc|log|lrp|m3x2|m3x3|m3x4|m4x3|m4x4|mad|max|min|mov|mova|mul|nop|nrm|pow|rcp|rsq|sincos|sub)(_(pp|sat|(x|d)(2|4|8)))*\b'
+      scope: keyword.other.matshad
+    # texture instructions
+    - match: '\b(tex|texkill|texld|texldb|texldp|texldd|texldl)\b'
+      scope: keyword.other.matshad
+    # flow control instructions
+    - match: '\b(if|call|callnz|else|endif|rep|endrep|label|ret|break|break_comp|breakp|((if|setp)_(gt|lt|ge|le|eq|ne))|loop|endloop)\b'
+      scope: keyword.control.matshad
+    # registers
+    - match: '(1?\s*\-\s*)?(v(Pos|Face)?|r|c|i|b|p|s|t|a|o)\d+(_bias|_x2|_bx2)?(\.[xyzwargb]{1,4})?'
+      scope: variable.parameter.matshad
+    # special registers
+    - match: '\b(p0|aL)\b'
+      scope: variable.parameter.matshad
+    # out registers
+    - match: '\b(oPos|oDepth|oD\d|oC\d|oT\d)(\.[xyzwargb]{1,4})?\b'
+      scope: variable.parameter.matshad
+    - include: expression
+
+  ps2_comment:
+    - meta_scope: comment.line.matshad
+    - match: $
+      pop: true
