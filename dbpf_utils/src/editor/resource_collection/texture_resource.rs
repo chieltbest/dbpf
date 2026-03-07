@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -34,7 +34,7 @@ use std::{
 	sync::Arc,
 };
 use thiserror::Error;
-use tracing::{error, warn};
+use tracing::{error, trace, warn};
 
 impl EnumEditor for Purpose {
 	type KnownEnum = KnownPurpose;
@@ -224,11 +224,17 @@ impl Editor for TextureResource {
 			if let Ok(Some(handle)) = picker.try_recv() {
 				state.save_file_picker = None;
 				if let Some(handle) = handle {
+					trace!("writing to handle {handle:?}");
 					let mut cur = Cursor::new(vec![]);
-					if let Ok(()) = self.export_dds(&mut cur) {
-						let res = futures::executor::block_on(handle.write(&cur.into_inner()));
-						if let Err(e) = res {
-							error!(?e);
+					match self.export_dds(&mut cur) {
+						Ok(()) => {
+							let res = futures::executor::block_on(handle.write(&cur.into_inner()));
+							if let Err(error) = res {
+								error!(?error);
+							}
+						}
+						Err(error) => {
+							error!(?error);
 						}
 					}
 				}
