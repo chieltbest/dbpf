@@ -6,6 +6,7 @@ pub mod audio_reference;
 pub mod behaviour;
 pub mod cpf;
 pub mod dbpf_directory;
+pub mod image;
 pub mod material_shader;
 pub mod object_data;
 pub mod resource_collection;
