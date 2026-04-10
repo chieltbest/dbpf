@@ -5,6 +5,7 @@
 use std::{fmt::Debug, sync::Arc};
 
 use crate::editor::resource_collection::ResourceCollectionEditorState;
+use dbpf::internal_file::image::Image;
 use dbpf::internal_file::material_shader::MaterialShader;
 use dbpf::{
 	filetypes::{DBPFFileType, KnownDBPFFileType},
@@ -25,6 +26,7 @@ pub mod common_ui;
 pub mod cpf;
 pub mod r#enum;
 pub mod header;
+mod image;
 pub mod instance_id;
 pub mod matshad;
 pub mod object_data;
@@ -56,6 +58,7 @@ pub enum DecodedFileEditorState {
 	TextList(<TextList as Editor>::EditorState),
 	BehaviourFunction(<BehaviourFunction as Editor>::EditorState),
 	MaterialShader(<MaterialShader as Editor>::EditorState),
+	Image(<Image as Editor>::EditorState),
 	#[default]
 	None,
 }
@@ -83,6 +86,9 @@ impl Editor for DecodedFile {
 			}
 			DecodedFile::MaterialShader(matshad) => {
 				DecodedFileEditorState::MaterialShader(matshad.new_editor(context, gl_context))
+			}
+			DecodedFile::Image(img) => {
+				DecodedFileEditorState::Image(img.new_editor(context, gl_context))
 			}
 			_ => DecodedFileEditorState::None,
 		}
@@ -112,6 +118,9 @@ impl Editor for DecodedFile {
 				DecodedFile::MaterialShader(matshad),
 				DecodedFileEditorState::MaterialShader(state),
 			) => matshad.show_editor(state, ui),
+			(DecodedFile::Image(img), DecodedFileEditorState::Image(state)) => {
+				img.show_editor(state, ui)
+			}
 			(DecodedFile::SimDescription(sdsc), _) => sdsc.show_editor(&mut (), ui),
 			_ => panic!(),
 		}
@@ -164,7 +173,9 @@ pub fn editor_supported(file_type: DBPFFileType) -> bool {
 
             KnownDBPFFileType::SimDescription |
 
-            KnownDBPFFileType::MaterialShader
+            KnownDBPFFileType::MaterialShader |
+
+            KnownDBPFFileType::Image
         ) => true,
         _ => false,
     }
