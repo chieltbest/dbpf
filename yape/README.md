@@ -20,6 +20,7 @@ is to add editors for resources for which SimPE does not have a convenient edito
 | GMDC         | Geometric Data Container           | :white_check_mark: | :interrobang:      |
 | SDSC         | Sim Description                    | :white_check_mark: | :white_check_mark: |
 | MATSHAD      | Material Shader                    | :white_check_mark: | :white_check_mark: |
+| IMG          | Image                              | :white_check_mark: | :x:                |
 
 ### Generic editor for:
 > Track Settings, 
