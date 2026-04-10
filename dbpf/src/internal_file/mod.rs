@@ -33,6 +33,7 @@ use refpack::{
 };
 use thiserror::Error;
 
+use crate::internal_file::image::Image;
 use crate::internal_file::material_shader::MaterialShader;
 use crate::internal_file::sim_description::SimDescription;
 use crate::{
@@ -292,6 +293,7 @@ pub enum DecodedFile {
 	ObjectData(ObjectData),
 	SimDescription(SimDescription),
 	MaterialShader(MaterialShader),
+	Image(Image),
 }
 
 impl DecodedFile {
@@ -369,6 +371,9 @@ impl DecodedFile {
 			DBPFFileType::Known(KnownDBPFFileType::MaterialShader) => {
 				Some(MaterialShader::read(&mut cursor).map(DecodedFile::MaterialShader))
 			}
+			DBPFFileType::Known(KnownDBPFFileType::Image) => {
+				Some(Image::read(&mut cursor).map(DecodedFile::Image))
+			}
 			_ => None,
 		}
 	}
@@ -391,6 +396,7 @@ impl DecodedFile {
 			DecodedFile::AudioReference(x) => x.write(&mut data)?,
 			DecodedFile::SimDescription(x) => x.write(&mut data)?,
 			DecodedFile::MaterialShader(x) => x.write(&mut data)?,
+			DecodedFile::Image(x) => x.write(&mut data)?,
 		}
 		// TODO write error handling?
 		Ok(RawFileData {
