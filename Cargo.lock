@@ -4527,8 +4527,7 @@ dependencies = [
 [[package]]
 name = "refpack"
 version = "5.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bbcce3c499f90a0e1d0b8ff2c0c991d6f34fa2ef7bda5a7428e46fa683172a1"
+source = "git+https://github.com/actioninja/refpack-rs#dda557eb0d8ad61d3b48b8fa1d6221bbd982f142"
 dependencies = [
  "byteorder",
 ]
