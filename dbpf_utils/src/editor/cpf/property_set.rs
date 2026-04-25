@@ -1,30 +1,74 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::sync::Arc;
+use std::fmt::Write;
 
-use dbpf::internal_file::cpf::property_set::{Override, PropertySet};
-use eframe::{
-	egui,
-	egui::{DragValue, Grid, Response, Ui},
-	glow,
-};
-
+use crate::editor::r#enum::{EnumEditor, EnumEditorState};
 use crate::editor::vector::VecEditorState;
 use crate::editor::{
 	cpf::reference_edit_fn, drag_checkbox_fn, drag_hex_fn, drag_option_fn, Editor,
 };
+use dbpf::internal_file::cpf::property_set::{KnownShoe, Override, PropertySet, Shoe};
+use eframe::egui::{DragValue, Grid, Response, Ui};
+
+impl EnumEditor for Shoe {
+	type KnownEnum = KnownShoe;
+
+	fn from_known(known_enum: &Self::KnownEnum) -> Self {
+		Self::Known(*known_enum)
+	}
+
+	fn from_string(string: &String) -> Option<Self>
+	where
+		Self: Sized,
+	{
+		u32::from_str_radix(string.trim_start_matches("0x"), 16)
+			.map(Shoe::from)
+			.ok()
+	}
+
+	fn known_name(known_enum: &Self::KnownEnum) -> String {
+		format!("{known_enum:?}")
+	}
+
+	fn full_name(&self) -> String {
+		match self {
+			Shoe::Known(known) => Self::known_name(known),
+			Shoe::Unknown(i) => format!("{i}"),
+		}
+	}
+
+	fn known_hover_string(known_enum: &Self::KnownEnum) -> String {
+		let mut str = Self::known_name(known_enum);
+		write!(str, "\n0x{:X}", *known_enum as u32).unwrap();
+		str
+	}
+
+	fn hover_string(&self) -> Option<String> {
+		match self {
+			Shoe::Known(known) => Some(Self::known_hover_string(known)),
+			Shoe::Unknown(_) => None,
+		}
+	}
+
+	fn search_strings(known_enum: &Self::KnownEnum) -> Vec<String> {
+		vec![
+			format!("{known_enum:?}"),
+			format!("{:08X}", *known_enum as u32),
+		]
+	}
+
+	fn all_known() -> impl Iterator<Item = Self::KnownEnum> {
+		enum_iterator::all()
+	}
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PropertySetEditorState(EnumEditorState);
 
 impl Editor for Override {
 	type EditorState = ();
-
-	fn new_editor(
-		&self,
-		_context: &egui::Context,
-		_gl: &Option<Arc<glow::Context>>,
-	) -> Self::EditorState {
-	}
 
 	fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
 		let mut res = ui
@@ -36,9 +80,9 @@ impl Editor for Override {
 }
 
 impl Editor for PropertySet {
-	type EditorState = ();
+	type EditorState = PropertySetEditorState;
 
-	fn show_editor(&mut self, _state: &mut Self::EditorState, ui: &mut Ui) -> Response {
+	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
 		let ires = Grid::new("PropertySet edit grid")
 			.num_columns(2)
 			.show(ui, |ui| {
@@ -103,7 +147,7 @@ impl Editor for PropertySet {
 					"brush spitz tail"
 				);
 
-				res |= drag!(flags);
+				res |= drag_checkbox!(flags, "hidden", "hat", "", "townie disabled", "unknown");
 				res |= string!(name);
 				res |= string!(creator);
 				res |= string!(family);
@@ -134,7 +178,11 @@ impl Editor for PropertySet {
 					"naked overlay",
 					"outerwear"
 				);
-				res |= drag!(shoe);
+
+				ui.label("shoe");
+				res |= self.shoe.show_enum_editor(&mut state.0, ui);
+				ui.end_row();
+
 				res |= drag!(fitness);
 
 				res |= reference_edit_fn("resource", &mut self.resource, ui);

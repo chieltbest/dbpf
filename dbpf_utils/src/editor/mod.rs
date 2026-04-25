@@ -5,6 +5,7 @@
 use std::{fmt::Debug, sync::Arc};
 
 use crate::editor::resource_collection::ResourceCollectionEditorState;
+use dbpf::internal_file::cpf::property_set::PropertySet;
 use dbpf::internal_file::image::Image;
 use dbpf::internal_file::material_shader::MaterialShader;
 use dbpf::{
@@ -59,6 +60,7 @@ pub enum DecodedFileEditorState {
 	BehaviourFunction(<BehaviourFunction as Editor>::EditorState),
 	MaterialShader(<MaterialShader as Editor>::EditorState),
 	Image(<Image as Editor>::EditorState),
+	PropertySet(<PropertySet as Editor>::EditorState),
 	#[default]
 	None,
 }
@@ -90,13 +92,15 @@ impl Editor for DecodedFile {
 			DecodedFile::Image(img) => {
 				DecodedFileEditorState::Image(img.new_editor(context, gl_context))
 			}
+			DecodedFile::PropertySet(gzps) => {
+				DecodedFileEditorState::PropertySet(gzps.new_editor(context, gl_context))
+			}
 			_ => DecodedFileEditorState::None,
 		}
 	}
 
 	fn show_editor(&mut self, state: &mut Self::EditorState, ui: &mut Ui) -> Response {
 		match (self, state) {
-			(DecodedFile::PropertySet(gzps), _) => gzps.show_editor(&mut (), ui),
 			(DecodedFile::BinaryIndex(binx), _) => binx.show_editor(&mut (), ui),
 			(DecodedFile::GenericCPF(cpf), _) => cpf.show_editor(&mut (), ui),
 			(DecodedFile::ObjectData(objd), _) => objd.show_editor(&mut (), ui),
@@ -120,6 +124,9 @@ impl Editor for DecodedFile {
 			) => matshad.show_editor(state, ui),
 			(DecodedFile::Image(img), DecodedFileEditorState::Image(state)) => {
 				img.show_editor(state, ui)
+			}
+			(DecodedFile::PropertySet(gzps), DecodedFileEditorState::PropertySet(state)) => {
+				gzps.show_editor(state, ui)
 			}
 			(DecodedFile::SimDescription(sdsc), _) => sdsc.show_editor(&mut (), ui),
 			_ => panic!(),
