@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -10,6 +10,8 @@ use binrw::{
 	Endian::Little,
 	Error::AssertFail,
 };
+use derive_more::TryFrom;
+use enum_iterator::Sequence;
 #[cfg(test)]
 use test_strategy::Arbitrary;
 
@@ -17,6 +19,43 @@ use crate::{
 	common::PascalString,
 	internal_file::cpf::{cpf_get_all, CPFVersion, Data, Id, Item, Reference, CPF},
 };
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, TryFrom, Sequence)]
+#[try_from(repr)]
+#[repr(u32)]
+#[cfg_attr(test, derive(Arbitrary))]
+pub enum KnownShoe {
+	None = 0,
+	Barefoot = 1,
+	HeavyBoots = 2,
+	Heels = 3,
+	#[default]
+	NormalShoes = 4,
+	Sandals = 5,
+	Pajamas = 6,
+	Armored = 7,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
+pub enum Shoe {
+	Known(KnownShoe),
+	Unknown(u32),
+}
+
+impl Default for Shoe {
+	fn default() -> Self {
+		Self::Known(KnownShoe::default())
+	}
+}
+
+impl From<u32> for Shoe {
+	fn from(value: u32) -> Self {
+		KnownShoe::try_from(value)
+			.map(Shoe::Known)
+			.unwrap_or(Shoe::Unknown(value))
+	}
+}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
@@ -53,7 +92,7 @@ pub struct PropertySet {
 	pub skintone: Id,
 	pub hairtone: Id,
 	pub category: u32,
-	pub shoe: u32,
+	pub shoe: Shoe,
 	pub fitness: u32,
 
 	pub overrides: Vec<Override>,
@@ -132,6 +171,9 @@ impl BinRead for PropertySet {
 
 		let type_ = get!("type")?;
 
+		let shoe: u32 = get!("shoe")?;
+		let shoe = Shoe::from(shoe);
+
 		cpf_get_all!(
 			PropertySet,
 			cpf,
@@ -146,7 +188,6 @@ impl BinRead for PropertySet {
 			skintone,
 			hairtone,
 			category,
-			shoe,
 			fitness;
 			version,
 			product,
@@ -157,6 +198,7 @@ impl BinRead for PropertySet {
 			shape,
 			genetic,
 			type_,
+			shoe,
 			overrides
 		)
 	}
@@ -222,7 +264,13 @@ impl BinWrite for PropertySet {
 				get!(skintone),
 				get!(hairtone),
 				get!(category),
-				get!(shoe),
+				Item::new(
+					"shoe",
+					match shoe {
+						Shoe::Known(shoe) => *shoe as u32,
+						Shoe::Unknown(shoe) => *shoe,
+					},
+				),
 				get!(fitness),
 			],
 		};
