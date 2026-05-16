@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -238,10 +238,6 @@ impl Default for YaPeAppData {
 
 #[derive(Serialize, Deserialize)]
 struct YaPeApp {
-	ui_scale: f32,
-	#[serde(default)]
-	dark_mode_preference: Option<bool>,
-
 	dock_state: DockState<YaPeTab>,
 	#[serde(default)]
 	root_node_state: RootNodeState,
@@ -262,9 +258,6 @@ struct YaPeApp {
 impl Default for YaPeApp {
 	fn default() -> Self {
 		Self {
-			ui_scale: 1.0,
-			dark_mode_preference: None,
-
 			dock_state: DockState::new(vec![YaPeTab::File]),
 			root_node_state: Default::default(),
 
@@ -614,11 +607,6 @@ impl YaPeApp {
 	fn new(cc: &eframe::CreationContext<'_>, args: Args) -> Self {
 		if let Some(storage) = cc.storage {
 			let mut new: YaPeApp = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-			cc.egui_ctx.set_pixels_per_point(new.ui_scale);
-			if let Some(dark) = new.dark_mode_preference {
-				new.set_dark_mode(dark, &cc.egui_ctx);
-			}
-
 			new.data.settings.init(version_info!());
 
 			if let Some(path) = args.files.first() {
@@ -662,18 +650,6 @@ impl YaPeApp {
 			},
 			..Self::default()
 		}
-	}
-
-	fn set_dark_mode(&mut self, dark: bool, ctx: &Context) {
-		self.dark_mode_preference = Some(dark);
-		ctx.set_style(Style {
-			visuals: if dark {
-				Visuals::dark()
-			} else {
-				Visuals::light()
-			},
-			..Default::default()
-		})
 	}
 
 	fn open_bytes(&mut self, bytes: Vec<u8>) {
