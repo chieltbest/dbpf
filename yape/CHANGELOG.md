@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.7.1] - 2026-05-16
+
+### 🚀 Features
+
+- *(dbpf)* Add MaterialShader type
+- *(yape)* Add MaterialShader editor
+- *(dbpf)* Add IMG resource wrapper
+- *(dbpf)* Add IMG to the decodable resources list
+- *(yape)* IMG viewer
+- *(dbpf)* Make gzps shoe value enum
+- *(editor)* Gzps flags checkbox and shoe enum editor
+- *(dbpf)* Update valid file extensions for IMG resource
+
+### 🐛 Bug Fixes
+
+- *(dbpf)* In glTF export, only add a skin if the node has bone references
+- *(dbpf)* Change MATSHAD file extension to .matShad
+- *(editor)* Better error reporting if something goes wrong in DDS export
+- *(yape)* Remove vestigial UI scale and theme settings from main
+- *(dbpf)* Add jpeg (besides jpg) as IMG file extension
+
+### 📚 Documentation
+
+- Add IMG support to readme
+
+### 📦️ Dependencies
+
+- *(dbpf)* Temporarily change refpack to git version for testing purposes
+- *(dbpf)* Change refpack version back to release 5.0.4
+- *(dbpf)* Update ddsfile to 0.6
+- *(dbpf)* Update miniz_oxide to 0.9
+- *(dbpf)* Update gltf_kun to 0.4
+
 ## [0.7.0] - 2025-12-25
 
 ### 🚀 Features
