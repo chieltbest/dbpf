@@ -460,7 +460,7 @@ impl KnownDBPFFileType {
 			AudioResource => ("Audio Resource", "AUDR", vec![], No),
 			GeometricNode => ("Geometric Node", "GMND", vec!["5gn"], No),
 			// needs header detection
-			Image => ("Image", "IMG", vec!["img", "jpg", "png", "tga"], No),
+			Image => ("Image", "IMG", vec!["img", "jpg", "jpeg", "png", "tga"], No),
 			WallLayer => ("Wall Layer", "WLL", vec![], No),
 			HairToneXML => ("Hair Tone XML", "XHTN", vec!["hair_tone.xml"], No),
 			WallThumbnail => ("Wall Thumbnail", "THUB", vec!["wall_thumb.jpg"], No),
