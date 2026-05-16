@@ -48,7 +48,7 @@ use eframe::{
 	egui,
 	egui::{
 		Button, Color32, ComboBox, Context, DragValue, Id, Key, KeyboardShortcut, Label, Modifiers,
-		Rect, Response, RichText, Sense, Stroke, Style, Ui, Visuals, WidgetText,
+		Rect, Response, RichText, Sense, Stroke, Ui, WidgetText,
 	},
 	glow, App, Frame, Storage,
 };
