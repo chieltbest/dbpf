@@ -147,7 +147,14 @@ impl Editor for PropertySet {
 					"brush spitz tail"
 				);
 
-				res |= drag_checkbox!(flags, "hidden", "hat", "", "townie disabled", "unknown");
+				res |= drag_checkbox!(
+					flags,
+					"hidden",
+					"hat",
+					"",
+					"townie disabled",
+					"worker disabled"
+				);
 				res |= string!(name);
 				res |= string!(creator);
 				res |= string!(family);
