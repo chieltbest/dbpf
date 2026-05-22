@@ -151,7 +151,7 @@ impl Editor for PropertySet {
 					flags,
 					"hidden",
 					"hat",
-					"",
+					"fallback",
 					"townie disabled",
 					"worker disabled"
 				);
