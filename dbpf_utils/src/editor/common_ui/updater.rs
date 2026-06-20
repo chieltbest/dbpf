@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -7,7 +7,7 @@ use crate::editor::common_ui::settings::VersionInfo;
 use base64::prelude::*;
 use cargo_packager_updater::url::Url;
 use cargo_packager_updater::{Config, Error, Update, UpdaterBuilder};
-use eframe::egui::{Color32, ComboBox, ProgressBar, Ui};
+use eframe::egui::{CollapsingHeader, Color32, ComboBox, ProgressBar, Ui};
 use egui_inbox::{AsRequestRepaint, UiInbox, UiInboxSender};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -206,27 +206,29 @@ impl Updater {
 	}
 
 	fn show_update_notes(ui: &mut Ui, update: &Box<Update>) {
-		ui.collapsing("Changelog", |ui| {
-			ui.heading(update.version.clone());
-			if let Some(body) = &update.body {
-				match BASE64_STANDARD.decode(body) {
-					Ok(body_data) => {
-						let body_string = String::from_utf8(body_data);
-						match body_string {
-							Ok(body) => {
-								ui.label(body);
-							}
-							Err(error) => {
-								ui.colored_label(Color32::RED, error.to_string());
+		CollapsingHeader::new("Changelog")
+			.default_open(true)
+			.show(ui, |ui| {
+				ui.heading(update.version.clone());
+				if let Some(body) = &update.body {
+					match BASE64_STANDARD.decode(body) {
+						Ok(body_data) => {
+							let body_string = String::from_utf8(body_data);
+							match body_string {
+								Ok(body) => {
+									ui.label(body);
+								}
+								Err(error) => {
+									ui.colored_label(Color32::RED, error.to_string());
+								}
 							}
 						}
-					}
-					Err(error) => {
-						ui.colored_label(Color32::RED, error.to_string());
+						Err(error) => {
+							ui.colored_label(Color32::RED, error.to_string());
+						}
 					}
 				}
-			}
-		});
+			});
 	}
 
 	/// should always be called regardless of if the ui is actually open
@@ -251,7 +253,7 @@ impl Updater {
 		If you do not want to send network requests, disable this.",
 		);
 
-		let keep_open = ComboBox::new("release stream", "Release Stream")
+		let release_clicked = ComboBox::new("release stream", "Release Stream")
 			.selected_text(format!("{:?}", self.release_stream))
 			.show_ui(ui, |ui| {
 				[ReleaseStream::Stable, ReleaseStream::Nightly]
@@ -269,6 +271,10 @@ impl Updater {
 			.inner
 			.map(|res| res.clicked())
 			.unwrap_or(false);
+
+		if release_clicked {
+			self.check_update();
+		}
 
 		ui.horizontal(|ui| {
 			let refresh_button = ui.button("🔃");
@@ -349,6 +355,6 @@ impl Updater {
 			Self::show_update_notes(ui, update);
 		}
 
-		keep_open
+		release_clicked
 	}
 }
