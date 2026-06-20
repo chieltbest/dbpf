@@ -127,7 +127,7 @@ impl Updater {
 		let config = self.get_updater_config();
 		match UpdaterBuilder::new(self.version_info.version(), config)
 			.version_comparator(|version, remote| {
-				(version > remote.version) || (version.build != remote.version.build)
+				(version != remote.version) || (version.build != remote.version.build)
 			})
 			.build()
 		{
