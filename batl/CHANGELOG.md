@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.3.1] - 2026-06-27
+
+### 🚀 Features
+
+- *(dbpf)* Add MaterialShader type
+- *(dbpf)* Add IMG resource wrapper
+- *(dbpf)* Add IMG to the decodable resources list
+- *(dbpf)* Make gzps shoe value enum
+- *(dbpf)* Update valid file extensions for IMG resource
+
+### 🐛 Bug Fixes
+
+- *(dbpf)* In glTF export, only add a skin if the node has bone references
+- *(dbpf)* Change MATSHAD file extension to .matShad
+- *(dbpf)* Add jpeg (besides jpg) as IMG file extension
+- *(editor)* Properly check for update version
+- *(editor)* Do an update check when switching release streams
+
+### 📚 Documentation
+
+- Include common ui in changelog
+
+### 📦️ Dependencies
+
+- *(dbpf)* Temporarily change refpack to git version for testing purposes
+- *(dbpf)* Change refpack version back to release 5.0.4
+- *(dbpf)* Update ddsfile to 0.6
+- *(dbpf)* Update miniz_oxide to 0.9
+- *(dbpf)* Update gltf_kun to 0.4
+
 ## [0.3.0] - 2025-12-25
 
 ### 🚀 Features
@@ -28,8 +58,14 @@
 - Make list editor items re-orderable by dragging the delete button
 - *(dbpf)* Implement sim description parser
 - *(dbpf)* Add SimDescriptions to decoded resources
+- *(editor)* Shared updater system
+- *(editor)* Add changelog to updater UI
 - Updater
 - *(batl)* Add column sorting
+
+### ♿ Accessibility
+
+- *(editor)* Add check for update on startup tooltip
 
 ### 🐛 Bug Fixes
 
@@ -51,6 +87,7 @@
 - *(dbpf)* Fix missing/incorrect parsing information
 - *(batl)* Do not fetch the same image multiple times
 - Remove vestigial dark/light mode code
+- Fix wasm build
 - *(batl)* Keep enabled columns open when clicking checkboxes
 
 ### 📚 Documentation
@@ -94,6 +131,7 @@
 - *(dbpf)* Derive Copy for all SDSC data
 - *(dbpf)* More SDSC changes
 - Make SDSC height range -100 to 100
+- Rename set_version_info to init
 - Add tracy feature to enable tracing with tracy
 - Dark/light mode and ui scale into shared settings
 - *(dbpf)* Allow warning caused by binrw issue
@@ -101,6 +139,7 @@
 
 ### 🎨 Styling
 
+- Apply light mode text fix to all graphical apps
 - *(batl)* Display texture memory size with units (kB/MB)
 
 ### 🧪 Testing
