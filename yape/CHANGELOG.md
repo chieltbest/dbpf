@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.2] - 2026-06-27
+
+### 🐛 Bug Fixes
+
+- *(dbpf)* Rename unknown field in GZPS to "worker disabled"
+- *(editor)* Rename invisible field in GZPS to "fallback"
+- *(editor)* Properly check for update version
+- *(editor)* Do an update check when switching release streams
+
 ## [0.7.1] - 2026-05-16
 
 ### 🚀 Features
