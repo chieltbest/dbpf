@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Chiel Douwes
+// SPDX-FileCopyrightText: 2026 Chiel Douwes
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -108,7 +108,7 @@ impl DecodedTexture {
 
 						for c in 0..3 {
 							let (a0, a1, a_total) = if a_total == 0 {
-								(1, 1, 4)
+								(1, 1, 2)
 							} else {
 								(a0, a1, a_total)
 							};
